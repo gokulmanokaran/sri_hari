@@ -1,0 +1,236 @@
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Minus, Plus, ShoppingBag } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { getProductById } from "../data/products";
+import { useCart } from "../store/CartContext";
+import { ProductImage } from "../components/ui/ProductImage";
+import { Button } from "../components/ui/Button";
+import { useEffect } from "react";
+
+export default function ProductDetailsPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { addItem, incrementItem, decrementItem, getItemQuantity, itemCount } =
+    useCart();
+
+  const product = id ? getProductById(id) : undefined;
+  const qty = product ? getItemQuantity(product.id) : 0;
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
+  if (!product) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-5">
+        <span className="text-4xl">🌿</span>
+        <h1 className="text-lg font-black text-[#111111]">Product not found</h1>
+        <Button variant="primary" size="md" onClick={() => navigate("/products")}>
+          Browse Products
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="min-h-dvh bg-white"
+    >
+      {/* Back button overlay */}
+      <div className="fixed top-0 left-0 right-0 z-30 flex items-center px-4 pt-4">
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center border border-[#EAEAEA]"
+          aria-label="Go back"
+        >
+          <ArrowLeft size={18} className="text-[#111111]" />
+        </motion.button>
+      </div>
+
+      {/* Hero image */}
+      <motion.div
+        initial={{ scale: 1.05 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="w-full"
+        style={{ height: "45vw", maxHeight: 280 }}
+      >
+        <ProductImage
+          src={product.image}
+          alt={product.name}
+          className="w-full h-full rounded-none"
+          aspectRatio="3/2"
+        />
+      </motion.div>
+
+      {/* Content */}
+      <div className="px-5 pt-5 pb-24">
+        {/* Category badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <span className="inline-block bg-[#EAF8F0] text-[#00A651] text-xs font-bold px-2.5 py-1 rounded-full mb-3 capitalize">
+            {product.category.replace(/-/g, " ")}
+          </span>
+        </motion.div>
+
+        {/* Name & price */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <h1 className="text-2xl font-black text-[#111111] tracking-tight mb-1">
+            {product.name}
+          </h1>
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-2xl font-black text-[#00A651]">
+              ₹{product.price}
+            </span>
+            <span className="text-sm text-[#999999] font-medium">
+              / {product.unit}
+            </span>
+          </div>
+          {product.note && (
+            <span className="text-xs bg-amber-50 text-amber-700 font-semibold px-2.5 py-1 rounded-full">
+              {product.note}
+            </span>
+          )}
+        </motion.div>
+
+        {/* Availability */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="flex items-center gap-2 my-4"
+        >
+          <div
+            className={`w-2 h-2 rounded-full ${
+              product.inStock ? "bg-[#00A651]" : "bg-gray-400"
+            }`}
+          />
+          <span
+            className={`text-sm font-semibold ${
+              product.inStock ? "text-[#00A651]" : "text-gray-500"
+            }`}
+          >
+            {product.inStock ? "In Stock" : "Currently Unavailable"}
+          </span>
+        </motion.div>
+
+        {/* Description */}
+        {product.description && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="mb-6"
+          >
+            <h2 className="text-sm font-bold text-[#111111] mb-2">About this product</h2>
+            <p className="text-sm text-[#666666] leading-relaxed">
+              {product.description}
+            </p>
+          </motion.div>
+        )}
+
+        {/* Divider */}
+        <div className="border-t border-[#EAEAEA] my-5" />
+
+        {/* Quantity + Add to Cart */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex flex-col gap-4"
+        >
+          {qty > 0 && (
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-semibold text-[#666666]">
+                Quantity
+              </span>
+              <div className="flex items-center gap-3 bg-[#EAF8F0] rounded-full px-2 py-1.5">
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => decrementItem(product.id)}
+                  className="w-8 h-8 bg-[#00A651] text-white rounded-full flex items-center justify-center"
+                  aria-label="Decrease quantity"
+                >
+                  <Minus size={14} strokeWidth={3} />
+                </motion.button>
+                <motion.span
+                  key={qty}
+                  initial={{ scale: 0.7 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500 }}
+                  className="text-base font-black text-[#00A651] w-6 text-center"
+                >
+                  {qty}
+                </motion.span>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => incrementItem(product.id)}
+                  className="w-8 h-8 bg-[#00A651] text-white rounded-full flex items-center justify-center"
+                  aria-label="Increase quantity"
+                >
+                  <Plus size={14} strokeWidth={3} />
+                </motion.button>
+              </div>
+              <span className="text-sm font-black text-[#111111] ml-auto">
+                ₹{product.price * qty}
+              </span>
+            </div>
+          )}
+
+          <AnimatePresence mode="wait">
+            {qty === 0 ? (
+              <motion.div
+                key="add-btn"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Button
+                  variant="primary"
+                  size="xl"
+                  fullWidth
+                  disabled={!product.inStock}
+                  onClick={() => addItem(product)}
+                  icon={<ShoppingBag size={18} />}
+                  iconPosition="left"
+                >
+                  Add to Cart
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="view-cart-btn"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Button
+                  variant="secondary"
+                  size="xl"
+                  fullWidth
+                  onClick={() => navigate("/cart")}
+                  icon={<ShoppingBag size={18} />}
+                  iconPosition="left"
+                >
+                  View Cart ({itemCount} items)
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}

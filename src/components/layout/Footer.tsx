@@ -1,0 +1,83 @@
+import { Phone, MessageCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { BUSINESS_PHONE } from "../../data/deliveryZones";
+import logoImg from "../../assets/logo.png";
+
+export function Footer() {
+  return (
+    <footer className="bg-[#111111] text-white pt-10 pb-36">
+      <div className="max-w-lg mx-auto px-5">
+        {/* Brand */}
+        <div className="mb-8">
+          <div className="mb-3 bg-white/95 p-2 rounded-[14px] inline-block shadow-sm">
+            <img
+              src={logoImg}
+              alt="Shree Hari Keerai"
+              className="h-8 w-auto object-contain"
+            />
+          </div>
+          <div className="text-xs text-[#00A651] font-bold mb-2 tracking-wide uppercase">
+            Fresh • Natural • Premium
+          </div>
+          <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
+            Bringing fresh greens, premium dry fruits, and healthy products
+            straight to your doorstep.
+          </p>
+        </div>
+
+        {/* Contact */}
+        <div className="flex flex-col gap-3 mb-8">
+          <a
+            href={`tel:${BUSINESS_PHONE}`}
+            className="flex items-center gap-3 text-sm text-gray-300 hover:text-white transition-colors"
+          >
+            <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Phone size={14} />
+            </div>
+            {BUSINESS_PHONE}
+          </a>
+          <a
+            href={`https://wa.me/91${BUSINESS_PHONE}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 text-sm text-gray-300 hover:text-white transition-colors"
+          >
+            <div className="w-8 h-8 bg-[#25D366]/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <MessageCircle size={14} className="text-[#25D366]" />
+            </div>
+            WhatsApp Us
+          </a>
+        </div>
+
+        {/* Nav Links */}
+        <div className="grid grid-cols-2 gap-2 mb-8">
+          {[
+            { label: "Home", to: "/" },
+            { label: "Products", to: "/products" },
+            { label: "Categories", to: "/products" },
+            { label: "Cart", to: "/cart" },
+            { label: "Account", to: "/account" },
+          ].map((link) => (
+            <Link
+              key={link.label}
+              to={link.to}
+              className="text-sm text-gray-400 hover:text-white transition-colors py-1"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Bottom line */}
+        <div className="border-t border-white/10 pt-5 flex flex-col items-center gap-1 text-center">
+          <p className="text-xs text-gray-500">
+            © {new Date().getFullYear()} Shree Hari — Keerai. All rights reserved.
+          </p>
+          <p className="text-xs text-gray-400 font-medium">
+            Design and Developed by <span className="text-[#00A651] font-bold">DIC</span>
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
