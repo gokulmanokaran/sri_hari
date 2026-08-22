@@ -1,29 +1,69 @@
 import { motion } from "framer-motion";
-import { CheckCircle2, ShoppingBag, ArrowRight, Truck, Calendar, MapPin, MessageCircle } from "lucide-react";
+import { CheckCircle2, ShoppingBag, ArrowRight, Truck, Calendar, MapPin, Tag, ExternalLink } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
-import { BUSINESS_PHONE } from "../data/deliveryZones";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 interface SuccessState {
   orderId?: string;
   total?: number;
   subtotal?: number;
+  discount?: number;
+  discountPercentage?: number;
   deliveryCharge?: number;
   pincode?: string;
-  name?: string;
+  lat?: number;
+  lng?: number;
+  address?: string;
+  items?: Array<{
+    id: string;
+    name: string;
+    nameTamil?: string;
+    quantity: number;
+    price: number;
+    unit?: string;
+  }>;
 }
 
 export default function OrderSuccessPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const state = (location.state as SuccessState) || {};
 
-  const orderId = state.orderId || `SHK${Math.floor(100000 + Math.random() * 900000)}`;
-  const total = state.total ?? 230;
-  const deliveryCharge = state.deliveryCharge ?? 30;
-  const pincode = state.pincode ?? "641014";
-  const name = state.name ?? "Valued Customer";
+  // Load from location.state OR fallback to latest saved order in localStorage (persists on refresh)
+  const order = useMemo(() => {
+    const stateOrder = location.state as SuccessState | null;
+    if (stateOrder && stateOrder.orderId) {
+      return stateOrder;
+    }
+    try {
+      const stored = localStorage.getItem("shreehari_latest_order");
+      if (stored) return JSON.parse(stored) as SuccessState;
+    } catch {
+      // Fallback
+    }
+    return {
+      orderId: "SHK782910",
+      total: 230,
+      subtotal: 200,
+      deliveryCharge: 30,
+      discount: 0,
+      discountPercentage: 0,
+      pincode: "641014",
+      items: [],
+    };
+  }, [location.state]);
+
+  const orderId = order.orderId || "SHK782910";
+  const total = order.total ?? 230;
+  const subtotal = order.subtotal ?? total;
+  const deliveryCharge = order.deliveryCharge ?? 30;
+  const discount = order.discount ?? 0;
+  const discountPercentage = order.discountPercentage ?? 0;
+  const pincode = order.pincode ?? "641014";
+  const lat = order.lat;
+  const lng = order.lng;
+  const address = order.address;
+  const items = order.items || [];
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -31,7 +71,7 @@ export default function OrderSuccessPage() {
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-[#F5FCF8] via-[#FAF8F1] to-white pb-16">
-      {/* Subtle decorative celebration background elements */}
+      {/* Celebration background elements */}
       <div className="relative overflow-hidden pt-12 pb-6 px-4">
         {/* Confetti particles */}
         {[...Array(12)].map((_, i) => (
@@ -47,7 +87,7 @@ export default function OrderSuccessPage() {
             animate={{
               opacity: [0, 1, 0.8, 0],
               y: [0, 120 + (i % 4) * 30],
-              rotate: [0, (i % 2 === 0 ? 180 : -180)],
+              rotate: [0, i % 2 === 0 ? 180 : -180],
               scale: [0.5, 1, 0.8],
             }}
             transition={{
@@ -106,7 +146,7 @@ export default function OrderSuccessPage() {
               Order Placed Successfully! 🎉
             </h1>
             <p className="text-sm text-[#666666] mt-1">
-              Thank you, <span className="font-semibold text-[#111111]">{name}</span>. Your natural goodies are being prepped.
+              Your natural farm-fresh products are being prepped for delivery.
             </p>
           </motion.div>
         </div>
@@ -118,17 +158,61 @@ export default function OrderSuccessPage() {
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45, type: "spring", stiffness: 280, damping: 26 }}
-          className="bg-white rounded-[22px] p-5 border border-[#EAEAEA] shadow-sm mb-4"
+          className="bg-white rounded-[22px] p-5 border border-[#EAEAEA] shadow-sm mb-6"
         >
           {/* Header info */}
           <div className="flex items-center justify-between pb-4 border-b border-[#EAEAEA]">
             <div>
               <p className="text-xs font-semibold text-[#999999]">Order Reference</p>
-              <p className="text-sm font-black text-[#111111] tracking-wider">{orderId}</p>
+              <p className="text-sm font-black text-[#111111] tracking-wider">#{orderId}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-semibold text-[#999999]">Total Amount</p>
+              <p className="text-xs font-semibold text-[#999999]">Total Paid</p>
               <p className="text-base font-black text-[#00A651]">₹{total}</p>
+            </div>
+          </div>
+
+          {/* Ordered items list if present */}
+          {items.length > 0 && (
+            <div className="py-3 border-b border-[#EAEAEA] space-y-1.5">
+              <p className="text-xs font-bold text-[#888888] uppercase tracking-wider mb-2">
+                Ordered Items
+              </p>
+              {items.map((item) => (
+                <div key={item.id} className="flex justify-between text-xs">
+                  <span className="text-[#555555] truncate pr-2">
+                    {item.name}
+                    {item.nameTamil && (
+                      <span className="text-[#00A651]"> / {item.nameTamil}</span>
+                    )}
+                    {" "}× {item.quantity}
+                  </span>
+                  <span className="font-semibold text-[#111111] flex-shrink-0">
+                    ₹{item.price * item.quantity}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Price breakdown */}
+          <div className="py-3 border-b border-[#EAEAEA] space-y-2">
+            <div className="flex justify-between text-xs text-[#666666]">
+              <span>Subtotal</span>
+              <span className="font-semibold text-[#111111]">₹{subtotal}</span>
+            </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-xs text-[#00A651]">
+                <span className="flex items-center gap-1">
+                  <Tag size={12} />
+                  Discount ({discountPercentage}%)
+                </span>
+                <span className="font-semibold">−₹{discount}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-xs text-[#666666]">
+              <span>Delivery Charge</span>
+              <span className="font-semibold text-[#111111]">₹{deliveryCharge}</span>
             </div>
           </div>
 
@@ -140,17 +224,40 @@ export default function OrderSuccessPage() {
               </div>
               <div className="flex-1">
                 <p className="text-xs font-bold text-[#111111]">Expected Delivery</p>
-                <p className="text-xs text-[#666666]">Tomorrow Evening (Guaranteed)</p>
+                <p className="text-xs text-[#666666]">Tomorrow (Guaranteed)</p>
               </div>
             </div>
 
+            {/* Delivery Location */}
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#FAF8F1] flex items-center justify-center flex-shrink-0 text-[#D4A017]">
+              <div className="w-8 h-8 rounded-full bg-[#EA4335]/10 flex items-center justify-center flex-shrink-0 text-[#EA4335]">
                 <MapPin size={16} />
               </div>
-              <div className="flex-1">
-                <p className="text-xs font-bold text-[#111111]">Delivery Destination</p>
-                <p className="text-xs text-[#666666]">Pincode {pincode} · Delivery Fee: ₹{deliveryCharge}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-[#111111]">Delivery Location</p>
+                  {lat && lng && (
+                    <a
+                      href={`https://www.google.com/maps?q=${lat},${lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-[#4285F4] hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Google Maps</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+                {address ? (
+                  <p className="text-xs text-[#087A43] font-semibold mt-0.5">📍 {address}</p>
+                ) : lat && lng ? (
+                  <p className="text-xs text-[#087A43] font-semibold mt-0.5">
+                    Lat: {lat.toFixed(5)}, Lng: {lng.toFixed(5)}
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#666666]">Pincode {pincode}</p>
+                )}
+                <p className="text-[11px] text-[#888888] mt-0.5">Delivery Fee: ₹{deliveryCharge}</p>
               </div>
             </div>
 
@@ -159,7 +266,7 @@ export default function OrderSuccessPage() {
                 <Calendar size={16} />
               </div>
               <div className="flex-1">
-                <p className="text-xs font-bold text-[#111111]">Order Time</p>
+                <p className="text-xs font-bold text-[#111111]">Order Placed At</p>
                 <p className="text-xs text-[#666666]">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, {new Date().toLocaleDateString()}</p>
               </div>
             </div>
@@ -168,41 +275,15 @@ export default function OrderSuccessPage() {
           {/* Quality Promise */}
           <div className="pt-4 flex items-center gap-2 bg-[#F5FCF8] rounded-[14px] p-3 text-xs text-[#087A43] font-medium">
             <span className="text-sm">🌿</span>
-            <span>Cleaned fresh leafy greens & premium whole foods guaranteed.</span>
+            <span>Cleaned fresh leafy greens &amp; premium whole foods guaranteed.</span>
           </div>
-        </motion.div>
-
-        {/* Quick Help / Updates */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55 }}
-          className="bg-white rounded-[20px] p-4 border border-[#EAEAEA] flex items-center justify-between mb-6"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#25D366]/15 flex items-center justify-center text-[#25D366]">
-              <MessageCircle size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#111111]">Need instant support?</p>
-              <p className="text-[11px] text-[#666666]">WhatsApp us with order ID {orderId}</p>
-            </div>
-          </div>
-          <a
-            href={`https://wa.me/91${BUSINESS_PHONE}?text=Hi%20Shree%20Hari%20Keerai%2C%20regarding%20my%20order%20${orderId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-bold text-[#25D366] bg-[#25D366]/10 px-3 py-1.5 rounded-full hover:bg-[#25D366]/20 transition-colors"
-          >
-            Chat
-          </a>
         </motion.div>
 
         {/* Action Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.65 }}
+          transition={{ delay: 0.6 }}
           className="flex flex-col gap-3"
         >
           <Button

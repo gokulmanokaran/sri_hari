@@ -90,6 +90,11 @@ export default function ProductDetailsPage() {
           <h1 className="text-2xl font-black text-[#111111] tracking-tight mb-1">
             {product.name}
           </h1>
+          {product.nameTamil && (
+            <p className="text-base font-semibold text-[#00A651] mb-1">
+              {product.nameTamil}
+            </p>
+          )}
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-2xl font-black text-[#00A651]">
               ₹{product.price}

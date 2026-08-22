@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, Truck, Clock, ShoppingBag } from "lucide-react";
+import { ArrowRight, Truck, ShoppingBag, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const containerVariants = {
@@ -48,23 +48,28 @@ export function EcommerceHero() {
           aria-hidden="true"
         />
 
-        <div className="relative z-10 flex flex-col gap-3.5">
-          {/* Header Row: Badge & Fresh icon */}
-          <motion.div variants={itemVariants} className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border border-white/20">
-              <Sparkles size={12} className="text-[#FFE9B8]" />
-              PRE ORDER NOW
-            </span>
-            <span className="text-xs font-bold text-white/90 bg-black/20 px-2.5 py-0.5 rounded-full">
-              🌿 100% Farm Fresh
-            </span>
-          </motion.div>
-
-          {/* Heading */}
+        <div className="relative z-10 flex flex-col gap-3">
+          {/* ── PRE-ORDER NOW — Prominent headline ────────────────────────── */}
           <motion.div variants={itemVariants}>
-            <h1 className="text-xl font-black tracking-tight leading-tight text-white drop-shadow-sm">
-              Fresh Greens & Natural Foods Delivered to Your Doorstep
-            </h1>
+            <div className="flex items-center gap-2 mb-1">
+              {/* Pulsing dot indicator */}
+              <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FFE9B8] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FFE9B8]" />
+              </span>
+              <span className="text-[11px] font-bold text-white/80 uppercase tracking-widest">
+                Now accepting orders
+              </span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Zap size={20} className="text-[#FFE9B8] flex-shrink-0 fill-[#FFE9B8]" />
+              <h1 className="text-[22px] font-black tracking-tight leading-none text-white drop-shadow-sm uppercase">
+                PRE-ORDER NOW
+              </h1>
+            </div>
+            <p className="text-[12px] font-semibold text-white/80 mt-1 leading-snug">
+              Fresh Greens &amp; Natural Foods · Delivered to Your Doorstep
+            </p>
           </motion.div>
 
           {/* 4 Key Business Highlights in 2-Col Grid */}
@@ -74,8 +79,8 @@ export function EcommerceHero() {
                 ⭐
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-extrabold text-white leading-tight">Min. Order ₹80</p>
-                <p className="text-[9px] text-white/75 font-medium truncate">Subtotal value</p>
+                <p className="text-[11px] font-extrabold text-white leading-tight">Today Order</p>
+                <p className="text-[9px] text-white/75 font-medium truncate">→ Tomorrow Delivery</p>
               </div>
             </div>
 
@@ -91,21 +96,21 @@ export function EcommerceHero() {
 
             <div className="flex items-center gap-2 bg-white/12 backdrop-blur-sm rounded-[12px] p-2 border border-white/10">
               <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 text-white">
-                <Clock size={12} />
+                🏷️
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-extrabold text-white leading-tight">Before 11:00 AM</p>
-                <p className="text-[9px] text-white/75 font-medium truncate">Order cutoff time</p>
+                <p className="text-[11px] font-extrabold text-white leading-tight">Up to 10% Off</p>
+                <p className="text-[9px] text-white/75 font-medium truncate">Auto discount on order</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 bg-white/12 backdrop-blur-sm rounded-[12px] p-2 border border-white/10">
               <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 text-[#FFE9B8]">
-                🚀
+                🌿
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-extrabold text-white leading-tight">Evening Delivery</p>
-                <p className="text-[9px] text-white/75 font-medium truncate">Guaranteed drop</p>
+                <p className="text-[11px] font-extrabold text-white leading-tight">100% Fresh</p>
+                <p className="text-[9px] text-white/75 font-medium truncate">Farm to doorstep</p>
               </div>
             </div>
           </motion.div>

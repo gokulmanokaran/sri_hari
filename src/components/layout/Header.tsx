@@ -45,7 +45,7 @@ export function Header({ onSearchOpen }: HeaderProps) {
       setPincodeError(err);
       return;
     }
-    const { success, charge } = checkPincode(newPincode);
+    const { success } = checkPincode(newPincode);
     if (!success) {
       setPincodeError("Sorry, we don't deliver to this pincode yet.");
       setPincodeStatus("error");

@@ -19,7 +19,7 @@ const WHY_CARDS = [
   {
     icon: Truck,
     title: "Convenient Delivery",
-    description: "Order before 11 AM and get your products by evening.",
+    description: "Today order → tomorrow delivery directly to your door.",
     color: "#F0F8FF",
     iconColor: "#3B82F6",
   },

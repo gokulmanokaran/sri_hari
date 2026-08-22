@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import type { Product } from "../data/products";
 import { getItem, setItem, STORAGE_KEYS } from "../utils/storage";
+import { calculateDiscount, type DiscountResult } from "../utils/price";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,8 @@ interface CartContextValue {
   items: CartItem[];
   itemCount: number;
   subtotal: number;
+  discount: DiscountResult;
+  discountedSubtotal: number;
   toast: ToastNotification | null;
   addItem: (product: Product) => void;
   removeItem: (productId: string) => void;
@@ -212,11 +215,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [state.items]
   );
 
+  // Auto-calculated discount — never manipulable from the outside
+  const discount = useMemo(() => calculateDiscount(subtotal), [subtotal]);
+
+  const discountedSubtotal = useMemo(
+    () => subtotal - discount.amount,
+    [subtotal, discount.amount]
+  );
+
   const value = useMemo<CartContextValue>(
     () => ({
       items: state.items,
       itemCount,
       subtotal,
+      discount,
+      discountedSubtotal,
       toast,
       addItem,
       removeItem,
@@ -229,6 +242,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       state.items,
       itemCount,
       subtotal,
+      discount,
+      discountedSubtotal,
       toast,
       addItem,
       removeItem,

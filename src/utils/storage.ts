@@ -4,6 +4,8 @@ export const STORAGE_KEYS = {
   PINCODE: "shreehari_pincode",
   DELIVERY_CHARGE: "shreehari_delivery_charge",
   DELIVERY_AVAILABLE: "shreehari_delivery_available",
+  NOTIFICATION_LAST_SENT: "shreehari_notif_last_sent", // date string YYYY-MM-DD
+  NOTIFICATION_PERMISSION_ASKED: "shreehari_notif_asked",
 } as const;
 
 export function getItem<T>(key: string, fallback: T): T {

@@ -113,7 +113,7 @@ export default function AccountPage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-[#111111]">Delivery Schedule</p>
-                  <p className="text-xs text-[#888888]">Order before 11:00 AM for evening drop</p>
+                  <p className="text-xs text-[#888888]">Today Order → Tomorrow Delivery</p>
                 </div>
               </div>
               <ChevronRight size={18} className="text-[#CCCCCC]" />

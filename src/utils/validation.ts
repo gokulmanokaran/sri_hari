@@ -6,6 +6,34 @@ export function validatePincode(pincode: string): string | null {
   return null;
 }
 
+export function validateLocationPin(lat: number | null, lng: number | null): string | null {
+  if (lat === null || lng === null) return "Please select your delivery location on Google Maps.";
+  if (lat === 0 && lng === 0) return "Please select a valid location on Google Maps.";
+  return null;
+}
+
+// ── Checkout Form (Google Maps Pin Only) ──────────────────────────────────────
+
+export interface CheckoutFormData {
+  lat: number | null;
+  lng: number | null;
+  pincode: string;
+}
+
+export interface CheckoutErrors {
+  location?: string;
+}
+
+export function validateCheckoutForm(data: CheckoutFormData): CheckoutErrors {
+  const errors: CheckoutErrors = {};
+
+  const locationErr = validateLocationPin(data.lat, data.lng);
+  if (locationErr) errors.location = locationErr;
+
+  return errors;
+}
+
+// ── Legacy helpers kept for other components (if needed) ──────────────────────
 export function validatePhone(phone: string): string | null {
   if (!phone || phone.trim() === "") return "Please enter your mobile number.";
   const cleaned = phone.replace(/\s/g, "");
@@ -20,55 +48,10 @@ export function validateName(name: string): string | null {
   return null;
 }
 
-export function validateAddress(address: string): string | null {
-  if (!address || address.trim() === "") return "Please enter your address.";
-  if (address.trim().length < 10)
-    return "Please enter a more complete address.";
-  return null;
-}
-
-export function validateCity(city: string): string | null {
-  if (!city || city.trim() === "") return "Please enter your city.";
-  return null;
-}
-
 export function validateCheckoutPincode(pincode: string): string | null {
   const basic = validatePincode(pincode);
   if (basic) return basic;
   if (!isValidPincode(pincode.trim()))
     return "We don't deliver to this pincode yet.";
   return null;
-}
-
-export interface CheckoutFormData {
-  name: string;
-  phone: string;
-  address: string;
-  area: string;
-  city: string;
-  pincode: string;
-}
-
-export interface CheckoutErrors {
-  name?: string;
-  phone?: string;
-  address?: string;
-  area?: string;
-  city?: string;
-  pincode?: string;
-}
-
-export function validateCheckoutForm(data: CheckoutFormData): CheckoutErrors {
-  const errors: CheckoutErrors = {};
-  const nameErr = validateName(data.name);
-  if (nameErr) errors.name = nameErr;
-  const phoneErr = validatePhone(data.phone);
-  if (phoneErr) errors.phone = phoneErr;
-  const addressErr = validateAddress(data.address);
-  if (addressErr) errors.address = addressErr;
-  const cityErr = validateCity(data.city);
-  if (cityErr) errors.city = cityErr;
-  const pincodeErr = validateCheckoutPincode(data.pincode);
-  if (pincodeErr) errors.pincode = pincodeErr;
-  return errors;
 }

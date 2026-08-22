@@ -1,10 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../../store/CartContext";
 
 export function FloatingCartButton() {
-  const { itemCount, subtotal } = useCart();
+  const { itemCount, subtotal, discountedSubtotal } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -52,7 +52,7 @@ export function FloatingCartButton() {
             </div>
 
             <span className="text-sm font-black text-white pl-1">
-              ₹{subtotal}
+              ₹{discountedSubtotal}
             </span>
           </motion.button>
         </motion.div>

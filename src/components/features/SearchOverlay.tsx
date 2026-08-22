@@ -150,6 +150,11 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                       <p className="text-sm font-bold text-[#111111] truncate">
                         {product.name}
                       </p>
+                      {product.nameTamil && (
+                        <p className="text-xs text-[#00A651] font-semibold truncate">
+                          {product.nameTamil}
+                        </p>
+                      )}
                       <p className="text-xs text-[#999999] font-medium">
                         {product.unit}
                       </p>

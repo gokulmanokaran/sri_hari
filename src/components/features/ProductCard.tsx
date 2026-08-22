@@ -66,9 +66,16 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
 
       {/* Info */}
       <div className="p-2.5">
-        <h3 className="text-[13px] font-bold text-[#111111] line-clamp-2 leading-tight mb-0.5">
+        {/* English name */}
+        <h3 className="text-[13px] font-bold text-[#111111] line-clamp-1 leading-tight">
           {product.name}
         </h3>
+        {/* Tamil name */}
+        {product.nameTamil && (
+          <p className="text-[11px] text-[#00A651] font-semibold line-clamp-1 leading-tight mb-0.5">
+            {product.nameTamil}
+          </p>
+        )}
         <p className="text-[11px] text-[#999999] font-medium mb-2">
           {product.unit}
           {product.note && ` · ${product.note}`}

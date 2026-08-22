@@ -20,6 +20,7 @@ import SearchPage from "./pages/SearchPage";
 
 import { TopSnackbar } from "./components/ui/TopSnackbar";
 import { FloatingCartButton } from "./components/features/FloatingCartButton";
+import { DailyNotification } from "./components/features/DailyNotification";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -35,7 +36,13 @@ function PincodeGuard({ children }: { children: React.ReactNode }) {
   if (!isChecked || !isAvailable) {
     return <Navigate to="/pincode" replace />;
   }
-  return <>{children}</>;
+  return (
+    <>
+      {/* Schedule daily 9AM notification for users in the app */}
+      <DailyNotification />
+      {children}
+    </>
+  );
 }
 
 export default function App() {

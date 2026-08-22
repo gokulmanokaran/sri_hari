@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { MapPin, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { MapPin, CheckCircle, AlertCircle, ArrowRight, Truck } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDelivery } from "../store/DeliveryContext";
@@ -17,6 +17,7 @@ export default function PincodePage() {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [charge, setCharge] = useState<number | null>(null);
+  const [minOrder, setMinOrder] = useState<number | null>(null);
 
   const handleCheck = async () => {
     const validationError = validatePincode(pincode);
@@ -33,9 +34,10 @@ export default function PincodePage() {
     const result = checkPincode(pincode);
     if (result.success) {
       setCharge(result.charge);
+      setMinOrder(result.minimumOrder);
       setStatus("success");
       // Auto-navigate after success display
-      setTimeout(() => navigate("/", { replace: true }), 1800);
+      setTimeout(() => navigate("/", { replace: true }), 2200);
     } else {
       setStatus("error");
       setErrorMsg(
@@ -160,12 +162,24 @@ export default function PincodePage() {
                     <h2 className="text-lg font-black text-[#111111] mb-1">
                       Great! We deliver to your area. 🎉
                     </h2>
-                    <p className="text-sm text-[#666666]">
-                      Delivery charge:{" "}
-                      <span className="font-bold text-[#00A651]">
-                        ₹{charge}
-                      </span>
-                    </p>
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <div className="flex items-center gap-2">
+                        <Truck size={13} className="text-[#00A651]" />
+                        <p className="text-sm text-[#666666]">
+                          Delivery charge:{" "}
+                          <span className="font-bold text-[#00A651]">₹{charge}</span>
+                        </p>
+                      </div>
+                      {minOrder !== null && (
+                        <p className="text-xs text-[#666666]">
+                          Min. order for your area:{" "}
+                          <span className="font-bold text-[#111111]">₹{minOrder}</span>
+                        </p>
+                      )}
+                      <p className="text-xs text-[#00A651] font-medium mt-1">
+                        Today order → Tomorrow delivery 🚚
+                      </p>
+                    </div>
                     <p className="text-xs text-[#999999] mt-2">
                       Taking you to the store...
                     </p>

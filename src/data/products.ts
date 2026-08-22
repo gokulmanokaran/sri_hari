@@ -9,7 +9,8 @@ export type ProductCategory =
 
 export interface Product {
   id: string;
-  name: string;
+  name: string;          // English name
+  nameTamil?: string;    // Tamil name (optional)
   price: number;
   unit: string;
   category: ProductCategory;
@@ -19,11 +20,20 @@ export interface Product {
   inStock: boolean;
 }
 
+/** Returns display label: "English / Tamil" if Tamil name is set, else just English */
+export function getProductDisplayName(product: Product): string {
+  if (product.nameTamil) {
+    return `${product.name} / ${product.nameTamil}`;
+  }
+  return product.name;
+}
+
 export const PRODUCTS: Product[] = [
   // ── Fresh / Cleaned Products ────────────────────────────────────────────
   {
     id: "dwarf-copper-leaves",
     name: "Dwarf Copper Leaves",
+    nameTamil: "சிறு செம்பு கீரை",
     price: 40,
     unit: "Cleaned Pack",
     category: "keerai",
@@ -34,6 +44,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "spleen-amaranthus",
     name: "Spleen Amaranthus",
+    nameTamil: "முளைக்கீரை",
     price: 40,
     unit: "Cleaned Pack",
     category: "keerai",
@@ -44,6 +55,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "small-onion",
     name: "Small Onion",
+    nameTamil: "சின்ன வெங்காயம்",
     price: 70,
     unit: "500g",
     category: "vegetables",
@@ -55,6 +67,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "garlic",
     name: "Garlic",
+    nameTamil: "பூண்டு",
     price: 120,
     unit: "250g",
     category: "vegetables",
@@ -66,6 +79,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "pomegranate",
     name: "Pomegranate",
+    nameTamil: "மாதுளை",
     price: 200,
     unit: "500g",
     category: "vegetables",
@@ -79,6 +93,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "black-dates",
     name: "Black Dates",
+    nameTamil: "கருப்பு பேரீட்டை",
     price: 200,
     unit: "500g",
     category: "dry-fruits",
@@ -89,6 +104,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "almond",
     name: "Almond",
+    nameTamil: "பாதாம்",
     price: 275,
     unit: "250g",
     category: "dry-fruits",
@@ -99,6 +115,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "pista-unsalted",
     name: "Pista Unsalted",
+    nameTamil: "உப்பில்லா பிஸ்தா",
     price: 830,
     unit: "250g",
     category: "dry-fruits",
@@ -109,6 +126,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "walnut",
     name: "Walnut",
+    nameTamil: "வால்நட்",
     price: 420,
     unit: "250g",
     category: "dry-fruits",
@@ -119,6 +137,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "fig",
     name: "Fig",
+    nameTamil: "அத்திப்பழம்",
     price: 300,
     unit: "250g",
     category: "dry-fruits",
@@ -129,6 +148,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "yellow-raisins",
     name: "Yellow Raisins",
+    nameTamil: "மஞ்சள் திராட்சை",
     price: 160,
     unit: "250g",
     category: "dry-fruits",
@@ -139,6 +159,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "black-raisins",
     name: "Black Raisins",
+    nameTamil: "கருப்பு திராட்சை",
     price: 185,
     unit: "250g",
     category: "dry-fruits",
@@ -149,6 +170,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "cashew",
     name: "Cashew",
+    nameTamil: "முந்திரி",
     price: 265,
     unit: "250g",
     category: "dry-fruits",
@@ -159,6 +181,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "chia-seeds",
     name: "Chia Seeds",
+    nameTamil: "சியா விதைகள்",
     price: 115,
     unit: "250g",
     category: "seeds",
@@ -169,6 +192,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "pumpkin-seeds",
     name: "Pumpkin Seeds",
+    nameTamil: "பூசணி விதைகள்",
     price: 175,
     unit: "250g",
     category: "seeds",
@@ -179,6 +203,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "sabja-seeds",
     name: "Sabja Seeds",
+    nameTamil: "சப்ஜா விதைகள்",
     price: 100,
     unit: "250g",
     category: "seeds",
@@ -189,6 +214,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "flax-seeds",
     name: "Flax Seeds",
+    nameTamil: "ஆளி விதைகள்",
     price: 80,
     unit: "250g",
     category: "seeds",
@@ -199,6 +225,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "sunflower-seeds",
     name: "Sunflower Seeds",
+    nameTamil: "சூரியகாந்தி விதைகள்",
     price: 95,
     unit: "250g",
     category: "seeds",
@@ -209,6 +236,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "melon-seeds",
     name: "Melon Seeds",
+    nameTamil: "முலாம்பழ விதைகள்",
     price: 230,
     unit: "250g",
     category: "seeds",
@@ -219,11 +247,23 @@ export const PRODUCTS: Product[] = [
   {
     id: "badam-gum",
     name: "Badam Gum",
+    nameTamil: "பாதாம் பிசின்",
     price: 160,
     unit: "250g",
     category: "healthy-choices",
     description:
       "Natural badam gum, traditionally used in refreshing drinks and desserts. A unique premium product.",
+    inStock: true,
+  },
+  {
+    id: "arappu-powder",
+    name: "Arappu Powder",
+    nameTamil: "அரப்பு பொடி",
+    price: 90,
+    unit: "250g",
+    category: "healthy-choices",
+    description:
+      "Traditional pure arappu powder for natural hair wash and cooling. 100% herbal and chemical-free.",
     inStock: true,
   },
 ];
@@ -242,6 +282,7 @@ export function searchProducts(query: string): Product[] {
   return PRODUCTS.filter(
     (p) =>
       p.name.toLowerCase().includes(q) ||
+      (p.nameTamil && p.nameTamil.toLowerCase().includes(q)) ||
       p.category.toLowerCase().includes(q) ||
       p.unit.toLowerCase().includes(q) ||
       (p.note && p.note.toLowerCase().includes(q))
