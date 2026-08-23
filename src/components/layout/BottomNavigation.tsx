@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Home, Grid3X3, Search, ShoppingBag, User } from "lucide-react";
+import { Home, Grid3X3, Search, ShoppingBag } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../../store/CartContext";
 
@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { id: "categories", label: "Categories", icon: Grid3X3, path: "/products" },
   { id: "search", label: "Search", icon: Search, path: "/search" },
   { id: "cart", label: "Cart", icon: ShoppingBag, path: "/cart" },
-  { id: "account", label: "Account", icon: User, path: "/account" },
+
 ];
 
 interface BottomNavigationProps {

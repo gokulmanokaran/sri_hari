@@ -1,5 +1,16 @@
 import { motion } from "framer-motion";
-import { CheckCircle2, ShoppingBag, ArrowRight, Truck, Calendar, MapPin, Tag, ExternalLink } from "lucide-react";
+import {
+  CheckCircle2,
+  ShoppingBag,
+  Truck,
+  Calendar,
+  MapPin,
+  Tag,
+  ExternalLink,
+  User,
+  Phone,
+  Mail,
+} from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { useEffect, useMemo } from "react";
@@ -15,6 +26,14 @@ interface SuccessState {
   lat?: number;
   lng?: number;
   address?: string;
+  houseNo?: string;
+  landmark?: string;
+  city?: string;
+  state?: string;
+  fullName?: string;
+  mobile?: string;
+  email?: string;
+  paymentId?: string;
   items?: Array<{
     id: string;
     name: string;
@@ -29,18 +48,14 @@ export default function OrderSuccessPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Load from location.state OR fallback to latest saved order in localStorage (persists on refresh)
+  // Load from location.state OR fallback to latest saved order in localStorage
   const order = useMemo(() => {
     const stateOrder = location.state as SuccessState | null;
-    if (stateOrder && stateOrder.orderId) {
-      return stateOrder;
-    }
+    if (stateOrder && stateOrder.orderId) return stateOrder;
     try {
       const stored = localStorage.getItem("shreehari_latest_order");
       if (stored) return JSON.parse(stored) as SuccessState;
-    } catch {
-      // Fallback
-    }
+    } catch { /* fallback */ }
     return {
       orderId: "SHK782910",
       total: 230,
@@ -59,10 +74,15 @@ export default function OrderSuccessPage() {
   const deliveryCharge = order.deliveryCharge ?? 30;
   const discount = order.discount ?? 0;
   const discountPercentage = order.discountPercentage ?? 0;
-  const pincode = order.pincode ?? "641014";
   const lat = order.lat;
   const lng = order.lng;
   const address = order.address;
+  const city = order.city;
+  const state = order.state;
+  const pincode = order.pincode;
+  const fullName = order.fullName;
+  const mobile = order.mobile;
+  const email = order.email;
   const items = order.items || [];
 
   useEffect(() => {
@@ -77,36 +97,13 @@ export default function OrderSuccessPage() {
         {[...Array(12)].map((_, i) => (
           <motion.div
             key={i}
-            initial={{
-              opacity: 0,
-              y: -20,
-              x: (i % 2 === 0 ? 1 : -1) * (i * 25 + 10),
-              scale: 0.5,
-              rotate: 0,
-            }}
-            animate={{
-              opacity: [0, 1, 0.8, 0],
-              y: [0, 120 + (i % 4) * 30],
-              rotate: [0, i % 2 === 0 ? 180 : -180],
-              scale: [0.5, 1, 0.8],
-            }}
-            transition={{
-              duration: 2.5,
-              delay: i * 0.12,
-              repeat: Infinity,
-              repeatDelay: 3,
-              ease: "easeOut",
-            }}
+            initial={{ opacity: 0, y: -20, x: (i % 2 === 0 ? 1 : -1) * (i * 25 + 10), scale: 0.5, rotate: 0 }}
+            animate={{ opacity: [0, 1, 0.8, 0], y: [0, 120 + (i % 4) * 30], rotate: [0, i % 2 === 0 ? 180 : -180], scale: [0.5, 1, 0.8] }}
+            transition={{ duration: 2.5, delay: i * 0.12, repeat: Infinity, repeatDelay: 3, ease: "easeOut" }}
             className="absolute top-8 left-1/2 w-2.5 h-2.5 rounded-sm pointer-events-none"
             style={{
               backgroundColor:
-                i % 4 === 0
-                  ? "#00A651"
-                  : i % 4 === 1
-                  ? "#0BAF5B"
-                  : i % 4 === 2
-                  ? "#D4A017"
-                  : "#3B82F6",
+                i % 4 === 0 ? "#00A651" : i % 4 === 1 ? "#0BAF5B" : i % 4 === 2 ? "#D4A017" : "#3B82F6",
             }}
           />
         ))}
@@ -116,12 +113,7 @@ export default function OrderSuccessPage() {
           <motion.div
             initial={{ scale: 0, rotate: -30 }}
             animate={{ scale: 1, rotate: 0 }}
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 20,
-              delay: 0.1,
-            }}
+            transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.1 }}
             className="w-20 h-20 rounded-full bg-[#EAF8F0] border-4 border-white shadow-xl flex items-center justify-center mb-5"
             style={{ boxShadow: "0 10px 30px rgba(0, 166, 81, 0.25)" }}
           >
@@ -152,7 +144,6 @@ export default function OrderSuccessPage() {
         </div>
       </div>
 
-      {/* Order Details Card */}
       <div className="max-w-md mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 25 }}
@@ -172,7 +163,34 @@ export default function OrderSuccessPage() {
             </div>
           </div>
 
-          {/* Ordered items list if present */}
+          {/* Customer Details */}
+          {(fullName || mobile || email) && (
+            <div className="py-3 border-b border-[#EAEAEA] space-y-2">
+              <p className="text-xs font-bold text-[#888888] uppercase tracking-wider mb-2">
+                Customer Details
+              </p>
+              {fullName && (
+                <div className="flex items-center gap-2 text-xs">
+                  <User size={13} className="text-[#00A651] flex-shrink-0" />
+                  <span className="text-[#111111] font-semibold">{fullName}</span>
+                </div>
+              )}
+              {mobile && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Phone size={13} className="text-[#00A651] flex-shrink-0" />
+                  <span className="text-[#555555]">{mobile}</span>
+                </div>
+              )}
+              {email && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Mail size={13} className="text-[#00A651] flex-shrink-0" />
+                  <span className="text-[#555555]">{email}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Ordered items list */}
           {items.length > 0 && (
             <div className="py-3 border-b border-[#EAEAEA] space-y-1.5">
               <p className="text-xs font-bold text-[#888888] uppercase tracking-wider mb-2">
@@ -182,9 +200,7 @@ export default function OrderSuccessPage() {
                 <div key={item.id} className="flex justify-between text-xs">
                   <span className="text-[#555555] truncate pr-2">
                     {item.name}
-                    {item.nameTamil && (
-                      <span className="text-[#00A651]"> / {item.nameTamil}</span>
-                    )}
+                    {item.nameTamil && <span className="text-[#00A651]"> / {item.nameTamil}</span>}
                     {" "}× {item.quantity}
                   </span>
                   <span className="font-semibold text-[#111111] flex-shrink-0">
@@ -234,30 +250,37 @@ export default function OrderSuccessPage() {
                 <MapPin size={16} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-[#111111]">Delivery Location</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-[#111111]">Delivery Address</p>
                   {lat && lng && (
                     <a
                       href={`https://www.google.com/maps?q=${lat},${lng}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[11px] font-bold text-[#4285F4] hover:underline flex items-center gap-0.5"
+                      className="text-[11px] font-bold text-[#4285F4] hover:underline flex items-center gap-0.5 flex-shrink-0"
                     >
-                      <span>Google Maps</span>
+                      <span>View Map</span>
                       <ExternalLink size={10} />
                     </a>
                   )}
                 </div>
-                {address ? (
+                {address && (
                   <p className="text-xs text-[#087A43] font-semibold mt-0.5">📍 {address}</p>
-                ) : lat && lng ? (
-                  <p className="text-xs text-[#087A43] font-semibold mt-0.5">
-                    Lat: {lat.toFixed(5)}, Lng: {lng.toFixed(5)}
-                  </p>
-                ) : (
-                  <p className="text-xs text-[#666666]">Pincode {pincode}</p>
                 )}
-                <p className="text-[11px] text-[#888888] mt-0.5">Delivery Fee: ₹{deliveryCharge}</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {city && (
+                    <span className="text-[10px] bg-[#EAF8F0] text-[#087A43] font-semibold px-1.5 py-0.5 rounded-full">{city}</span>
+                  )}
+                  {state && (
+                    <span className="text-[10px] bg-[#F5F5F5] text-[#555555] font-semibold px-1.5 py-0.5 rounded-full">{state}</span>
+                  )}
+                  {pincode && (
+                    <span className="text-[10px] bg-[#EAF8F0] text-[#00A651] font-bold px-1.5 py-0.5 rounded-full">📮 {pincode}</span>
+                  )}
+                </div>
+                {deliveryCharge > 0 && (
+                  <p className="text-[11px] text-[#888888] mt-0.5">Delivery Fee: ₹{deliveryCharge}</p>
+                )}
               </div>
             </div>
 
@@ -267,7 +290,10 @@ export default function OrderSuccessPage() {
               </div>
               <div className="flex-1">
                 <p className="text-xs font-bold text-[#111111]">Order Placed At</p>
-                <p className="text-xs text-[#666666]">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, {new Date().toLocaleDateString()}</p>
+                <p className="text-xs text-[#666666]">
+                  {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })},{" "}
+                  {new Date().toLocaleDateString()}
+                </p>
               </div>
             </div>
           </div>
@@ -299,11 +325,9 @@ export default function OrderSuccessPage() {
             variant="secondary"
             size="lg"
             fullWidth
-            onClick={() => navigate("/account")}
-            icon={<ArrowRight size={16} />}
-            iconPosition="right"
+            onClick={() => navigate("/")}
           >
-            View Order History
+            Back to Home
           </Button>
         </motion.div>
       </div>

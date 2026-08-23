@@ -15,12 +15,13 @@ import ProductDetailsPage from "./pages/ProductDetailsPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
-import AccountPage from "./pages/AccountPage";
+
 import SearchPage from "./pages/SearchPage";
 
 import { TopSnackbar } from "./components/ui/TopSnackbar";
 import { FloatingCartButton } from "./components/features/FloatingCartButton";
 import { DailyNotification } from "./components/features/DailyNotification";
+import { PermissionPromptModal } from "./components/features/PermissionPromptModal";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -57,6 +58,9 @@ export default function App() {
 
       {/* Global Floating Cart Button at bottom-right */}
       <FloatingCartButton />
+
+      {/* User-friendly Centered Permission Prompt Modal for Notifications & Location */}
+      <PermissionPromptModal />
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -120,14 +124,7 @@ export default function App() {
                 </PincodeGuard>
               }
             />
-            <Route
-              path="/account"
-              element={
-                <PincodeGuard>
-                  <AccountPage />
-                </PincodeGuard>
-              }
-            />
+
             <Route
               path="/search"
               element={

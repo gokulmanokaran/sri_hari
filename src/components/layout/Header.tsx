@@ -3,7 +3,6 @@ import {
   Phone,
   Search,
   ShoppingBag,
-  User,
   MapPin,
   ChevronDown,
 } from "lucide-react";
@@ -109,14 +108,6 @@ export function Header({ onSearchOpen }: HeaderProps) {
               <Phone size={18} className="text-[#111111]" />
             </a>
 
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={() => navigate("/account")}
-              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors relative"
-              aria-label="Account"
-            >
-              <User size={18} className="text-[#111111]" />
-            </motion.button>
 
             {/* Cart icon for desktop */}
             <motion.button

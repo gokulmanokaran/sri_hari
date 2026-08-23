@@ -1,5 +1,19 @@
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronRight, Truck, MapPin, Tag, Edit3, Navigation } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Truck,
+  MapPin,
+  Tag,
+  Edit3,
+  Navigation,
+  User,
+  Phone,
+  Mail,
+  Pencil,
+  Home,
+  Landmark,
+} from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../store/CartContext";
@@ -10,18 +24,76 @@ import {
   validateCheckoutForm,
   type CheckoutFormData,
   type CheckoutErrors,
+  type DeliveryLocation,
 } from "../utils/validation";
 import { DEFAULT_MINIMUM_ORDER } from "../data/deliveryZones";
+import { processPayment } from "../services/paymentService";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 16 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.12, type: "spring" as const, stiffness: 280, damping: 28 },
+    transition: { delay: i * 0.1, type: "spring" as const, stiffness: 280, damping: 28 },
   }),
 };
 
+const GUEST_STORAGE_KEY = "shreehari_guest_details";
+
+function loadSavedGuest() {
+  try {
+    const raw = localStorage.getItem(GUEST_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as { fullName: string; mobile: string; email: string };
+  } catch { /* ignore */ }
+  return { fullName: "", mobile: "", email: "" };
+}
+
+// ─── Reusable Input Field ─────────────────────────────────────────────────────
+function InputField({
+  id, label, icon, type = "text", inputMode, maxLength,
+  value, onChange, error, placeholder, autoComplete, optional,
+}: {
+  id: string; label: string; icon: React.ReactNode; type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number; value: string; onChange: (v: string) => void;
+  error?: string; placeholder: string; autoComplete?: string; optional?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-bold text-[#555555] flex items-center gap-1.5">
+        <span className="text-[#00A651]">{icon}</span>
+        {label}
+        {optional && (
+          <span className="text-[#AAAAAA] font-normal ml-0.5">(optional)</span>
+        )}
+      </label>
+      <input
+        id={id} type={type} inputMode={inputMode} maxLength={maxLength}
+        value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder} autoComplete={autoComplete}
+        className={`w-full h-12 px-4 border-2 rounded-[12px] text-sm font-medium focus:outline-none transition-colors ${
+          error
+            ? "border-[#EA4335] bg-red-50/50 focus:border-[#EA4335]"
+            : "border-[#EAEAEA] focus:border-[#00A651]"
+        }`}
+      />
+      {error && (
+        <motion.p role="alert" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+          className="text-[#EA4335] text-xs font-semibold px-1">
+          {error}
+        </motion.p>
+      )}
+    </div>
+  );
+}
+
+// ─── Small address chip ───────────────────────────────────────────────────────
+function AddrChip({ label, color }: { label: string; color: "green" | "gray" | "blue" }) {
+  const s = { green: "bg-[#EAF8F0] text-[#087A43]", gray: "bg-[#F0F0F0] text-[#555555]", blue: "bg-[#EBF3FF] text-[#1A73E8]" };
+  return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s[color]}`}>{label}</span>;
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { items, subtotal, discount, discountedSubtotal, clearCart } = useCart();
@@ -31,51 +103,73 @@ export default function CheckoutPage() {
   const minOrder = minimumOrder ?? DEFAULT_MINIMUM_ORDER;
   const total = discountedSubtotal + charge;
 
-  const [form, setForm] = useState<CheckoutFormData & { address: string }>({
-    pincode: pincode,
+  const saved = loadSavedGuest();
+  const [fullName, setFullName] = useState(saved.fullName);
+  const [mobile, setMobile] = useState(saved.mobile);
+  const [email, setEmail] = useState(saved.email);
+
+  const [delivery, setDelivery] = useState<DeliveryLocation>({
     lat: null,
     lng: null,
-    address: "",
+    formattedAddress: "",
+    street: "",
+    area: "",
+    city: "",
+    district: "",
+    state: "",
+    pincode,
+    houseNo: "",
+    landmark: "",
   });
+
   const [errors, setErrors] = useState<CheckoutErrors>({});
   const [placing, setPlacing] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showAddressEdit, setShowAddressEdit] = useState(false);
 
-  const isNavigatingToSuccessRef = useRef(false);
+  const isNavigatingRef = useRef(false);
 
-  // Auto redirect to cart if empty on initial mount
+  // Redirect to cart if empty
   useEffect(() => {
-    if (!isNavigatingToSuccessRef.current && !placing && items.length === 0) {
+    if (!isNavigatingRef.current && !placing && items.length === 0) {
       navigate("/cart", { replace: true });
     }
   }, [items.length, placing, navigate]);
 
   const handleMapConfirm = useCallback((result: MapLocationResult) => {
-    setForm((prev) => ({
+    setDelivery((prev) => ({
       ...prev,
       lat: result.lat,
       lng: result.lng,
-      address: result.address ?? "",
+      formattedAddress: result.formattedAddress,
+      street: result.street,
+      area: result.area,
+      city: result.city,
+      district: result.district,
+      state: result.state,
+      pincode: result.pincode || prev.pincode,
     }));
     setErrors((prev) => ({ ...prev, location: undefined }));
     setShowMap(false);
+    setShowAddressEdit(true);
   }, []);
 
   const handlePlaceOrder = async () => {
-    if (subtotal < minOrder) {
-      navigate("/cart");
-      return;
-    }
+    if (subtotal < minOrder) { navigate("/cart"); return; }
 
-    const newErrors = validateCheckoutForm(form);
+    const formData: CheckoutFormData = { fullName, mobile, email, delivery };
+    const newErrors = validateCheckoutForm(formData);
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      // Auto open map if pin not selected
-      setShowMap(true);
+      if (newErrors.location) setShowMap(true);
       return;
     }
 
-    isNavigatingToSuccessRef.current = true;
+    try {
+      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify({ fullName, mobile, email }));
+    } catch { /* ignore */ }
+
+    isNavigatingRef.current = true;
     setPlacing(true);
 
     const orderId = `SHK${Date.now().toString().slice(-6)}`;
@@ -88,181 +182,319 @@ export default function CheckoutPage() {
       unit: i.product.unit,
     }));
 
+    const paymentResult = await processPayment({
+      orderId, amount: total, currency: "INR",
+      customerName: fullName, customerEmail: email, customerPhone: mobile,
+      description: `Shree Hari Keerai — Order #${orderId}`,
+    });
+
+    if (!paymentResult.success) {
+      setPlacing(false);
+      isNavigatingRef.current = false;
+      setErrors({ location: paymentResult.error || "Payment failed. Please try again." });
+      return;
+    }
+
+    // Build full address string
+    const fullAddress = [
+      delivery.houseNo,
+      delivery.street,
+      delivery.area,
+      delivery.landmark,
+      delivery.city,
+      delivery.district,
+      delivery.state,
+      delivery.pincode,
+    ].filter(Boolean).join(", ");
+
     const orderRecord = {
-      orderId,
-      total,
-      subtotal,
-      discount: discount.amount,
-      discountPercentage: discount.percentage,
+      orderId, total, subtotal,
+      discount: discount.amount, discountPercentage: discount.percentage,
       deliveryCharge: charge,
-      pincode: form.pincode,
-      lat: form.lat,
-      lng: form.lng,
-      address: form.address,
+      fullName, mobile, email,
+      pincode: delivery.pincode,
+      lat: delivery.lat, lng: delivery.lng,
+      address: fullAddress || delivery.formattedAddress,
+      street: delivery.street, area: delivery.area,
+      city: delivery.city, district: delivery.district, state: delivery.state,
+      houseNo: delivery.houseNo, landmark: delivery.landmark,
+      paymentId: paymentResult.razorpayPaymentId,
       items: orderItems,
       createdAt: new Date().toISOString(),
     };
 
-    // Save order in localStorage so it persists on page refresh
     try {
       localStorage.setItem("shreehari_latest_order", JSON.stringify(orderRecord));
-      const existingOrdersRaw = localStorage.getItem("shreehari_orders");
-      const existingOrders = existingOrdersRaw ? JSON.parse(existingOrdersRaw) : [];
-      localStorage.setItem("shreehari_orders", JSON.stringify([orderRecord, ...existingOrders]));
-    } catch {
-      // Ignore storage errors
-    }
+      const existingRaw = localStorage.getItem("shreehari_orders");
+      const existing = existingRaw ? JSON.parse(existingRaw) : [];
+      localStorage.setItem("shreehari_orders", JSON.stringify([orderRecord, ...existing]));
+    } catch { /* ignore */ }
 
-    // Brief simulation for smooth UX
-    await new Promise((r) => setTimeout(r, 600));
-
-    // Clear cart and immediately transition to Order Success
     clearCart();
-    navigate("/order-success", {
-      replace: true,
-      state: orderRecord,
-    });
+    navigate("/order-success", { replace: true, state: orderRecord });
   };
 
-  if (items.length === 0 && !placing) {
-    return null;
-  }
+  if (items.length === 0 && !placing) return null;
 
   return (
     <>
-      {/* Google Maps Full-Screen Pin Picker */}
       {showMap && (
         <MapLocationPicker
-          initialLat={form.lat}
-          initialLng={form.lng}
+          initialLat={delivery.lat}
+          initialLng={delivery.lng}
           onConfirm={handleMapConfirm}
           onClose={() => setShowMap(false)}
         />
       )}
 
       <div className="min-h-dvh bg-[#FAFAFA]">
-        {/* Header */}
+        {/* Page Header */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-[#EAEAEA] bg-white sticky top-0 z-10">
-          <button
-            onClick={() => navigate(-1)}
+          <button onClick={() => navigate(-1)}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 cursor-pointer"
-            aria-label="Go back"
-          >
+            aria-label="Go back">
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-lg font-black text-[#111111]">Checkout</h1>
+          <span className="ml-auto text-xs font-bold text-[#00A651] bg-[#EAF8F0] px-2.5 py-1 rounded-full">
+            {items.length} item{items.length !== 1 ? "s" : ""}
+          </span>
         </div>
 
         <div className="max-w-lg mx-auto px-4 py-5 pb-20 flex flex-col gap-4">
 
-          {/* Section 1: Delivery Location (Google Maps Pin Only) */}
-          <motion.div
-            custom={0}
-            variants={sectionVariants}
-            initial="hidden"
-            animate="visible"
-            className="bg-white rounded-[20px] border border-[#EAEAEA] overflow-hidden shadow-sm"
-          >
+          {/* ─── 1. Your Details ───────────────────────────────────────────── */}
+          <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible"
+            className="bg-white rounded-[20px] border border-[#EAEAEA] overflow-hidden shadow-sm">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#EAEAEA] bg-[#F9F9F9]">
-              <div className="w-6 h-6 rounded-full bg-[#EA4335] text-white text-xs font-black flex items-center justify-center">
-                1
-              </div>
-              <h2 className="text-sm font-bold text-[#111111]">Delivery Location</h2>
+              <div className="w-6 h-6 rounded-full bg-[#00A651] text-white text-xs font-black flex items-center justify-center">1</div>
+              <h2 className="text-sm font-bold text-[#111111]">Your Details</h2>
             </div>
+            <div className="p-4 flex flex-col gap-3.5">
+              <InputField
+                id="checkout-name" label="Full Name" icon={<User size={13} />}
+                value={fullName}
+                onChange={(v) => { setFullName(v); setErrors((e) => ({ ...e, fullName: undefined })); }}
+                error={errors.fullName} placeholder="e.g. Raj Kumar" autoComplete="name"
+              />
+              <InputField
+                id="checkout-mobile" label="Mobile Number" icon={<Phone size={13} />}
+                type="tel" inputMode="tel" maxLength={10}
+                value={mobile}
+                onChange={(v) => { setMobile(v.replace(/\D/g, "")); setErrors((e) => ({ ...e, mobile: undefined })); }}
+                error={errors.mobile} placeholder="10-digit Indian mobile number" autoComplete="tel"
+              />
+              <InputField
+                id="checkout-email" label="Email Address" icon={<Mail size={13} />}
+                type="email" value={email} optional
+                onChange={(v) => { setEmail(v); setErrors((e) => ({ ...e, email: undefined })); }}
+                error={errors.email} placeholder="your@email.com (optional)" autoComplete="email"
+              />
+            </div>
+          </motion.div>
 
+          {/* ─── 2. Delivery Address ───────────────────────────────────────── */}
+          <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible"
+            className="bg-white rounded-[20px] border border-[#EAEAEA] overflow-hidden shadow-sm">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-[#EAEAEA] bg-[#F9F9F9]">
+              <div className="w-6 h-6 rounded-full bg-[#EA4335] text-white text-xs font-black flex items-center justify-center">2</div>
+              <h2 className="text-sm font-bold text-[#111111]">Delivery Address</h2>
+            </div>
             <div className="p-4 flex flex-col gap-3">
-              {/* Interactive Google Map Pin Selection Card */}
+
+              {/* Map Selector Button */}
               <button
                 onClick={() => setShowMap(true)}
                 className={`w-full flex items-center gap-3.5 p-4 rounded-[16px] border-2 transition-all cursor-pointer text-left ${
-                  form.lat !== null
-                    ? "border-[#00A651] bg-[#EAF8F0]/70"
+                  delivery.lat !== null
+                    ? "border-[#00A651] bg-[#EAF8F0]/60"
                     : errors.location
                     ? "border-[#EA4335] bg-red-50"
                     : "border-dashed border-[#CCCCCC] hover:border-[#00A651] hover:bg-[#F5FCF8]"
                 }`}
-                aria-label="Select delivery location on Google Maps"
+                aria-label="Select delivery location on map"
               >
-                <div
-                  className={`w-12 h-12 rounded-[14px] flex items-center justify-center flex-shrink-0 shadow-sm ${
-                    form.lat !== null
-                      ? "bg-[#00A651] text-white"
-                      : "bg-[#EA4335] text-white"
-                  }`}
-                >
+                <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center flex-shrink-0 shadow-sm ${
+                  delivery.lat !== null ? "bg-[#00A651] text-white" : "bg-[#EA4335] text-white"
+                }`}>
                   <MapPin size={22} className="fill-current" />
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  {form.lat !== null ? (
+                  {delivery.lat !== null ? (
                     <>
-                      <p className="text-sm font-black text-[#087A43]">
-                        Location selected ✓
-                      </p>
-                      {form.address ? (
-                        <p className="text-xs text-[#555555] mt-0.5 truncate">{form.address}</p>
-                      ) : (
-                        <p className="text-xs text-[#666666] mt-0.5">Tap to change location</p>
+                      <p className="text-sm font-black text-[#087A43]">Location pinned ✓</p>
+                      {delivery.formattedAddress && (
+                        <p className="text-xs text-[#555555] mt-0.5 line-clamp-2">{delivery.formattedAddress}</p>
                       )}
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {delivery.city && <AddrChip color="green" label={`🏙 ${delivery.city}`} />}
+                        {delivery.district && <AddrChip color="gray" label={delivery.district} />}
+                        {delivery.state && <AddrChip color="gray" label={delivery.state} />}
+                        {delivery.pincode && <AddrChip color="green" label={`📮 ${delivery.pincode}`} />}
+                      </div>
                     </>
                   ) : (
                     <>
-                      <p className="text-sm font-black text-[#111111]">
-                        Select Delivery Location
-                      </p>
-                      <p className="text-xs text-[#666666] mt-0.5">
-                        Tap to open map and place your delivery pin
-                      </p>
+                      <p className="text-sm font-black text-[#111111]">Select Delivery Location</p>
+                      <p className="text-xs text-[#666666] mt-0.5">Open map → tap your location → address auto-fills</p>
                     </>
                   )}
                 </div>
 
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1 ${
-                    form.lat !== null
-                      ? "bg-white text-[#00A651] border border-[#00A651]/20 shadow-sm"
-                      : "bg-[#EA4335] text-white"
-                  }`}>
-                    {form.lat !== null ? (
-                      <>
-                        <Edit3 size={12} />
-                        Change
-                      </>
-                    ) : (
-                      <>
-                        <Navigation size={12} />
-                        Open Map
-                      </>
-                    )}
-                  </span>
-                </div>
+                <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1 flex-shrink-0 ${
+                  delivery.lat !== null
+                    ? "bg-white text-[#00A651] border border-[#00A651]/20 shadow-sm"
+                    : "bg-[#EA4335] text-white"
+                }`}>
+                  {delivery.lat !== null
+                    ? <><Edit3 size={11} />Change</>
+                    : <><Navigation size={11} />Open Map</>}
+                </span>
               </button>
 
               {errors.location && (
-                <motion.p
-                  role="alert"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-[#EA4335] text-xs font-bold px-1"
-                >
+                <motion.p role="alert" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                  className="text-[#EA4335] text-xs font-bold px-1">
                   ⚠️ {errors.location}
                 </motion.p>
+              )}
+
+              {/* Editable Address Details Panel */}
+              {delivery.lat !== null && (
+                <div>
+                  <button
+                    onClick={() => setShowAddressEdit((v) => !v)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-[#00A651] mb-2 cursor-pointer"
+                  >
+                    <Pencil size={12} />
+                    {showAddressEdit ? "Hide address details" : "Edit / Add address details"}
+                  </button>
+
+                  {showAddressEdit && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="overflow-hidden flex flex-col gap-3"
+                    >
+                      {/* Full formatted address — editable */}
+                      <div>
+                        <label htmlFor="edit-formatted" className="text-xs font-bold text-[#555555] flex items-center gap-1.5 mb-1.5">
+                          <span className="text-[#00A651]"><MapPin size={13} /></span>
+                          Full Address
+                        </label>
+                        <textarea
+                          id="edit-formatted" rows={2}
+                          value={delivery.formattedAddress}
+                          onChange={(e) => setDelivery((p) => ({ ...p, formattedAddress: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors resize-none"
+                          placeholder="Auto-filled from map — edit if needed"
+                        />
+                      </div>
+
+                      {/* Street & Area row */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="edit-street" className="text-xs font-bold text-[#555555] block mb-1.5">Door / Street</label>
+                          <input id="edit-street" type="text"
+                            value={delivery.street}
+                            onChange={(e) => setDelivery((p) => ({ ...p, street: e.target.value }))}
+                            placeholder="e.g. 12, MG Road"
+                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-area" className="text-xs font-bold text-[#555555] block mb-1.5">Area / Locality</label>
+                          <input id="edit-area" type="text"
+                            value={delivery.area}
+                            onChange={(e) => setDelivery((p) => ({ ...p, area: e.target.value }))}
+                            placeholder="e.g. RS Puram"
+                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* City & District row */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="edit-city" className="text-xs font-bold text-[#555555] block mb-1.5">City</label>
+                          <input id="edit-city" type="text"
+                            value={delivery.city}
+                            onChange={(e) => setDelivery((p) => ({ ...p, city: e.target.value }))}
+                            placeholder="e.g. Coimbatore"
+                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-district" className="text-xs font-bold text-[#555555] block mb-1.5">District</label>
+                          <input id="edit-district" type="text"
+                            value={delivery.district}
+                            onChange={(e) => setDelivery((p) => ({ ...p, district: e.target.value }))}
+                            placeholder="e.g. Coimbatore"
+                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* State & Pincode row */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="edit-state" className="text-xs font-bold text-[#555555] block mb-1.5">State</label>
+                          <input id="edit-state" type="text"
+                            value={delivery.state}
+                            onChange={(e) => setDelivery((p) => ({ ...p, state: e.target.value }))}
+                            placeholder="e.g. Tamil Nadu"
+                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-pincode" className="text-xs font-bold text-[#555555] block mb-1.5">Pincode</label>
+                          <input id="edit-pincode" type="tel" inputMode="numeric" maxLength={6}
+                            value={delivery.pincode}
+                            onChange={(e) => setDelivery((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, "") }))}
+                            placeholder="e.g. 641002"
+                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* House No & Landmark row */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="edit-houseno" className="text-xs font-bold text-[#555555] flex items-center gap-1 mb-1.5">
+                            <Home size={11} className="text-[#00A651]" /> House / Flat No.
+                          </label>
+                          <input id="edit-houseno" type="text"
+                            value={delivery.houseNo}
+                            onChange={(e) => setDelivery((p) => ({ ...p, houseNo: e.target.value }))}
+                            placeholder="e.g. 12A, Flat 304"
+                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-landmark" className="text-xs font-bold text-[#555555] flex items-center gap-1 mb-1.5">
+                            <Landmark size={11} className="text-[#00A651]" /> Landmark
+                          </label>
+                          <input id="edit-landmark" type="text"
+                            value={delivery.landmark}
+                            onChange={(e) => setDelivery((p) => ({ ...p, landmark: e.target.value }))}
+                            placeholder="e.g. Near bus stand"
+                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               )}
             </div>
           </motion.div>
 
-          {/* Section 2: Delivery Method */}
-          <motion.div
-            custom={1}
-            variants={sectionVariants}
-            initial="hidden"
-            animate="visible"
-            className="bg-white rounded-[20px] border border-[#EAEAEA] overflow-hidden shadow-sm"
-          >
+          {/* ─── 3. Delivery Method ────────────────────────────────────────── */}
+          <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible"
+            className="bg-white rounded-[20px] border border-[#EAEAEA] overflow-hidden shadow-sm">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#EAEAEA] bg-[#F9F9F9]">
-              <div className="w-6 h-6 rounded-full bg-[#00A651] text-white text-xs font-black flex items-center justify-center">
-                2
-              </div>
+              <div className="w-6 h-6 rounded-full bg-[#00A651] text-white text-xs font-black flex items-center justify-center">3</div>
               <h2 className="text-sm font-bold text-[#111111]">Delivery</h2>
             </div>
             <div className="p-4">
@@ -271,12 +503,8 @@ export default function CheckoutPage() {
                   <Truck size={20} className="text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-[#111111]">
-                    Today Order → Tomorrow Delivery
-                  </p>
-                  <p className="text-xs text-[#666666] mt-0.5">
-                    Order placed today will be delivered tomorrow
-                  </p>
+                  <p className="text-sm font-bold text-[#111111]">Today Order → Tomorrow Delivery</p>
+                  <p className="text-xs text-[#666666] mt-0.5">Order placed today will be delivered tomorrow</p>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-base font-black text-[#00A651]">₹{charge}</p>
@@ -286,42 +514,28 @@ export default function CheckoutPage() {
             </div>
           </motion.div>
 
-          {/* Section 3: Order Summary */}
-          <motion.div
-            custom={2}
-            variants={sectionVariants}
-            initial="hidden"
-            animate="visible"
-            className="bg-white rounded-[20px] border border-[#EAEAEA] overflow-hidden shadow-sm"
-          >
+          {/* ─── 4. Order Summary ─────────────────────────────────────────── */}
+          <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible"
+            className="bg-white rounded-[20px] border border-[#EAEAEA] overflow-hidden shadow-sm">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#EAEAEA] bg-[#F9F9F9]">
-              <div className="w-6 h-6 rounded-full bg-[#00A651] text-white text-xs font-black flex items-center justify-center">
-                3
-              </div>
+              <div className="w-6 h-6 rounded-full bg-[#00A651] text-white text-xs font-black flex items-center justify-center">4</div>
               <h2 className="text-sm font-bold text-[#111111]">Order Summary</h2>
             </div>
             <div className="p-4">
-              {/* Items list */}
               <div className="flex flex-col gap-2 mb-4">
                 {items.map((item) => (
                   <div key={item.product.id} className="flex justify-between text-sm">
                     <div className="flex-1 min-w-0 mr-3">
                       <span className="text-[#666666] truncate block">
                         {item.product.name}
-                        {item.product.nameTamil && (
-                          <span className="text-[#00A651]"> / {item.product.nameTamil}</span>
-                        )}
+                        {item.product.nameTamil && <span className="text-[#00A651]"> / {item.product.nameTamil}</span>}
                         {" "}× {item.quantity}
                       </span>
                     </div>
-                    <span className="font-semibold text-[#111111] flex-shrink-0">
-                      ₹{item.product.price * item.quantity}
-                    </span>
+                    <span className="font-semibold text-[#111111] flex-shrink-0">₹{item.product.price * item.quantity}</span>
                   </div>
                 ))}
               </div>
-
-              {/* Totals */}
               <div className="border-t border-[#EAEAEA] pt-3 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-[#666666]">Subtotal</span>
@@ -330,8 +544,7 @@ export default function CheckoutPage() {
                 {discount.amount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-[#00A651] flex items-center gap-1">
-                      <Tag size={12} />
-                      Discount ({discount.percentage}%)
+                      <Tag size={12} />Discount ({discount.percentage}%)
                     </span>
                     <span className="font-semibold text-[#00A651]">−₹{discount.amount}</span>
                   </div>
@@ -348,28 +561,21 @@ export default function CheckoutPage() {
             </div>
           </motion.div>
 
-          {/* Place Order Action */}
-          <motion.div
-            custom={3}
-            variants={sectionVariants}
-            initial="hidden"
-            animate="visible"
-          >
+          {/* ─── Confirm & Pay ─────────────────────────────────────────────── */}
+          <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
             <Button
-              variant="primary"
-              size="xl"
-              fullWidth
-              loading={placing}
-              onClick={handlePlaceOrder}
-              icon={<ChevronRight size={18} />}
-              iconPosition="right"
+              variant="primary" size="xl" fullWidth
+              loading={placing} onClick={handlePlaceOrder}
+              icon={<ChevronRight size={18} />} iconPosition="right"
+              id="checkout-place-order-btn"
             >
-              {placing ? "Placing Order…" : `Place Order · ₹${total}`}
+              {placing ? "Placing Order…" : `Confirm & Pay · ₹${total}`}
             </Button>
             <p className="text-xs text-[#999999] text-center mt-3 leading-relaxed">
-              Today's order will be delivered tomorrow to your selected map pin location.
+              No account needed. Delivered tomorrow to your pinned location.
             </p>
           </motion.div>
+
         </div>
       </div>
     </>

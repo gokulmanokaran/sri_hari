@@ -56,7 +56,6 @@ export function Footer() {
             { label: "Products", to: "/products" },
             { label: "Categories", to: "/products" },
             { label: "Cart", to: "/cart" },
-            { label: "Account", to: "/account" },
           ].map((link) => (
             <Link
               key={link.label}
