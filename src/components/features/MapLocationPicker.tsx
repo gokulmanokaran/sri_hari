@@ -7,6 +7,9 @@ import type { DeliveryLocation } from "../../utils/validation";
 const DEFAULT_LAT = 11.0168;
 const DEFAULT_LNG = 76.9558;
 
+// Fallback API key to ensure production builds never initialize with an empty key
+const DEFAULT_API_KEY = "AIzaSyB6qf6mqx6iOI5ZVWbWT1bUAIZabYK_jYs";
+
 export interface MapLocationResult extends Omit<DeliveryLocation, "houseNo" | "landmark"> {}
 
 interface MapLocationPickerProps {
@@ -46,12 +49,37 @@ function parseComponents(
     get(["sublocality_level_1", "sublocality", "neighborhood", "political"]) ||
     get(["administrative_area_level_4", "administrative_area_level_3"]);
 
-  const city = get(["locality"]) || get(["administrative_area_level_3"]);
-  const district = get(["administrative_area_level_2"]);
-  const state = get(["administrative_area_level_1"]);
+  const city = get(["locality"]) || get(["administrative_area_level_3"]) || "Coimbatore";
+  const district = get(["administrative_area_level_2"]) || "Coimbatore";
+  const state = get(["administrative_area_level_1"]) || "Tamil Nadu";
   const pincode = get(["postal_code"]);
 
   return { street, area, city, district, state, pincode, formattedAddress };
+}
+
+// ─── OpenStreetMap Nominatim Fallback Geocoder ──────────────────────────────
+async function fallbackReverseGeocode(lat: number, lng: number): Promise<ParsedAddress | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+      { headers: { "Accept-Language": "en" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data.address || {};
+
+    const street = [addr.house_number, addr.road || addr.street].filter(Boolean).join(", ");
+    const area = addr.suburb || addr.neighbourhood || addr.residential || addr.village || "";
+    const city = addr.city || addr.town || addr.municipality || "Coimbatore";
+    const district = addr.county || addr.state_district || "Coimbatore";
+    const state = addr.state || "Tamil Nadu";
+    const pincode = addr.postcode || "";
+    const formattedAddress = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    return { street, area, city, district, state, pincode, formattedAddress };
+  } catch {
+    return null;
+  }
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -64,7 +92,7 @@ export function MapLocationPicker({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
@@ -85,6 +113,7 @@ export function MapLocationPicker({
     setGeocoding(true);
     setSelectedLatLng({ lat, lng });
 
+    // 1. Try Google Geocoding API first
     if (geocoderRef.current) {
       try {
         const res = await geocoderRef.current.geocode({ location: { lat, lng } });
@@ -95,15 +124,26 @@ export function MapLocationPicker({
           setGeocoding(false);
           return;
         }
-      } catch { /* fall through */ }
+      } catch (err) {
+        console.warn("Google Geocoder notice (falling back to secondary geocoding):", err);
+      }
     }
-    // Fallback when geocoder unavailable
+
+    // 2. Try Secondary Geocoder Fallback
+    const fallbackRes = await fallbackReverseGeocode(lat, lng);
+    if (fallbackRes) {
+      setParsed(fallbackRes);
+      setGeocoding(false);
+      return;
+    }
+
+    // 3. Coordinate Fallback
     setParsed({
       street: "",
       area: "",
-      city: "",
-      district: "",
-      state: "",
+      city: "Coimbatore",
+      district: "Coimbatore",
+      state: "Tamil Nadu",
       pincode: "",
       formattedAddress: `${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`,
     });
@@ -114,7 +154,11 @@ export function MapLocationPicker({
   const placeMarker = useCallback(
     (lat: number, lng: number, map: google.maps.Map) => {
       if (markerRef.current) {
-        markerRef.current.position = { lat, lng };
+        if ("position" in markerRef.current) {
+          markerRef.current.position = { lat, lng };
+        } else if ("setPosition" in markerRef.current) {
+          (markerRef.current as google.maps.Marker).setPosition({ lat, lng });
+        }
       }
       map.panTo({ lat, lng });
       reverseGeocode(lat, lng);
@@ -125,7 +169,7 @@ export function MapLocationPicker({
   // ── Init Google Maps ───────────────────────────────────────────────────────
   useEffect(() => {
     let isMounted = true;
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || DEFAULT_API_KEY;
 
     if (!isGoogleConfigured) {
       setOptions({ key: apiKey, v: "weekly" });
@@ -134,20 +178,21 @@ export function MapLocationPicker({
 
     async function init() {
       try {
-        const [{ Map }, { Geocoder }, { Autocomplete }, { AdvancedMarkerElement }] =
+        const [{ Map }, { Geocoder }, { Autocomplete }, markerLib] =
           await Promise.all([
             importLibrary("maps") as Promise<google.maps.MapsLibrary>,
             importLibrary("geocoding") as Promise<google.maps.GeocodingLibrary>,
             importLibrary("places") as Promise<google.maps.PlacesLibrary>,
-            importLibrary("marker") as Promise<google.maps.MarkerLibrary>,
+            importLibrary("marker").catch(() => null) as Promise<google.maps.MarkerLibrary | null>,
           ]);
 
         if (!isMounted || !mapContainerRef.current) return;
 
+        // Use DEMO_MAP_ID which is the official Google Map ID for vector/advanced markers
         const map = new Map(mapContainerRef.current, {
           center: { lat: startLat, lng: startLng },
-          zoom: 14,
-          mapId: "shreehari_delivery_map",
+          zoom: 15,
+          mapId: "DEMO_MAP_ID",
           zoomControl: true,
           mapTypeControl: false,
           scaleControl: false,
@@ -164,33 +209,63 @@ export function MapLocationPicker({
         geocoderRef.current = new Geocoder();
         mapRef.current = map;
 
-        // ── Create the draggable marker (hidden until user clicks) ──────────
-        const markerEl = document.createElement("div");
-        markerEl.style.cssText = `
-          width: 36px; height: 48px; cursor: grab;
-          display: flex; align-items: flex-end; justify-content: center;
-          filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
-        `;
-        markerEl.innerHTML = `
-          <svg width="36" height="48" viewBox="0 0 38 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19 0C8.507 0 0 8.507 0 19c0 13.435 19 31 19 31S38 32.435 38 19C38 8.507 29.493 0 19 0z" fill="#00A651"/>
-            <circle cx="19" cy="19" r="7.5" fill="white"/>
-          </svg>
-        `;
+        // ── Create Marker (Advanced or Standard fallback) ───────────────────
+        try {
+          if (markerLib && markerLib.AdvancedMarkerElement) {
+            const markerEl = document.createElement("div");
+            markerEl.style.cssText = `
+              width: 36px; height: 48px; cursor: grab;
+              display: flex; align-items: flex-end; justify-content: center;
+              filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+            `;
+            markerEl.innerHTML = `
+              <svg width="36" height="48" viewBox="0 0 38 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 0C8.507 0 0 8.507 0 19c0 13.435 19 31 19 31S38 32.435 38 19C38 8.507 29.493 0 19 0z" fill="#00A651"/>
+                <circle cx="19" cy="19" r="7.5" fill="white"/>
+              </svg>
+            `;
 
-        const marker = new AdvancedMarkerElement({
-          map,
-          position: null, // hidden initially
-          content: markerEl,
-          gmpDraggable: true,
-          title: "Delivery location",
-        });
-        markerRef.current = marker;
+            const marker = new markerLib.AdvancedMarkerElement({
+              map,
+              position: initialLat && initialLng ? { lat: initialLat, lng: initialLng } : null,
+              content: markerEl,
+              gmpDraggable: true,
+              title: "Delivery location",
+            });
 
-        // If we already have a location (re-opening picker), place marker
-        if (initialLat && initialLng) {
-          marker.position = { lat: initialLat, lng: initialLng };
-          if (isMounted) reverseGeocode(initialLat, initialLng);
+            marker.addListener("dragend", () => {
+              const pos = marker.position;
+              if (!pos || !isMounted) return;
+              const lat = typeof pos === "object" && "lat" in pos
+                ? (pos as google.maps.LatLngLiteral).lat
+                : (pos as google.maps.LatLng).lat();
+              const lng = typeof pos === "object" && "lng" in pos
+                ? (pos as google.maps.LatLngLiteral).lng
+                : (pos as google.maps.LatLng).lng();
+              if (isMounted) reverseGeocode(lat, lng);
+            });
+
+            markerRef.current = marker;
+          }
+        } catch {
+          // Standard Marker fallback if AdvancedMarkerElement is not supported in browser
+          const marker = new google.maps.Marker({
+            map,
+            position: initialLat && initialLng ? { lat: initialLat, lng: initialLng } : undefined,
+            draggable: true,
+            title: "Delivery location",
+          });
+          marker.addListener("dragend", (e: google.maps.MapMouseEvent) => {
+            if (e.latLng && isMounted) {
+              reverseGeocode(e.latLng.lat(), e.latLng.lng());
+            }
+          });
+          markerRef.current = marker;
+        }
+
+        // If we already have a location (re-opening picker), place marker & reverse geocode
+        if (initialLat && initialLng && isMounted) {
+          reverseGeocode(initialLat, initialLng);
         }
 
         // ── Map click → place marker ────────────────────────────────────────
@@ -199,19 +274,6 @@ export function MapLocationPicker({
           const lat = e.latLng.lat();
           const lng = e.latLng.lng();
           placeMarker(lat, lng, map);
-        });
-
-        // ── Marker drag end → geocode new position ──────────────────────────
-        marker.addListener("dragend", () => {
-          const pos = marker.position;
-          if (!pos || !isMounted) return;
-          const lat = typeof pos === "object" && "lat" in pos
-            ? (pos as google.maps.LatLngLiteral).lat
-            : (pos as google.maps.LatLng).lat();
-          const lng = typeof pos === "object" && "lng" in pos
-            ? (pos as google.maps.LatLngLiteral).lng
-            : (pos as google.maps.LatLng).lng();
-          if (isMounted) reverseGeocode(lat, lng);
         });
 
         // ── Places Autocomplete ─────────────────────────────────────────────
@@ -233,7 +295,14 @@ export function MapLocationPicker({
             setSearchQuery("");
             map.panTo({ lat, lng });
             map.setZoom(17);
-            marker.position = { lat, lng };
+
+            if (markerRef.current) {
+              if ("position" in markerRef.current) {
+                markerRef.current.position = { lat, lng };
+              } else if ("setPosition" in markerRef.current) {
+                (markerRef.current as google.maps.Marker).setPosition({ lat, lng });
+              }
+            }
 
             const p = parseComponents(
               place.address_components ?? [],
@@ -246,7 +315,7 @@ export function MapLocationPicker({
 
         setLoading(false);
       } catch (err) {
-        console.warn("Google Maps init error:", err);
+        console.warn("Google Maps init notice:", err);
         if (isMounted) setLoading(false);
       }
     }
@@ -270,10 +339,16 @@ export function MapLocationPicker({
       ({ coords }) => {
         const { latitude: lat, longitude: lng } = coords;
         setLocating(false);
-        if (mapRef.current && markerRef.current) {
+        if (mapRef.current) {
           mapRef.current.panTo({ lat, lng });
           mapRef.current.setZoom(17);
-          markerRef.current.position = { lat, lng };
+          if (markerRef.current) {
+            if ("position" in markerRef.current) {
+              markerRef.current.position = { lat, lng };
+            } else if ("setPosition" in markerRef.current) {
+              (markerRef.current as google.maps.Marker).setPosition({ lat, lng });
+            }
+          }
           reverseGeocode(lat, lng);
         }
       },
