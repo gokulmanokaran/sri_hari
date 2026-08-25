@@ -28,6 +28,7 @@ import {
 } from "../utils/validation";
 import { DEFAULT_MINIMUM_ORDER } from "../data/deliveryZones";
 import { processPayment } from "../services/paymentService";
+import { submitOrderNotification } from "../services/orderService";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -218,17 +219,24 @@ export default function CheckoutPage() {
       street: delivery.street, area: delivery.area,
       city: delivery.city, district: delivery.district, state: delivery.state,
       houseNo: delivery.houseNo, landmark: delivery.landmark,
+      paymentStatus: "Paid / Confirmed",
       paymentId: paymentResult.razorpayPaymentId,
       items: orderItems,
       createdAt: new Date().toISOString(),
     };
 
+    // Save to local storage for persistence
     try {
       localStorage.setItem("shreehari_latest_order", JSON.stringify(orderRecord));
       const existingRaw = localStorage.getItem("shreehari_orders");
       const existing = existingRaw ? JSON.parse(existingRaw) : [];
       localStorage.setItem("shreehari_orders", JSON.stringify([orderRecord, ...existing]));
     } catch { /* ignore */ }
+
+    // Dispatch order notification to Google Sheets and Admin Email (non-blocking)
+    submitOrderNotification(orderRecord).catch((err) => {
+      console.warn("[Checkout] Background notification failed:", err);
+    });
 
     clearCart();
     navigate("/order-success", { replace: true, state: orderRecord });

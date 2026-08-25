@@ -22,12 +22,19 @@ import { TopSnackbar } from "./components/ui/TopSnackbar";
 import { FloatingCartButton } from "./components/features/FloatingCartButton";
 import { DailyNotification } from "./components/features/DailyNotification";
 import { PermissionPromptModal } from "./components/features/PermissionPromptModal";
+import { retryPendingOrderNotifications } from "./services/orderService";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  // Flush any queued pending order notifications in background
+  useEffect(() => {
+    retryPendingOrderNotifications();
+  }, []);
+
   return null;
 }
 
