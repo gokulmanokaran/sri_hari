@@ -1,8 +1,8 @@
 /**
  * Payment Service — Razorpay Test / Live Integration
  * ────────────────────────────────────────────────────
- * Handles opening Razorpay checkout modal, processing test payments,
- * handling success/failure/dismissal callbacks, and optional server-side verification.
+ * Handles opening Razorpay checkout modal, processing payments,
+ * handling success/failure/dismissal callbacks, and backend verification.
  */
 
 export interface PaymentPayload {
@@ -96,38 +96,57 @@ export function loadRazorpayScript(): Promise<boolean> {
       return;
     }
 
-    const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
-    if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(true));
-      existingScript.addEventListener("error", () => resolve(false));
+    // Check if script is already present in document
+    const existing = document.querySelector('script[src*="checkout.razorpay.com"]') as HTMLScriptElement | null;
+    if (existing) {
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if (typeof window !== "undefined" && window.Razorpay) {
+          clearInterval(interval);
+          resolve(true);
+        } else if (attempts > 20) {
+          clearInterval(interval);
+          resolve(Boolean(typeof window !== "undefined" && window.Razorpay));
+        }
+      }, 100);
       return;
     }
 
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
-    script.onload = () => resolve(true);
+    script.onload = () => {
+      setTimeout(() => {
+        resolve(Boolean(typeof window !== "undefined" && window.Razorpay));
+      }, 50);
+    };
     script.onerror = () => resolve(false);
-    document.body.appendChild(script);
+    document.head.appendChild(script);
   });
 }
 
 /**
- * Optional server-side Razorpay Order Creator (used if backend secret is present)
+ * Optional server-side Razorpay Order Creator (used if backend endpoint is active)
  */
 async function createBackendRazorpayOrder(amount: number, orderId: string): Promise<string | undefined> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2-second max timeout
+
     const res = await fetch("/api/create-razorpay-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount, receipt: orderId }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       return data.orderId || undefined;
     }
   } catch {
-    // Backend endpoint not active or in local preview; fallback to direct client checkout
+    // Timeout or serverless endpoint not configured; proceed with standard client checkout
   }
   return undefined;
 }
@@ -137,7 +156,7 @@ async function createBackendRazorpayOrder(amount: number, orderId: string): Prom
  */
 export async function processPayment(payload: PaymentPayload): Promise<PaymentResult> {
   const isScriptLoaded = await loadRazorpayScript();
-  if (!isScriptLoaded || !window.Razorpay) {
+  if (!isScriptLoaded || typeof window === "undefined" || !window.Razorpay) {
     return {
       success: false,
       error: "Unable to load Razorpay payment gateway. Please check your internet connection.",
@@ -152,7 +171,7 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
     };
   }
 
-  // Attempt backend order generation if available
+  // Attempt backend order generation if available (non-blocking fallback)
   const backendOrderId = await createBackendRazorpayOrder(payload.amount, payload.orderId);
 
   return new Promise((resolve) => {
@@ -164,7 +183,7 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
       currency: payload.currency || "INR",
       name: "Shree Hari Keerai",
       description: payload.description || `Order #${payload.orderId}`,
-      order_id: backendOrderId,
+      ...(backendOrderId ? { order_id: backendOrderId } : {}),
       prefill: {
         name: payload.customerName,
         email: payload.customerEmail || undefined,
@@ -224,29 +243,39 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
       },
     };
 
-    if (!window.Razorpay) {
-      resolve({
-        success: false,
-        error: "Razorpay payment SDK is not initialized.",
+    try {
+      if (!window.Razorpay) {
+        resolve({
+          success: false,
+          error: "Razorpay payment SDK is not initialized.",
+        });
+        return;
+      }
+
+      const rzp = new window.Razorpay(options);
+
+      rzp.on("payment.failed", (response: RazorpayFailureResponse) => {
+        if (isHandled) return;
+        isHandled = true;
+        const errorMsg =
+          response.error?.description ||
+          response.error?.reason ||
+          "Payment failed. Please try a different payment method.";
+        resolve({
+          success: false,
+          error: errorMsg,
+        });
       });
-      return;
+
+      rzp.open();
+    } catch (err) {
+      if (!isHandled) {
+        isHandled = true;
+        resolve({
+          success: false,
+          error: err instanceof Error ? err.message : "Failed to open Razorpay modal.",
+        });
+      }
     }
-
-    const rzp = new window.Razorpay(options);
-
-    rzp.on("payment.failed", (response: RazorpayFailureResponse) => {
-      if (isHandled) return;
-      isHandled = true;
-      const errorMsg =
-        response.error?.description ||
-        response.error?.reason ||
-        "Payment failed. Please try a different payment method.";
-      resolve({
-        success: false,
-        error: errorMsg,
-      });
-    });
-
-    rzp.open();
   });
 }

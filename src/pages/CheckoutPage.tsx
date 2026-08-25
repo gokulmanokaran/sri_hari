@@ -190,11 +190,22 @@ export default function CheckoutPage() {
       unit: i.product.unit,
     }));
 
-    const paymentResult = await processPayment({
-      orderId, amount: total, currency: "INR",
-      customerName: fullName, customerEmail: email, customerPhone: mobile,
-      description: `Shree Hari Keerai — Order #${orderId}`,
-    });
+    let paymentResult: { success: boolean; razorpayPaymentId?: string; razorpayOrderId?: string; error?: string };
+    try {
+      paymentResult = await processPayment({
+        orderId, amount: total, currency: "INR",
+        customerName: fullName, customerEmail: email, customerPhone: mobile,
+        description: `Shree Hari Keerai — Order #${orderId}`,
+      });
+    } catch (err) {
+      setPlacing(false);
+      isNavigatingRef.current = false;
+      setErrors((prev) => ({
+        ...prev,
+        payment: err instanceof Error ? err.message : "Failed to open payment gateway. Please try again.",
+      }));
+      return;
+    }
 
     if (!paymentResult.success) {
       setPlacing(false);
