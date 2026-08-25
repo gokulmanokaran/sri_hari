@@ -33,7 +33,8 @@ export default async function handler(req: Request): Promise<Response> {
     const targetWebhookUrl =
       process.env.GOOGLE_SHEETS_WEBHOOK_URL ||
       process.env.VITE_ORDER_WEBHOOK_URL ||
-      process.env.ORDER_WEBHOOK_URL;
+      process.env.ORDER_WEBHOOK_URL ||
+      "https://script.google.com/macros/s/AKfycbzjXsA4gHp4u30Qx9RhFamyOIrSjqs2yi9K5wAF1YylK8FU9Ushsex8kffAIIRUR3bI/exec";
 
     if (!targetWebhookUrl) {
       // If no webhook URL is configured yet, acknowledge order received

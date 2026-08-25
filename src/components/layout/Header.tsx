@@ -147,75 +147,35 @@ export function Header({ onSearchOpen }: HeaderProps) {
         }}
         title="Delivery Location"
       >
-        <div className="p-5 space-y-5">
-          {/* Current */}
-          <div className="bg-[#F5FCF8] rounded-[14px] p-4">
-            <p className="text-xs text-[#666666] font-medium mb-1">
-              Current Pincode
-            </p>
-            <div className="flex items-center gap-2">
-              <MapPin size={16} className="text-[#00A651]" />
-              <p className="text-base font-bold text-[#111111]">
-                {pincode || "Not set"}
+        <div className="p-5 space-y-4">
+          <div className="bg-[#F5FCF8] rounded-[16px] p-4 border border-[#B9E8CE]">
+            <div className="flex items-center gap-2.5 mb-1.5">
+              <MapPin size={18} className="text-[#00A651]" />
+              <p className="text-sm font-black text-[#111111]">
+                Coimbatore Fresh Morning Delivery
               </p>
-              {deliveryCharge !== null && (
-                <span className="text-xs bg-[#00A651] text-white px-2 py-0.5 rounded-full font-semibold ml-auto">
-                  ₹{deliveryCharge} delivery
-                </span>
-              )}
             </div>
+            <p className="text-xs text-[#555555] leading-relaxed">
+              We deliver freshly harvested keerai and greens directly across Coimbatore city service zones.
+            </p>
           </div>
 
-          {/* Input */}
-          <div>
-            <label
-              htmlFor="new-pincode-input"
-              className="text-sm font-semibold text-[#111111] block mb-2"
-            >
-              Enter New Pincode
-            </label>
-            <input
-              id="new-pincode-input"
-              type="tel"
-              inputMode="numeric"
-              maxLength={6}
-              value={newPincode}
-              onChange={(e) => {
-                setNewPincode(e.target.value.replace(/\D/g, ""));
-                setPincodeError("");
-                setPincodeStatus("idle");
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleUpdateLocation()}
-              placeholder="Enter 6-digit pincode"
-              className="w-full h-12 px-4 border-2 border-[#EAEAEA] rounded-[12px] text-base font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-            />
-            {pincodeError && (
-              <motion.p
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-red-500 text-sm mt-2 font-medium"
-              >
-                {pincodeError}
-              </motion.p>
-            )}
-            {pincodeStatus === "success" && (
-              <motion.p
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-[#00A651] text-sm mt-2 font-semibold"
-              >
-                ✓ Location updated successfully!
-              </motion.p>
-            )}
+          <div className="bg-[#F9F9F9] rounded-[14px] p-4 space-y-2">
+            <p className="text-xs font-bold text-[#111111]">📍 How Delivery Location Works:</p>
+            <ul className="text-xs text-[#666666] space-y-1.5 list-disc pl-4">
+              <li>No manual pincode entry needed.</li>
+              <li>At checkout, simply pin your location on Google Maps.</li>
+              <li>Delivery availability & charges are verified automatically from your pin.</li>
+            </ul>
           </div>
 
           <Button
             variant="primary"
             size="lg"
             fullWidth
-            onClick={handleUpdateLocation}
+            onClick={() => setLocationOpen(false)}
           >
-            Update Location
+            Got It
           </Button>
         </div>
       </BottomSheet>

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
-import { ArrowLeft, ChevronRight, Navigation, Loader2, Search, X, MapPin } from "lucide-react";
+import { ArrowLeft, ChevronRight, Navigation, Loader2, Search, X, MapPin, AlertCircle, CheckCircle2 } from "lucide-react";
 import type { DeliveryLocation } from "../../utils/validation";
+import { isValidPincode, getDeliveryZone } from "../../data/deliveryZones";
 
 // Default center: Coimbatore, Tamil Nadu
 const DEFAULT_LAT = 11.0168;
@@ -33,6 +34,16 @@ interface ParsedAddress {
   formattedAddress: string;
 }
 
+function extractPincode(components: google.maps.GeocoderAddressComponent[], formattedAddress: string): string {
+  const comp = components.find((c) => c.types.includes("postal_code"));
+  if (comp && comp.long_name && /^\d{6}$/.test(comp.long_name.trim())) {
+    return comp.long_name.trim();
+  }
+  // Regex fallback from formatted address
+  const match = formattedAddress.match(/\b(6\d{5})\b/);
+  return match ? match[1] : "";
+}
+
 function parseGoogleAddressComponents(
   components: google.maps.GeocoderAddressComponent[],
   formattedAddress: string
@@ -53,7 +64,7 @@ function parseGoogleAddressComponents(
   const city = get(["locality"]) || get(["administrative_area_level_3"]) || "Coimbatore";
   const district = get(["administrative_area_level_2"]) || "Coimbatore";
   const state = get(["administrative_area_level_1"]) || "Tamil Nadu";
-  const pincode = get(["postal_code"]);
+  const pincode = extractPincode(components, formattedAddress);
 
   return { street, area, city, district, state, pincode, formattedAddress };
 }
@@ -74,8 +85,9 @@ async function fallbackReverseGeocode(lat: number, lng: number): Promise<ParsedA
     const city = addr.city || addr.town || addr.municipality || "Coimbatore";
     const district = addr.county || addr.state_district || "Coimbatore";
     const state = addr.state || "Tamil Nadu";
-    const pincode = addr.postcode || "";
     const formattedAddress = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const match = formattedAddress.match(/\b(6\d{5})\b/);
+    const pincode = addr.postcode || (match ? match[1] : "");
 
     return { street, area, city, district, state, pincode, formattedAddress };
   } catch {
@@ -319,9 +331,15 @@ export function MapLocationPicker({
     );
   };
 
+  // ── Delivery Pincode Validation ───────────────────────────────────────────
+  const detectedPincode = parsed?.pincode || "";
+  const isDeliverable = Boolean(detectedPincode && isValidPincode(detectedPincode));
+  const deliveryZone = isDeliverable ? getDeliveryZone(detectedPincode) : null;
+  const hasLocation = Boolean(selectedLatLng);
+
   // ── Confirm handler ───────────────────────────────────────────────────────
   const handleConfirm = () => {
-    if (!selectedLatLng) return;
+    if (!selectedLatLng || !isDeliverable) return;
 
     const { lat, lng } = selectedLatLng;
     const finalParsed = parsed || {
@@ -330,7 +348,7 @@ export function MapLocationPicker({
       city: "Coimbatore",
       district: "Coimbatore",
       state: "Tamil Nadu",
-      pincode: "",
+      pincode: detectedPincode,
       formattedAddress: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
     };
 
@@ -348,8 +366,6 @@ export function MapLocationPicker({
 
     onClose();
   };
-
-  const hasLocation = Boolean(selectedLatLng);
 
   return (
     <div
@@ -372,7 +388,7 @@ export function MapLocationPicker({
             Choose Delivery Location
           </h2>
           <p className="text-xs text-[#888888] mt-0.5">
-            Search or tap anywhere on Google Maps to drop your delivery pin
+            Search or tap anywhere on Google Maps to verify delivery location
           </p>
         </div>
       </div>
@@ -386,7 +402,7 @@ export function MapLocationPicker({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search street, area, or landmark on Google Maps…"
+            placeholder="Search street, area, or landmark in Coimbatore…"
             className="w-full h-11 pl-10 pr-10 bg-[#F5F5F5] rounded-[12px] text-sm font-medium text-[#111111] placeholder-[#AAAAAA] focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 transition-all"
             id="location-search-input"
             autoComplete="off"
@@ -424,26 +440,26 @@ export function MapLocationPicker({
           >
             <div
               style={{
-                background: "rgba(0,0,0,0.78)",
+                background: "rgba(0,0,0,0.82)",
                 color: "#fff",
                 fontSize: 13,
                 fontWeight: 600,
                 borderRadius: 20,
-                padding: "7px 18px",
+                padding: "8px 18px",
                 whiteSpace: "nowrap",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
               }}
             >
-              👆 Tap the map to drop your delivery pin
+              👆 Tap on map or drag pin to your delivery address
             </div>
           </div>
         )}
 
         {/* Geocoding spinner overlay on map */}
         {geocoding && (
-          <div className="absolute top-4 right-4 z-10 bg-white rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-md">
-            <Loader2 size={13} className="animate-spin text-[#00A651]" />
-            <span className="text-xs font-semibold text-[#555555]">Fetching address…</span>
+          <div className="absolute top-4 right-4 z-10 bg-white rounded-full px-3.5 py-1.5 flex items-center gap-2 shadow-md border border-gray-100">
+            <Loader2 size={14} className="animate-spin text-[#00A651]" />
+            <span className="text-xs font-bold text-[#333333]">Detecting Pincode…</span>
           </div>
         )}
 
@@ -471,26 +487,54 @@ export function MapLocationPicker({
         )}
       </div>
 
-      {/* ── Address Preview + Confirm ───────────────────────────────────────── */}
+      {/* ── Address Preview + Validation + Confirm ──────────────────────────── */}
       <div
         className="bg-white flex-shrink-0"
         style={{ borderTop: "1px solid #F0F0F0" }}
       >
         {hasLocation && parsed ? (
-          <div className="px-4 pt-4 pb-2">
-            {/* Header */}
-            <div className="flex items-center gap-2 mb-3">
-              <MapPin size={15} className="text-[#00A651] flex-shrink-0" />
-              <p className="text-[13px] font-black text-[#111111]">Delivering to</p>
-              <span className="ml-auto text-[11px] text-[#00A651] font-bold bg-[#EAF8F0] px-2 py-0.5 rounded-full">
-                ✓ Pin placed
-              </span>
-            </div>
+          <div className="px-4 pt-3.5 pb-2">
+            {/* Delivery Availability Status Banner */}
+            {!geocoding && (
+              isDeliverable ? (
+                <div className="bg-[#EAF8F0] border border-[#B9E8CE] rounded-[14px] px-3.5 py-2.5 mb-2.5 flex items-center justify-between shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={18} className="text-[#00A651] flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-[#087A43]">
+                        ✓ Delivery Available to {detectedPincode}
+                      </p>
+                      <p className="text-[11px] text-[#555555]">
+                        {deliveryZone?.zoneName || "Coimbatore Zone"} · Delivery ₹{deliveryZone?.charge} (Min order ₹{deliveryZone?.minimumOrder})
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold text-[#00A651] bg-white px-2 py-0.5 rounded-full border border-[#B9E8CE] flex-shrink-0">
+                    Serviceable
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-[#FFF2F2] border border-[#FFD0D0] rounded-[14px] p-3 mb-2.5 flex items-start gap-2.5 shadow-xs">
+                  <AlertCircle size={18} className="text-[#EA4335] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold text-[#EA4335]">
+                      Sorry, we currently do not deliver to this location.
+                    </p>
+                    <p className="text-[11px] text-[#666666] mt-0.5 leading-tight">
+                      {detectedPincode
+                        ? `Detected pincode ${detectedPincode} is outside our active delivery area.`
+                        : "No serviceable pincode detected for this pin spot."}{" "}
+                      Please choose a location within Coimbatore service zones.
+                    </p>
+                  </div>
+                </div>
+              )
+            )}
 
             {/* Address detail chips */}
-            <div className="bg-[#F9F9F9] rounded-[14px] px-3.5 py-3 mb-3 space-y-1.5">
+            <div className="bg-[#F9F9F9] rounded-[14px] px-3.5 py-2.5 mb-2.5 space-y-1.5">
               {parsed.formattedAddress && (
-                <p className="text-[13px] font-semibold text-[#111111] leading-snug">
+                <p className="text-[12px] font-semibold text-[#111111] leading-snug line-clamp-2">
                   {parsed.formattedAddress}
                 </p>
               )}
@@ -504,28 +548,22 @@ export function MapLocationPicker({
                 {parsed.city && (
                   <Chip color="green" label={`🏙 ${parsed.city}`} />
                 )}
-                {parsed.district && (
-                  <Chip color="gray" label={parsed.district} />
-                )}
-                {parsed.state && (
-                  <Chip color="gray" label={parsed.state} />
-                )}
                 {parsed.pincode && (
-                  <Chip color="green" label={`📮 ${parsed.pincode}`} bold />
+                  <Chip
+                    color={isDeliverable ? "green" : "red"}
+                    label={`📮 ${parsed.pincode} ${isDeliverable ? "✓" : "✕"}`}
+                    bold
+                  />
                 )}
               </div>
             </div>
-
-            <p className="text-[11px] text-[#AAAAAA] text-center mb-2">
-              Not right? Tap another spot on Google Maps or drag the pin.
-            </p>
           </div>
         ) : (
           <div className="px-4 py-4">
             <div className="flex items-center gap-3 bg-[#F5F5F5] rounded-[14px] p-3.5">
               <MapPin size={18} className="text-[#AAAAAA]" />
               <p className="text-sm text-[#AAAAAA] font-medium">
-                No location selected yet — tap the map above
+                Tap anywhere on the map above to select your delivery location
               </p>
             </div>
           </div>
@@ -538,22 +576,32 @@ export function MapLocationPicker({
         >
           <button
             onClick={handleConfirm}
-            disabled={!hasLocation || geocoding}
-            className="w-full bg-[#00A651] hover:bg-[#087A43] disabled:bg-[#CCCCCC] disabled:cursor-not-allowed active:scale-[0.98] text-white font-bold text-base rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+            disabled={!hasLocation || geocoding || !isDeliverable}
+            className={`w-full font-bold text-sm sm:text-base rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md ${
+              !hasLocation
+                ? "bg-[#CCCCCC] text-[#666666] cursor-not-allowed"
+                : geocoding
+                ? "bg-[#00A651] text-white cursor-wait opacity-80"
+                : isDeliverable
+                ? "bg-[#00A651] hover:bg-[#087A43] active:scale-[0.98] text-white cursor-pointer"
+                : "bg-[#EAEAEA] text-[#999999] cursor-not-allowed shadow-none"
+            }`}
             style={{ height: 52 }}
           >
             {geocoding ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Fetching address…
+                Verifying Delivery Location…
               </>
-            ) : hasLocation ? (
+            ) : !hasLocation ? (
+              "Tap the map to select location"
+            ) : isDeliverable ? (
               <>
-                Confirm Location
+                Confirm Delivery Location
                 <ChevronRight size={20} strokeWidth={2.5} />
               </>
             ) : (
-              "Tap Google Maps to select a location"
+              "Sorry, we currently do not deliver to this location"
             )}
           </button>
         </div>
@@ -563,11 +611,20 @@ export function MapLocationPicker({
 }
 
 // Small reusable chip
-function Chip({ label, color, bold }: { label: string; color: "green" | "gray" | "blue"; bold?: boolean }) {
+function Chip({
+  label,
+  color,
+  bold,
+}: {
+  label: string;
+  color: "green" | "gray" | "blue" | "red";
+  bold?: boolean;
+}) {
   const styles: Record<string, string> = {
     green: "bg-[#EAF8F0] text-[#087A43]",
     gray: "bg-[#F0F0F0] text-[#555555]",
     blue: "bg-[#EBF3FF] text-[#1A73E8]",
+    red: "bg-[#FFF2F2] text-[#EA4335]",
   };
   return (
     <span

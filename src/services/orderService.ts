@@ -1,7 +1,7 @@
 /**
  * Order Notification & Google Sheets Service
  * ──────────────────────────────────────────
- * Handles sending order details to Google Sheets and triggering admin email notifications.
+ * Handles sending order details to Google Sheets and triggering admin/customer email notifications.
  *
  * Flow:
  * 1. Validates order payload.
@@ -25,6 +25,7 @@ export interface OrderNotificationPayload {
   createdAt: string;
   fullName: string;
   mobile: string;
+  alternateMobile?: string;
   email?: string;
   address: string;
   houseNo?: string;
@@ -46,6 +47,7 @@ export interface OrderNotificationPayload {
   total: number;
   paymentStatus: string;
   paymentId?: string;
+  razorpayPaymentId?: string;
 }
 
 export interface OrderNotificationResult {
@@ -58,12 +60,15 @@ export interface OrderNotificationResult {
 const SUBMITTED_ORDERS_KEY = "shreehari_submitted_order_ids";
 const PENDING_QUEUE_KEY = "shreehari_pending_order_notifications";
 
+const DEFAULT_GOOGLE_SHEETS_WEBHOOK_URL =
+  "https://script.google.com/macros/s/AKfycbzjXsA4gHp4u30Qx9RhFamyOIrSjqs2yi9K5wAF1YylK8FU9Ushsex8kffAIIRUR3bI/exec";
+
 /** Get the configured Webhook URL */
 export function getWebhookUrl(): string {
   return (
     import.meta.env.VITE_ORDER_WEBHOOK_URL ||
     import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL ||
-    "/api/order-webhook"
+    DEFAULT_GOOGLE_SHEETS_WEBHOOK_URL
   );
 }
 
@@ -139,6 +144,7 @@ export async function submitOrderNotification(
 
   const requestBody = {
     ...payload,
+    paymentId: payload.paymentId || payload.razorpayPaymentId || "N/A",
     mapsLink,
     productsSummary,
     totalQuantity,
@@ -147,25 +153,32 @@ export async function submitOrderNotification(
   };
 
   const webhookUrl = getWebhookUrl();
+  const isGoogleAppsScript = webhookUrl.includes("script.google.com");
 
-  // If no custom webhook configured and running in dev, log order preview
-  if (!webhookUrl || webhookUrl === "/api/order-webhook") {
-    console.log("[OrderService] Order Record Ready for Google Sheets & Email:", requestBody);
-  }
+  console.info(`[OrderService] Sending order #${orderId} to Google Sheets Webhook...`, requestBody);
 
   try {
-    // Submit via POST
-    const response = await fetch(webhookUrl, {
+    // For Google Apps Script, mode: "no-cors" is required because Google's 302 redirect
+    // does not include browser CORS headers. In no-cors mode, the POST body is still delivered
+    // and executed by doPost on Google's servers.
+    const fetchOptions: RequestInit = {
       method: "POST",
+      keepalive: true,
       headers: {
-        "Content-Type": "text/plain;charset=utf-8", // text/plain avoids CORS preflight on Google Apps Script
+        "Content-Type": "text/plain;charset=utf-8",
       },
       body: JSON.stringify(requestBody),
-    });
+    };
 
-    if (response.ok || response.type === "opaque") {
+    if (isGoogleAppsScript) {
+      fetchOptions.mode = "no-cors";
+    }
+
+    const response = await fetch(webhookUrl, fetchOptions);
+
+    if (response.ok || response.type === "opaque" || response.status === 0) {
       markOrderNotified(orderId);
-      console.info(`[OrderService] Order #${orderId} successfully sent to Google Sheets & Email!`);
+      console.info(`[OrderService] Order #${orderId} successfully dispatched to Google Sheets & Email!`);
       return { success: true, orderId };
     } else {
       const errText = await response.text().catch(() => "");
@@ -174,7 +187,7 @@ export async function submitOrderNotification(
       return { success: false, orderId, error: `Status ${response.status}` };
     }
   } catch (error) {
-    console.warn(`[OrderService] Error sending order #${orderId} to webhook:`, error);
+    console.warn(`[OrderService] Network error sending order #${orderId} to webhook:`, error);
     // Queue for retry
     queuePendingNotification(requestBody);
     return {

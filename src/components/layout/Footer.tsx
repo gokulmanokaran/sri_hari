@@ -50,7 +50,7 @@ export function Footer() {
         </div>
 
         {/* Nav Links */}
-        <div className="grid grid-cols-2 gap-2 mb-8">
+        <div className="grid grid-cols-2 gap-2 mb-6">
           {[
             { label: "Home", to: "/" },
             { label: "Products", to: "/products" },
@@ -65,6 +65,16 @@ export function Footer() {
               {link.label}
             </Link>
           ))}
+        </div>
+
+        {/* Legal & Compliance Links */}
+        <div className="border-t border-white/10 pt-4 pb-6">
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Legal & Policies</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-gray-400">
+            <Link to="/privacy-policy" className="hover:text-[#00A651] transition-colors">Privacy Policy</Link>
+            <Link to="/terms-and-conditions" className="hover:text-[#00A651] transition-colors">Terms & Conditions</Link>
+            <Link to="/refund-policy" className="hover:text-[#00A651] transition-colors">Refund & Cancellation</Link>
+          </div>
         </div>
 
         {/* Bottom line */}

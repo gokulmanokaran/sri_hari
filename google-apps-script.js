@@ -6,7 +6,7 @@
  * 2. In the top menu, click Extensions > Apps Script.
  * 3. Delete any existing code and PASTE THIS ENTIRE SCRIPT.
  * 4. Update the `ADMIN_EMAIL` below with your business email address (e.g. "shreeharikeerai@gmail.com").
- * 5. Click "Deploy" > "New deployment".
+ * 5. Click "Deploy" > "New deployment" (or "Manage deployments" > "Edit" > "New version" if updating).
  * 6. Select type "Web app".
  * 7. Set "Execute as": "Me" (your Google account).
  * 8. Set "Who has access": "Anyone" (allows storefront order submission).
@@ -15,7 +15,7 @@
  */
 
 // ── CONFIGURATION ─────────────────────────────────────────────────────────────
-var ADMIN_EMAIL = "shreeharikeerai@gmail.com"; // <-- Replace with your admin email
+var ADMIN_EMAIL = "shreeharikeerai1@gmail.com"; // Admin email — order notifications sent here
 var STORE_NAME = "Shree Hari Keerai";
 var SHEET_NAME = "Orders"; // Tab name in Google Sheets
 // ──────────────────────────────────────────────────────────────────────────────
@@ -38,11 +38,15 @@ function doPost(e) {
     // 2. Send Admin Email Notification
     var emailResult = sendAdminOrderEmail(data);
 
+    // 3. Send Customer Email Notification if email is provided
+    var customerEmailResult = sendCustomerOrderEmail(data);
+
     return createJsonResponse({
       success: true,
       orderId: orderId,
       sheetUpdated: sheetResult.appended,
       emailSent: emailResult.sent,
+      customerEmailSent: customerEmailResult.sent,
       message: "Order successfully processed"
     });
   } catch (err) {
@@ -93,7 +97,8 @@ function appendOrderToSheet(data) {
     "Delivery Charge (₹)",
     "Discount (₹)",
     "Total Amount (₹)",
-    "Payment Status"
+    "Payment Status",
+    "Razorpay Payment ID"
   ];
 
   // Initialize headers if sheet is brand new
@@ -129,12 +134,16 @@ function appendOrderToSheet(data) {
 
   var mapsLink = data.mapsLink || (data.lat && data.lng ? "https://www.google.com/maps?q=" + data.lat + "," + data.lng : "");
   var formattedDate = data.formattedDate || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  var paymentStatus = data.paymentStatus || "Paid (Razorpay)";
+  var paymentId = data.paymentId || data.razorpayPaymentId || "N/A";
+
+  var mobileDisplay = "'" + (data.mobile || "") + (data.alternateMobile ? " (Alt: " + data.alternateMobile + ")" : "");
 
   var row = [
     orderId,
     formattedDate,
     data.fullName || "",
-    "'" + (data.mobile || ""), // prefix quote to prevent stripping leading zeroes
+    mobileDisplay,
     data.email || "N/A",
     data.address || "",
     data.city || "",
@@ -149,7 +158,8 @@ function appendOrderToSheet(data) {
     data.deliveryCharge || 0,
     data.discount || 0,
     data.total || 0,
-    data.paymentStatus || "Paid / Confirmed"
+    paymentStatus,
+    paymentId
   ];
 
   sheet.appendRow(row);
@@ -180,6 +190,8 @@ function sendAdminOrderEmail(data) {
   var discount = data.discount || 0;
   var formattedDate = data.formattedDate || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   var mapsLink = data.mapsLink || (data.lat && data.lng ? "https://www.google.com/maps?q=" + data.lat + "," + data.lng : "");
+  var paymentStatus = data.paymentStatus || "Paid (Razorpay)";
+  var paymentId = data.paymentId || data.razorpayPaymentId || "N/A";
 
   var subject = "🌿 New Order Received: #" + orderId + " · ₹" + total + " (" + customerName + ")";
 
@@ -232,6 +244,14 @@ function sendAdminOrderEmail(data) {
 
       '<div style="padding:20px;">' +
 
+        // Payment Info Box
+        '<div style="background-color:#F0FDF4; border:1px solid #BBF7D0; border-radius:12px; padding:12px 16px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">' +
+          '<div>' +
+            '<div style="font-size:12px; color:#15803D; font-weight:bold;">💳 Payment Status: ' + paymentStatus + '</div>' +
+            '<div style="font-size:11px; color:#166534; margin-top:2px;">Razorpay ID: <code>' + paymentId + '</code></div>' +
+          '</div>' +
+        '</div>' +
+
         // Customer Details Box
         '<div style="background-color:#F9FBFA; border:1px solid #E5ECE8; border-radius:14px; padding:16px; margin-bottom:20px;">' +
           '<h2 style="margin:0 0 12px 0; font-size:14px; text-transform:uppercase; color:#00A651; letter-spacing:0.5px;">👤 Customer & Delivery Details</h2>' +
@@ -244,10 +264,18 @@ function sendAdminOrderEmail(data) {
               '<td style="padding:4px 0; color:#666666;">Mobile Number:</td>' +
               '<td style="padding:4px 0; color:#111111; font-weight:bold;">' +
                 '<a href="tel:' + mobile + '" style="color:#00A651; text-decoration:none;">' + mobile + '</a>' +
+                (data.alternateMobile ? ' &nbsp;·&nbsp; <span style="color:#666; font-size:12px;">Alt: <a href="tel:' + data.alternateMobile + '" style="color:#00A651; text-decoration:none;">' + data.alternateMobile + '</a></span>' : '') +
                 ' &nbsp;·&nbsp; ' +
                 '<a href="https://wa.me/91' + mobile.replace(/\D/g, '') + '" style="color:#25D366; text-decoration:none; font-weight:bold;">WhatsApp Chat 💬</a>' +
               '</td>' +
             '</tr>' +
+            (data.alternateMobile ?
+            '<tr>' +
+              '<td style="padding:4px 0; color:#666666;">Alt. Mobile:</td>' +
+              '<td style="padding:4px 0; color:#111111; font-weight:bold;">' +
+                '<a href="tel:' + data.alternateMobile + '" style="color:#00A651; text-decoration:none;">' + data.alternateMobile + '</a>' +
+              '</td>' +
+            '</tr>' : '') +
             '<tr>' +
               '<td style="padding:4px 0; color:#666666;">Email Address:</td>' +
               '<td style="padding:4px 0; color:#111111;">' + email + '</td>' +
@@ -332,13 +360,60 @@ function sendAdminOrderEmail(data) {
   '</body>' +
   '</html>';
 
-  MailApp.sendEmail({
-    to: recipient,
-    subject: subject,
-    htmlBody: htmlBody
-  });
+  try {
+    MailApp.sendEmail({
+      to: recipient,
+      subject: subject,
+      htmlBody: htmlBody
+    });
+    return { sent: true, recipient: recipient };
+  } catch (err) {
+    Logger.log("Error sending admin email: " + err.toString());
+    return { sent: false, error: err.toString() };
+  }
+}
 
-  return { sent: true, recipient: recipient };
+/**
+ * Sends a customer confirmation email if customer email was provided
+ */
+function sendCustomerOrderEmail(data) {
+  if (!data.email || data.email === "N/A" || data.email.indexOf("@") === -1) {
+    return { sent: false, reason: "No customer email provided" };
+  }
+
+  var orderId = data.orderId || "";
+  var customerName = data.fullName || "Valued Customer";
+  var total = data.total || 0;
+  var formattedDate = data.formattedDate || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  var paymentId = data.paymentId || data.razorpayPaymentId || "N/A";
+
+  var subject = "🌿 Order Confirmed #" + orderId + " — " + STORE_NAME;
+
+  var htmlBody = '<!DOCTYPE html><html><body style="font-family:sans-serif; background:#F5F7F6; padding:20px;">' +
+    '<div style="max-width:550px; margin:0 auto; background:#fff; border-radius:14px; padding:20px; border:1px solid #eee;">' +
+      '<h2 style="color:#00A651; margin-top:0;">🌿 Thank You for Your Order!</h2>' +
+      '<p>Hello <strong>' + customerName + '</strong>,</p>' +
+      '<p>Your order <strong>#' + orderId + '</strong> has been placed successfully.</p>' +
+      '<div style="background:#EAF8F0; padding:12px; border-radius:8px; margin:16px 0;">' +
+        '<div><strong>Total Paid:</strong> ₹' + total + '</div>' +
+        '<div><strong>Payment ID:</strong> ' + paymentId + '</div>' +
+        '<div><strong>Order Date:</strong> ' + formattedDate + '</div>' +
+      '</div>' +
+      '<p style="font-size:13px; color:#555;">Delivery will be completed tomorrow morning as per our fresh morning schedule.</p>' +
+      '<p style="font-size:12px; color:#888; margin-top:24px;">Shree Hari Keerai — Fresh, Natural & Premium Products</p>' +
+    '</div></body></html>';
+
+  try {
+    MailApp.sendEmail({
+      to: data.email,
+      subject: subject,
+      htmlBody: htmlBody
+    });
+    return { sent: true, recipient: data.email };
+  } catch (err) {
+    Logger.log("Error sending customer email: " + err.toString());
+    return { sent: false, error: err.toString() };
+  }
 }
 
 /**

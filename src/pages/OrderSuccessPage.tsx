@@ -11,7 +11,7 @@ import {
   Phone,
   Mail,
 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { useEffect, useMemo } from "react";
 
@@ -32,6 +32,7 @@ interface SuccessState {
   state?: string;
   fullName?: string;
   mobile?: string;
+  alternateMobile?: string;
   email?: string;
   paymentId?: string;
   items?: Array<{
@@ -82,6 +83,7 @@ export default function OrderSuccessPage() {
   const pincode = order.pincode;
   const fullName = order.fullName;
   const mobile = order.mobile;
+  const alternateMobile = order.alternateMobile;
   const email = order.email;
   const items = order.items || [];
 
@@ -178,7 +180,10 @@ export default function OrderSuccessPage() {
               {mobile && (
                 <div className="flex items-center gap-2 text-xs">
                   <Phone size={13} className="text-[#00A651] flex-shrink-0" />
-                  <span className="text-[#555555]">{mobile}</span>
+                  <span className="text-[#555555]">
+                    {mobile}
+                    {alternateMobile && <span className="text-[#888888]"> (Alt: {alternateMobile})</span>}
+                  </span>
                 </div>
               )}
               {email && (
@@ -329,6 +334,14 @@ export default function OrderSuccessPage() {
           >
             Back to Home
           </Button>
+
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3 text-[11px] text-[#888888]">
+            <Link to="/refund-policy" className="hover:text-[#00A651] underline">Cancellation & Refund Policy</Link>
+            <span>•</span>
+            <Link to="/privacy-policy" className="hover:text-[#00A651] underline">Privacy Policy</Link>
+            <span>•</span>
+            <Link to="/terms-and-conditions" className="hover:text-[#00A651] underline">Terms</Link>
+          </div>
         </motion.div>
       </div>
     </div>

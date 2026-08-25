@@ -17,6 +17,9 @@ import CheckoutPage from "./pages/CheckoutPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 
 import SearchPage from "./pages/SearchPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
+import RefundPolicyPage from "./pages/RefundPolicyPage";
 
 import { TopSnackbar } from "./components/ui/TopSnackbar";
 import { FloatingCartButton } from "./components/features/FloatingCartButton";
@@ -38,12 +41,8 @@ function ScrollToTop() {
   return null;
 }
 
-// Protected Route wrapper requiring valid pincode
+// App wrapper with daily notification support
 function PincodeGuard({ children }: { children: React.ReactNode }) {
-  const { isChecked, isAvailable } = useDelivery();
-  if (!isChecked || !isAvailable) {
-    return <Navigate to="/pincode" replace />;
-  }
   return (
     <>
       {/* Schedule daily 9AM notification for users in the app */}
@@ -79,8 +78,8 @@ export default function App() {
           className="w-full min-h-dvh"
         >
           <Routes location={location}>
-            {/* Pincode verification gate */}
-            <Route path="/pincode" element={<PincodePage />} />
+            {/* Redirect legacy /pincode to Home */}
+            <Route path="/pincode" element={<Navigate to="/" replace />} />
 
             {/* Protected Store Routes */}
             <Route
@@ -141,7 +140,14 @@ export default function App() {
               }
             />
 
-            {/* Fallback to Home / Pincode */}
+            {/* Legal & Compliance Policy Routes */}
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/terms-and-conditions" element={<TermsPage />} />
+            <Route path="/refund-policy" element={<RefundPolicyPage />} />
+            <Route path="/cancellation-refund-policy" element={<RefundPolicyPage />} />
+
+            {/* Fallback to Home */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </motion.div>

@@ -15,7 +15,7 @@ import {
   Landmark,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../store/CartContext";
 import { useDelivery } from "../store/DeliveryContext";
 import { Button } from "../components/ui/Button";
@@ -26,7 +26,7 @@ import {
   type CheckoutErrors,
   type DeliveryLocation,
 } from "../utils/validation";
-import { DEFAULT_MINIMUM_ORDER } from "../data/deliveryZones";
+import { DEFAULT_MINIMUM_ORDER, isValidPincode } from "../data/deliveryZones";
 import { processPayment } from "../services/paymentService";
 import { submitOrderNotification } from "../services/orderService";
 
@@ -44,9 +44,9 @@ const GUEST_STORAGE_KEY = "shreehari_guest_details";
 function loadSavedGuest() {
   try {
     const raw = localStorage.getItem(GUEST_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as { fullName: string; mobile: string; email: string };
+    if (raw) return JSON.parse(raw) as { fullName: string; mobile: string; alternateMobile?: string; email?: string };
   } catch { /* ignore */ }
-  return { fullName: "", mobile: "", email: "" };
+  return { fullName: "", mobile: "", alternateMobile: "", email: "" };
 }
 
 // ─── Reusable Input Field ─────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ function AddrChip({ label, color }: { label: string; color: "green" | "gray" | "
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { items, subtotal, discount, discountedSubtotal, clearCart } = useCart();
-  const { pincode, deliveryCharge, minimumOrder } = useDelivery();
+  const { pincode, deliveryCharge, minimumOrder, setPincode } = useDelivery();
 
   const charge = deliveryCharge ?? 0;
   const minOrder = minimumOrder ?? DEFAULT_MINIMUM_ORDER;
@@ -107,7 +107,8 @@ export default function CheckoutPage() {
   const saved = loadSavedGuest();
   const [fullName, setFullName] = useState(saved.fullName);
   const [mobile, setMobile] = useState(saved.mobile);
-  const [email, setEmail] = useState(saved.email);
+  const [alternateMobile, setAlternateMobile] = useState(saved.alternateMobile || "");
+  const [email, setEmail] = useState(saved.email || "");
 
   const [delivery, setDelivery] = useState<DeliveryLocation>({
     lat: null,
@@ -148,17 +149,20 @@ export default function CheckoutPage() {
       city: result.city,
       district: result.district,
       state: result.state,
-      pincode: result.pincode || prev.pincode,
+      pincode: result.pincode,
     }));
+    if (result.pincode) {
+      setPincode(result.pincode);
+    }
     setErrors((prev) => ({ ...prev, location: undefined }));
     setShowMap(false);
     setShowAddressEdit(true);
-  }, []);
+  }, [setPincode]);
 
   const handlePlaceOrder = async () => {
     if (subtotal < minOrder) { navigate("/cart"); return; }
 
-    const formData: CheckoutFormData = { fullName, mobile, email, delivery };
+    const formData: CheckoutFormData = { fullName, mobile, alternateMobile, email, delivery };
     const newErrors = validateCheckoutForm(formData);
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -167,7 +171,10 @@ export default function CheckoutPage() {
     }
 
     try {
-      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify({ fullName, mobile, email }));
+      localStorage.setItem(
+        GUEST_STORAGE_KEY,
+        JSON.stringify({ fullName, mobile, alternateMobile, email })
+      );
     } catch { /* ignore */ }
 
     isNavigatingRef.current = true;
@@ -192,7 +199,10 @@ export default function CheckoutPage() {
     if (!paymentResult.success) {
       setPlacing(false);
       isNavigatingRef.current = false;
-      setErrors({ location: paymentResult.error || "Payment failed. Please try again." });
+      setErrors((prev) => ({
+        ...prev,
+        payment: paymentResult.error || "Payment was cancelled. Please try again.",
+      }));
       return;
     }
 
@@ -208,19 +218,26 @@ export default function CheckoutPage() {
       delivery.pincode,
     ].filter(Boolean).join(", ");
 
+    const razorpayPaymentId = paymentResult.razorpayPaymentId || "";
+    const razorpayOrderId = paymentResult.razorpayOrderId || "";
+
     const orderRecord = {
       orderId, total, subtotal,
       discount: discount.amount, discountPercentage: discount.percentage,
       deliveryCharge: charge,
-      fullName, mobile, email,
+      fullName, mobile,
+      alternateMobile: alternateMobile.trim() || undefined,
+      email,
       pincode: delivery.pincode,
       lat: delivery.lat, lng: delivery.lng,
       address: fullAddress || delivery.formattedAddress,
       street: delivery.street, area: delivery.area,
       city: delivery.city, district: delivery.district, state: delivery.state,
       houseNo: delivery.houseNo, landmark: delivery.landmark,
-      paymentStatus: "Paid / Confirmed",
-      paymentId: paymentResult.razorpayPaymentId,
+      paymentStatus: `Paid (Razorpay)${razorpayPaymentId ? ` · ${razorpayPaymentId}` : ""}`,
+      paymentId: razorpayPaymentId,
+      razorpayPaymentId,
+      razorpayOrderId,
       items: orderItems,
       createdAt: new Date().toISOString(),
     };
@@ -233,9 +250,16 @@ export default function CheckoutPage() {
       localStorage.setItem("shreehari_orders", JSON.stringify([orderRecord, ...existing]));
     } catch { /* ignore */ }
 
-    // Dispatch order notification to Google Sheets and Admin Email (non-blocking)
-    submitOrderNotification(orderRecord).catch((err) => {
-      console.warn("[Checkout] Background notification failed:", err);
+    // ── Send to Google Sheets & Email (awaited — only on successful Razorpay payment) ──
+    // We await but do NOT block navigation on failure — if it fails it queues for retry.
+    submitOrderNotification(orderRecord).then((result) => {
+      if (result.success) {
+        console.info(`[Checkout] ✅ Order #${orderId} sent to Google Sheets & Email.`);
+      } else {
+        console.warn(`[Checkout] ⚠️ Google Sheets submission failed for #${orderId}. Queued for retry.`, result.error);
+      }
+    }).catch((err) => {
+      console.warn("[Checkout] Google Sheets notification error:", err);
     });
 
     clearCart();
@@ -291,6 +315,13 @@ export default function CheckoutPage() {
                 value={mobile}
                 onChange={(v) => { setMobile(v.replace(/\D/g, "")); setErrors((e) => ({ ...e, mobile: undefined })); }}
                 error={errors.mobile} placeholder="10-digit Indian mobile number" autoComplete="tel"
+              />
+              <InputField
+                id="checkout-alt-mobile" label="Alternative Mobile Number" icon={<Phone size={13} />}
+                type="tel" inputMode="tel" maxLength={10} optional
+                value={alternateMobile}
+                onChange={(v) => { setAlternateMobile(v.replace(/\D/g, "")); setErrors((e) => ({ ...e, alternateMobile: undefined })); }}
+                error={errors.alternateMobile} placeholder="10-digit alternative number (optional)" autoComplete="tel"
               />
               <InputField
                 id="checkout-email" label="Email Address" icon={<Mail size={13} />}
@@ -456,13 +487,18 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div>
-                          <label htmlFor="edit-pincode" className="text-xs font-bold text-[#555555] block mb-1.5">Pincode</label>
-                          <input id="edit-pincode" type="tel" inputMode="numeric" maxLength={6}
-                            value={delivery.pincode}
-                            onChange={(e) => setDelivery((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, "") }))}
-                            placeholder="e.g. 641002"
-                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                          />
+                          <label className="text-xs font-bold text-[#555555] block mb-1.5">Delivery Pincode</label>
+                          <div className="h-11 px-3.5 bg-[#F5F5F5] border-2 border-[#EAEAEA] rounded-[12px] flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#111111] flex items-center gap-1">
+                              <span>📮</span>
+                              <span>{delivery.pincode || "Not detected"}</span>
+                            </span>
+                            {delivery.pincode && isValidPincode(delivery.pincode) && (
+                              <span className="text-[10px] font-bold text-[#00A651] bg-[#EAF8F0] px-2 py-0.5 rounded-full border border-[#B9E8CE]">
+                                Verified ✓
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -571,13 +607,36 @@ export default function CheckoutPage() {
 
           {/* ─── Confirm & Pay ─────────────────────────────────────────────── */}
           <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible">
+            {errors.payment && (
+              <div className="bg-[#FFF2F2] border border-[#FFD0D0] text-[#D92D20] text-xs font-semibold rounded-xl p-3.5 mb-3 flex items-center justify-between gap-2 shadow-xs">
+                <span className="flex items-center gap-1.5">
+                  <span>⚠️</span>
+                  <span>{errors.payment}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setErrors((prev) => ({ ...prev, payment: undefined }))}
+                  className="text-[#999999] hover:text-[#111111] text-sm font-bold px-1 cursor-pointer"
+                  aria-label="Dismiss payment error"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            <div className="bg-[#F9F9F9] rounded-xl p-3 mb-3 border border-[#EAEAEA] text-[11px] text-[#666666] leading-relaxed text-center">
+              By confirming, you agree to our{" "}
+              <Link to="/terms-and-conditions" target="_blank" className="text-[#00A651] font-semibold underline">Terms & Conditions</Link>,{" "}
+              <Link to="/privacy-policy" target="_blank" className="text-[#00A651] font-semibold underline">Privacy Policy</Link>, and{" "}
+              <Link to="/refund-policy" target="_blank" className="text-[#00A651] font-semibold underline">Refund Policy</Link>.
+            </div>
+
             <Button
               variant="primary" size="xl" fullWidth
               loading={placing} onClick={handlePlaceOrder}
               icon={<ChevronRight size={18} />} iconPosition="right"
               id="checkout-place-order-btn"
             >
-              {placing ? "Placing Order…" : `Confirm & Pay · ₹${total}`}
+              {placing ? "Processing Payment…" : `Confirm & Pay · ₹${total}`}
             </Button>
             <p className="text-xs text-[#999999] text-center mt-3 leading-relaxed">
               No account needed. Delivered tomorrow to your pinned location.
