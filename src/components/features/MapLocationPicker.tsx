@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
-import { ArrowLeft, ChevronRight, Navigation, Loader2, Search, X, MapPin } from "lucide-react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Navigation,
+  Loader2,
+  Search,
+  X,
+  MapPin,
+  CheckCircle2,
+} from "lucide-react";
 import type { DeliveryLocation } from "../../utils/validation";
 
 // Default centre: Coimbatore, Tamil Nadu
 const DEFAULT_LAT = 11.0168;
 const DEFAULT_LNG = 76.9558;
-
-// Fallback API key to ensure production builds never initialize with an empty key
-const DEFAULT_API_KEY = "AIzaSyB6qf6mqx6iOI5ZVWbWT1bUAIZabYK_jYs";
 
 export interface MapLocationResult extends Omit<DeliveryLocation, "houseNo" | "landmark"> {}
 
@@ -19,9 +26,6 @@ interface MapLocationPickerProps {
   onClose: () => void;
 }
 
-let isGoogleConfigured = false;
-
-// ─── Address Component Parser ────────────────────────────────────────────────
 interface ParsedAddress {
   street: string;
   area: string;
@@ -32,57 +36,29 @@ interface ParsedAddress {
   formattedAddress: string;
 }
 
-function parseComponents(
-  components: google.maps.GeocoderAddressComponent[],
-  formattedAddress: string
-): ParsedAddress {
-  const get = (types: string[]) =>
-    components.find((c) => types.some((t) => c.types.includes(t)))?.long_name ?? "";
-
-  // Door number + street/road
-  const streetNumber = get(["street_number", "premise"]);
-  const route = get(["route", "sublocality_level_2"]);
-  const street = [streetNumber, route].filter(Boolean).join(", ");
-
-  // Neighbourhood / locality / area
-  const area =
-    get(["sublocality_level_1", "sublocality", "neighborhood", "political"]) ||
-    get(["administrative_area_level_4", "administrative_area_level_3"]);
-
-  const city = get(["locality"]) || get(["administrative_area_level_3"]) || "Coimbatore";
-  const district = get(["administrative_area_level_2"]) || "Coimbatore";
-  const state = get(["administrative_area_level_1"]) || "Tamil Nadu";
-  const pincode = get(["postal_code"]);
-
-  return { street, area, city, district, state, pincode, formattedAddress };
+interface SearchSuggestion {
+  displayName: string;
+  lat: number;
+  lng: number;
 }
 
-// ─── OpenStreetMap Nominatim Fallback Geocoder ──────────────────────────────
-async function fallbackReverseGeocode(lat: number, lng: number): Promise<ParsedAddress | null> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
-      { headers: { "Accept-Language": "en" } }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const addr = data.address || {};
+// Custom Green Pin Icon for Leaflet
+const createCustomPinIcon = () => {
+  return L.divIcon({
+    className: "custom-map-marker",
+    html: `
+      <div style="position: relative; width: 38px; height: 50px; transform: translate(-50%, -100%); cursor: grab;">
+        <svg width="38" height="50" viewBox="0 0 38 50" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));">
+          <path d="M19 0C8.507 0 0 8.507 0 19c0 13.435 19 31 19 31S38 32.435 38 19C38 8.507 29.493 0 19 0z" fill="#00A651"/>
+          <circle cx="19" cy="19" r="7.5" fill="white"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+};
 
-    const street = [addr.house_number, addr.road || addr.street].filter(Boolean).join(", ");
-    const area = addr.suburb || addr.neighbourhood || addr.residential || addr.village || "";
-    const city = addr.city || addr.town || addr.municipality || "Coimbatore";
-    const district = addr.county || addr.state_district || "Coimbatore";
-    const state = addr.state || "Tamil Nadu";
-    const pincode = addr.postcode || "";
-    const formattedAddress = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-
-    return { street, area, city, district, state, pincode, formattedAddress };
-  } catch {
-    return null;
-  }
-}
-
-// ─── Component ───────────────────────────────────────────────────────────────
 export function MapLocationPicker({
   initialLat,
   initialLng,
@@ -90,54 +66,58 @@ export function MapLocationPicker({
   onClose,
 }: MapLocationPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerInstanceRef = useRef<L.Marker | null>(null);
 
   const startLat = initialLat && initialLat !== 0 ? initialLat : DEFAULT_LAT;
   const startLng = initialLng && initialLng !== 0 ? initialLng : DEFAULT_LNG;
 
-  const [parsed, setParsed] = useState<ParsedAddress | null>(null);
   const [selectedLatLng, setSelectedLatLng] = useState<{ lat: number; lng: number } | null>(
     initialLat && initialLng ? { lat: initialLat, lng: initialLng } : null
   );
+  const [parsed, setParsed] = useState<ParsedAddress | null>(null);
   const [loading, setLoading] = useState(true);
   const [geocoding, setGeocoding] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
-  // ── Reverse-geocode a lat/lng and update parsed state ──────────────────────
+  // Places Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Reverse Geocode Function ──────────────────────────────────────────────
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
     setGeocoding(true);
     setSelectedLatLng({ lat, lng });
 
-    // 1. Try Google Geocoding API first
-    if (geocoderRef.current) {
-      try {
-        const res = await geocoderRef.current.geocode({ location: { lat, lng } });
-        if (res.results?.length) {
-          const first = res.results[0];
-          const p = parseComponents(first.address_components ?? [], first.formatted_address ?? "");
-          setParsed(p);
-          setGeocoding(false);
-          return;
-        }
-      } catch (err) {
-        console.warn("Google Geocoder notice (falling back to secondary geocoding):", err);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+        { headers: { "Accept-Language": "en" } }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const addr = data.address || {};
+
+        const street = [addr.house_number, addr.road || addr.street].filter(Boolean).join(", ");
+        const area = addr.suburb || addr.neighbourhood || addr.residential || addr.village || "";
+        const city = addr.city || addr.town || addr.municipality || "Coimbatore";
+        const district = addr.county || addr.state_district || "Coimbatore";
+        const state = addr.state || "Tamil Nadu";
+        const pincode = addr.postcode || "";
+        const formattedAddress = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+        setParsed({ street, area, city, district, state, pincode, formattedAddress });
+        setGeocoding(false);
+        return;
       }
+    } catch (err) {
+      console.warn("Reverse geocode notice:", err);
     }
 
-    // 2. Try Secondary Geocoder Fallback
-    const fallbackRes = await fallbackReverseGeocode(lat, lng);
-    if (fallbackRes) {
-      setParsed(fallbackRes);
-      setGeocoding(false);
-      return;
-    }
-
-    // 3. Coordinate Fallback
+    // Fallback if network issue
     setParsed({
       street: "",
       area: "",
@@ -145,193 +125,140 @@ export function MapLocationPicker({
       district: "Coimbatore",
       state: "Tamil Nadu",
       pincode: "",
-      formattedAddress: `${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`,
+      formattedAddress: `Location: ${lat.toFixed(5)}° N, ${lng.toFixed(5)}° E`,
     });
     setGeocoding(false);
   }, []);
 
-  // ── Place/move the marker ─────────────────────────────────────────────────
-  const placeMarker = useCallback(
-    (lat: number, lng: number, map: google.maps.Map) => {
-      if (markerRef.current) {
-        if ("position" in markerRef.current) {
-          markerRef.current.position = { lat, lng };
-        } else if ("setPosition" in markerRef.current) {
-          (markerRef.current as google.maps.Marker).setPosition({ lat, lng });
-        }
+  // ── Place or Move Marker ───────────────────────────────────────────────────
+  const setPin = useCallback(
+    (lat: number, lng: number, map: L.Map, pan = true) => {
+      if (pan) {
+        map.panTo([lat, lng], { animate: true });
       }
-      map.panTo({ lat, lng });
+
+      if (!markerInstanceRef.current) {
+        const marker = L.marker([lat, lng], {
+          icon: createCustomPinIcon(),
+          draggable: true,
+        }).addTo(map);
+
+        marker.on("dragend", () => {
+          const pos = marker.getLatLng();
+          reverseGeocode(pos.lat, pos.lng);
+        });
+
+        markerInstanceRef.current = marker;
+      } else {
+        markerInstanceRef.current.setLatLng([lat, lng]);
+      }
+
       reverseGeocode(lat, lng);
     },
     [reverseGeocode]
   );
 
-  // ── Init Google Maps ───────────────────────────────────────────────────────
+  // ── Initialize Map on Mount ────────────────────────────────────────────────
   useEffect(() => {
-    let isMounted = true;
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || DEFAULT_API_KEY;
+    if (!mapContainerRef.current) return;
 
-    if (!isGoogleConfigured) {
-      setOptions({ key: apiKey, v: "weekly" });
-      isGoogleConfigured = true;
+    // Prevent re-initialization on hot reloads
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
     }
 
-    async function init() {
-      try {
-        const [{ Map }, { Geocoder }, { Autocomplete }, markerLib] =
-          await Promise.all([
-            importLibrary("maps") as Promise<google.maps.MapsLibrary>,
-            importLibrary("geocoding") as Promise<google.maps.GeocodingLibrary>,
-            importLibrary("places") as Promise<google.maps.PlacesLibrary>,
-            importLibrary("marker").catch(() => null) as Promise<google.maps.MarkerLibrary | null>,
-          ]);
+    const map = L.map(mapContainerRef.current, {
+      center: [startLat, startLng],
+      zoom: 15,
+      zoomControl: false,
+    });
 
-        if (!isMounted || !mapContainerRef.current) return;
+    // Clean, crisp high-res tiles (Carto Voyager - fast, modern, and beautiful)
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+      subdomains: "abcd",
+    }).addTo(map);
 
-        // Use DEMO_MAP_ID which is the official Google Map ID for vector/advanced markers
-        const map = new Map(mapContainerRef.current, {
-          center: { lat: startLat, lng: startLng },
-          zoom: 15,
-          mapId: "DEMO_MAP_ID",
-          zoomControl: true,
-          mapTypeControl: false,
-          scaleControl: false,
-          streetViewControl: false,
-          rotateControl: false,
-          fullscreenControl: false,
-          gestureHandling: "greedy",
-          clickableIcons: true,
-          zoomControlOptions: {
-            position: google.maps.ControlPosition.RIGHT_CENTER,
-          },
-        });
+    // Zoom control at bottom right
+    L.control.zoom({ position: "bottomright" }).addTo(map);
 
-        geocoderRef.current = new Geocoder();
-        mapRef.current = map;
+    // Click anywhere on map to drop pin
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      setPin(e.latlng.lat, e.latlng.lng, map, false);
+    });
 
-        // ── Create Marker (Advanced or Standard fallback) ───────────────────
-        try {
-          if (markerLib && markerLib.AdvancedMarkerElement) {
-            const markerEl = document.createElement("div");
-            markerEl.style.cssText = `
-              width: 36px; height: 48px; cursor: grab;
-              display: flex; align-items: flex-end; justify-content: center;
-              filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
-            `;
-            markerEl.innerHTML = `
-              <svg width="36" height="48" viewBox="0 0 38 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19 0C8.507 0 0 8.507 0 19c0 13.435 19 31 19 31S38 32.435 38 19C38 8.507 29.493 0 19 0z" fill="#00A651"/>
-                <circle cx="19" cy="19" r="7.5" fill="white"/>
-              </svg>
-            `;
+    mapInstanceRef.current = map;
+    setLoading(false);
 
-            const marker = new markerLib.AdvancedMarkerElement({
-              map,
-              position: initialLat && initialLng ? { lat: initialLat, lng: initialLng } : null,
-              content: markerEl,
-              gmpDraggable: true,
-              title: "Delivery location",
-            });
-
-            marker.addListener("dragend", () => {
-              const pos = marker.position;
-              if (!pos || !isMounted) return;
-              const lat = typeof pos === "object" && "lat" in pos
-                ? (pos as google.maps.LatLngLiteral).lat
-                : (pos as google.maps.LatLng).lat();
-              const lng = typeof pos === "object" && "lng" in pos
-                ? (pos as google.maps.LatLngLiteral).lng
-                : (pos as google.maps.LatLng).lng();
-              if (isMounted) reverseGeocode(lat, lng);
-            });
-
-            markerRef.current = marker;
-          }
-        } catch {
-          // Standard Marker fallback if AdvancedMarkerElement is not supported in browser
-          const marker = new google.maps.Marker({
-            map,
-            position: initialLat && initialLng ? { lat: initialLat, lng: initialLng } : undefined,
-            draggable: true,
-            title: "Delivery location",
-          });
-          marker.addListener("dragend", (e: google.maps.MapMouseEvent) => {
-            if (e.latLng && isMounted) {
-              reverseGeocode(e.latLng.lat(), e.latLng.lng());
-            }
-          });
-          markerRef.current = marker;
-        }
-
-        // If we already have a location (re-opening picker), place marker & reverse geocode
-        if (initialLat && initialLng && isMounted) {
-          reverseGeocode(initialLat, initialLng);
-        }
-
-        // ── Map click → place marker ────────────────────────────────────────
-        map.addListener("click", (e: google.maps.MapMouseEvent) => {
-          if (!e.latLng || !isMounted) return;
-          const lat = e.latLng.lat();
-          const lng = e.latLng.lng();
-          placeMarker(lat, lng, map);
-        });
-
-        // ── Places Autocomplete ─────────────────────────────────────────────
-        if (searchInputRef.current) {
-          const ac = new Autocomplete(searchInputRef.current, {
-            componentRestrictions: { country: "in" },
-            fields: ["geometry", "formatted_address", "address_components"],
-          });
-          autocompleteRef.current = ac;
-
-          ac.addListener("place_changed", () => {
-            const place = ac.getPlace();
-            if (!place.geometry?.location) return;
-
-            const lat = place.geometry.location.lat();
-            const lng = place.geometry.location.lng();
-            if (!isMounted) return;
-
-            setSearchQuery("");
-            map.panTo({ lat, lng });
-            map.setZoom(17);
-
-            if (markerRef.current) {
-              if ("position" in markerRef.current) {
-                markerRef.current.position = { lat, lng };
-              } else if ("setPosition" in markerRef.current) {
-                (markerRef.current as google.maps.Marker).setPosition({ lat, lng });
-              }
-            }
-
-            const p = parseComponents(
-              place.address_components ?? [],
-              place.formatted_address ?? ""
-            );
-            setParsed(p);
-            setSelectedLatLng({ lat, lng });
-          });
-        }
-
-        setLoading(false);
-      } catch (err) {
-        console.warn("Google Maps init notice:", err);
-        if (isMounted) setLoading(false);
-      }
+    // If initial location provided, drop pin
+    if (initialLat && initialLng) {
+      setPin(initialLat, initialLng, map, true);
     }
 
-    init();
+    // Invalidate map size after animation finishes
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
 
     return () => {
-      isMounted = false;
-      mapRef.current = null;
-      geocoderRef.current = null;
-      markerRef.current = null;
-      autocompleteRef.current = null;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+      markerInstanceRef.current = null;
     };
-  }, [startLat, startLng, initialLat, initialLng, reverseGeocode, placeMarker]);
+  }, [startLat, startLng, initialLat, initialLng, setPin]);
 
-  // ── GPS: use current location ──────────────────────────────────────────────
+  // ── Search Input Suggestions (Debounced) ───────────────────────────────────
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (!query.trim() || query.length < 2) {
+      setSuggestions([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            query + ", Tamil Nadu, India"
+          )}&limit=5&addressdetails=1`
+        );
+        if (res.ok) {
+          const results = await res.json();
+          setSuggestions(
+            results.map((item: { display_name: string; lat: string; lon: string }) => ({
+              displayName: item.display_name,
+              lat: parseFloat(item.lat),
+              lng: parseFloat(item.lon),
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn("Search error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+  };
+
+  const handleSelectSuggestion = (item: SearchSuggestion) => {
+    setSearchQuery("");
+    setSuggestions([]);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView([item.lat, item.lng], 16, { animate: true });
+      setPin(item.lat, item.lng, mapInstanceRef.current, false);
+    }
+  };
+
+  // ── GPS: Use Current Location ──────────────────────────────────────────────
   const handleCurrentLocation = useCallback(() => {
     if (!navigator.geolocation || locating) return;
     setLocating(true);
@@ -339,25 +266,17 @@ export function MapLocationPicker({
       ({ coords }) => {
         const { latitude: lat, longitude: lng } = coords;
         setLocating(false);
-        if (mapRef.current) {
-          mapRef.current.panTo({ lat, lng });
-          mapRef.current.setZoom(17);
-          if (markerRef.current) {
-            if ("position" in markerRef.current) {
-              markerRef.current.position = { lat, lng };
-            } else if ("setPosition" in markerRef.current) {
-              (markerRef.current as google.maps.Marker).setPosition({ lat, lng });
-            }
-          }
-          reverseGeocode(lat, lng);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setView([lat, lng], 17, { animate: true });
+          setPin(lat, lng, mapInstanceRef.current, false);
         }
       },
       () => setLocating(false),
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [locating, reverseGeocode]);
+  }, [locating, setPin]);
 
-  // ── Confirm ────────────────────────────────────────────────────────────────
+  // ── Confirm Location ───────────────────────────────────────────────────────
   const handleConfirm = useCallback(() => {
     if (!selectedLatLng || !parsed) return;
     onConfirm({
@@ -377,8 +296,7 @@ export function MapLocationPicker({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ fontFamily: "inherit" }}>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <div
         className="flex items-center gap-3 px-4 bg-white flex-shrink-0"
         style={{
@@ -400,55 +318,76 @@ export function MapLocationPicker({
         </div>
       </div>
 
-      {/* ── Places Search ──────────────────────────────────────────────────── */}
-      <div className="bg-white px-4 py-3 border-b border-[#F0F0F0] flex-shrink-0">
+      {/* ── Search Input & Suggestions ──────────────────────────────────────── */}
+      <div className="relative bg-white px-4 py-3 border-b border-[#F0F0F0] flex-shrink-0 z-20">
         <div className="relative flex items-center">
           <Search size={16} className="absolute left-3.5 text-[#888888] pointer-events-none" />
           <input
-            ref={searchInputRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search street, area, or landmark…"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search street, area, or landmark in Coimbatore…"
             className="w-full h-11 pl-10 pr-10 bg-[#F5F5F5] rounded-[12px] text-sm font-medium text-[#111111] placeholder-[#AAAAAA] focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 transition-all"
-            id="location-search-input"
             autoComplete="off"
           />
-          {searchQuery && (
+          {isSearching && (
+            <Loader2 size={16} className="absolute right-3 animate-spin text-[#00A651]" />
+          )}
+          {searchQuery && !isSearching && (
             <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 text-[#AAAAAA] cursor-pointer"
+              onClick={() => {
+                setSearchQuery("");
+                setSuggestions([]);
+              }}
+              className="absolute right-3 text-[#AAAAAA] hover:text-[#444444] cursor-pointer"
               aria-label="Clear search"
             >
               <X size={16} />
             </button>
           )}
         </div>
+
+        {/* Search Results Dropdown */}
+        {suggestions.length > 0 && (
+          <div className="absolute left-4 right-4 top-full mt-1 bg-white rounded-[16px] shadow-2xl border border-[#EAEAEA] overflow-hidden z-30 divide-y divide-gray-100">
+            {suggestions.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSelectSuggestion(item)}
+                className="w-full px-4 py-3 text-left hover:bg-[#F5FCF8] flex items-start gap-2.5 transition-colors cursor-pointer"
+              >
+                <MapPin size={16} className="text-[#00A651] mt-0.5 flex-shrink-0" />
+                <span className="text-xs font-semibold text-[#111111] line-clamp-2">
+                  {item.displayName}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* ── Map ────────────────────────────────────────────────────────────── */}
-      <div className="relative flex-1 min-h-0 overflow-hidden bg-[#E5E3DF]">
-
-        {/* Loading overlay */}
+      {/* ── Interactive Map Canvas ──────────────────────────────────────────── */}
+      <div className="relative flex-1 min-h-0 overflow-hidden bg-[#EAEAEA]">
+        {/* Loading Spinner */}
         {loading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#E5E3DF] gap-3">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#EAEAEA] gap-3">
             <Loader2 size={30} className="animate-spin text-[#00A651]" />
-            <p className="text-sm text-gray-500 font-medium">Loading map…</p>
+            <p className="text-sm text-gray-500 font-medium">Loading interactive map…</p>
           </div>
         )}
 
-        {/* Map canvas */}
-        <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+        {/* Leaflet Map Div */}
+        <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }} />
 
-        {/* "Tap to place pin" prompt — shown only when no pin placed yet */}
-        {!loading && !hasLocation && (
+        {/* Tap Prompt Banner */}
+        {!hasLocation && (
           <div
             className="absolute z-10 flex justify-center pointer-events-none"
             style={{ top: 14, left: 0, right: 0 }}
           >
             <div
               style={{
-                background: "rgba(0,0,0,0.78)",
+                background: "rgba(0,0,0,0.8)",
                 color: "#fff",
                 fontSize: 13,
                 fontWeight: 600,
@@ -458,90 +397,73 @@ export function MapLocationPicker({
                 boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
               }}
             >
-              👆 Tap the map to drop your delivery pin
+              👆 Tap anywhere on the map to drop your delivery pin
             </div>
           </div>
         )}
 
-        {/* Geocoding spinner overlay on map */}
+        {/* Geocoding Spinner Badge */}
         {geocoding && (
-          <div className="absolute top-4 right-4 z-10 bg-white rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-md">
+          <div className="absolute top-4 right-4 z-10 bg-white rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-md border border-gray-200">
             <Loader2 size={13} className="animate-spin text-[#00A651]" />
-            <span className="text-xs font-semibold text-[#555555]">Fetching address…</span>
+            <span className="text-xs font-semibold text-[#555555]">Detecting address…</span>
           </div>
         )}
 
-        {/* GPS button */}
-        {!loading && (
-          <div
-            className="absolute z-10 flex justify-center"
-            style={{ bottom: 16, left: 0, right: 0 }}
+        {/* GPS Button */}
+        <div
+          className="absolute z-10 flex justify-center"
+          style={{ bottom: 16, left: 0, right: 0, pointerEvents: "none" }}
+        >
+          <button
+            onClick={handleCurrentLocation}
+            disabled={locating}
+            className="flex items-center gap-2 bg-white font-semibold text-sm px-5 py-2.5 rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-60 pointer-events-auto"
+            style={{ color: "#00A651" }}
+            aria-label="Use current location"
           >
-            <button
-              onClick={handleCurrentLocation}
-              disabled={locating}
-              className="flex items-center gap-2 bg-white font-semibold text-sm px-5 py-2.5 rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-60"
+            <Navigation
+              size={16}
+              className={`flex-shrink-0 ${locating ? "animate-pulse" : ""}`}
               style={{ color: "#00A651" }}
-              aria-label="Use current location"
-            >
-              <Navigation
-                size={16}
-                className={`flex-shrink-0 ${locating ? "animate-pulse" : ""}`}
-                style={{ color: "#00A651" }}
-              />
-              {locating ? "Locating…" : "Use my current location"}
-            </button>
-          </div>
-        )}
+            />
+            {locating ? "Locating…" : "Use my current location"}
+          </button>
+        </div>
       </div>
 
-      {/* ── Address Preview + Confirm ───────────────────────────────────────── */}
-      <div
-        className="bg-white flex-shrink-0"
-        style={{ borderTop: "1px solid #F0F0F0" }}
-      >
+      {/* ── Bottom Address Details & Confirm ─────────────────────────────────── */}
+      <div className="bg-white flex-shrink-0 border-t border-[#F0F0F0]">
         {hasLocation && parsed ? (
           <div className="px-4 pt-4 pb-2">
-            {/* Header */}
-            <div className="flex items-center gap-2 mb-3">
+            {/* Delivery Heading */}
+            <div className="flex items-center gap-2 mb-2.5">
               <MapPin size={15} className="text-[#00A651] flex-shrink-0" />
               <p className="text-[13px] font-black text-[#111111]">Delivering to</p>
-              <span className="ml-auto text-[11px] text-[#00A651] font-bold bg-[#EAF8F0] px-2 py-0.5 rounded-full">
-                ✓ Pin placed
+              <span className="ml-auto text-[11px] text-[#00A651] font-bold bg-[#EAF8F0] px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 size={12} /> Pin placed
               </span>
             </div>
 
-            {/* Address detail chips */}
-            <div className="bg-[#F9F9F9] rounded-[14px] px-3.5 py-3 mb-3 space-y-1.5">
+            {/* Address Details Card */}
+            <div className="bg-[#F9F9F9] rounded-[14px] px-3.5 py-3 mb-3 space-y-1.5 border border-[#EEEEEE]">
               {parsed.formattedAddress && (
                 <p className="text-[13px] font-semibold text-[#111111] leading-snug">
                   {parsed.formattedAddress}
                 </p>
               )}
               <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {parsed.street && (
-                  <Chip color="blue" label={parsed.street} />
-                )}
-                {parsed.area && (
-                  <Chip color="green" label={parsed.area} />
-                )}
-                {parsed.city && (
-                  <Chip color="green" label={`🏙 ${parsed.city}`} />
-                )}
-                {parsed.district && (
-                  <Chip color="gray" label={parsed.district} />
-                )}
-                {parsed.state && (
-                  <Chip color="gray" label={parsed.state} />
-                )}
-                {parsed.pincode && (
-                  <Chip color="green" label={`📮 ${parsed.pincode}`} bold />
-                )}
+                {parsed.street && <Chip color="blue" label={parsed.street} />}
+                {parsed.area && <Chip color="green" label={parsed.area} />}
+                {parsed.city && <Chip color="green" label={`🏙 ${parsed.city}`} />}
+                {parsed.district && <Chip color="gray" label={parsed.district} />}
+                {parsed.state && <Chip color="gray" label={parsed.state} />}
+                {parsed.pincode && <Chip color="green" label={`📮 ${parsed.pincode}`} bold />}
               </div>
             </div>
 
             <p className="text-[11px] text-[#AAAAAA] text-center mb-2">
-              Not right? Tap another spot on the map or drag the pin.
+              Tip: You can drag the green pin or tap another spot to adjust.
             </p>
           </div>
         ) : (
@@ -555,7 +477,7 @@ export function MapLocationPicker({
           </div>
         )}
 
-        {/* Confirm button */}
+        {/* Confirm Button */}
         <div
           className="px-4"
           style={{ paddingBottom: "max(env(safe-area-inset-bottom, 14px), 14px)" }}
@@ -569,7 +491,7 @@ export function MapLocationPicker({
             {geocoding ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Fetching address…
+                Detecting address…
               </>
             ) : hasLocation ? (
               <>
@@ -587,7 +509,15 @@ export function MapLocationPicker({
 }
 
 // Small reusable chip
-function Chip({ label, color, bold }: { label: string; color: "green" | "gray" | "blue"; bold?: boolean }) {
+function Chip({
+  label,
+  color,
+  bold,
+}: {
+  label: string;
+  color: "green" | "gray" | "blue";
+  bold?: boolean;
+}) {
   const styles: Record<string, string> = {
     green: "bg-[#EAF8F0] text-[#087A43]",
     gray: "bg-[#F0F0F0] text-[#555555]",
@@ -595,7 +525,9 @@ function Chip({ label, color, bold }: { label: string; color: "green" | "gray" |
   };
   return (
     <span
-      className={`text-[11px] px-2 py-0.5 rounded-full ${styles[color]} ${bold ? "font-bold" : "font-semibold"}`}
+      className={`text-[11px] px-2 py-0.5 rounded-full ${styles[color]} ${
+        bold ? "font-bold" : "font-semibold"
+      }`}
     >
       {label}
     </span>
