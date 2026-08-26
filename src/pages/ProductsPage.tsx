@@ -5,6 +5,7 @@ import { CategoryScroller } from "../components/features/CategoryScroller";
 import { ProductGrid } from "../components/features/ProductGrid";
 import { SearchOverlay } from "../components/features/SearchOverlay";
 import { PRODUCTS, ProductCategory } from "../data/products";
+import { CATEGORIES } from "../data/categories";
 import { useSearchParams } from "react-router-dom";
 
 export default function ProductsPage() {
@@ -22,7 +23,9 @@ export default function ProductsPage() {
       : PRODUCTS.filter((p) => p.category === activeCategory);
 
   const categoryLabel =
-    activeCategory === "all" ? "All Products" : activeCategory.replace(/-/g, " ");
+    activeCategory === "all"
+      ? "All Products"
+      : CATEGORIES.find((c) => c.id === activeCategory)?.name || activeCategory.replace(/-/g, " ");
 
   return (
     <>

@@ -19,8 +19,11 @@ export default function HomePage() {
 
   // Fresh & Cleaned Products
   const freshProducts = PRODUCTS.filter((p) =>
-    ["keerai", "vegetables"].includes(p.category)
+    ["keerai", "microgreens", "vegetables"].includes(p.category)
   );
+
+  // Microgreens category
+  const microgreensProducts = PRODUCTS.filter((p) => p.category === "microgreens");
 
   // Premium Quality Products (Dry Fruits, Seeds, Healthy Choices)
   const premiumProducts = PRODUCTS.filter((p) =>
@@ -47,12 +50,17 @@ export default function HomePage() {
           <ProductGrid products={featuredProducts} title="Featured Products" />
         </div>
 
-        {/* 5. Fresh & Cleaned Products */}
+        {/* 5. Fresh Microgreens Section */}
+        <div className="mt-6">
+          <ProductGrid products={microgreensProducts} title="Fresh Microgreens (40g Pack)" />
+        </div>
+
+        {/* 6. Fresh & Cleaned Products */}
         <div className="mt-6">
           <ProductGrid products={freshProducts} title="Fresh Products" />
         </div>
 
-        {/* 6. Premium Quality Products */}
+        {/* 7. Premium Quality Products */}
         <div className="mt-6">
           <ProductGrid products={premiumProducts} title="Premium Quality Products" />
         </div>

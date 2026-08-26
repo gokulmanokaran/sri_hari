@@ -193,6 +193,33 @@ function sendAdminOrderEmail(data) {
   var paymentStatus = data.paymentStatus || "Paid (Razorpay)";
   var paymentId = data.paymentId || data.razorpayPaymentId || "N/A";
 
+  // Build WhatsApp pre-filled message (items, total, address, thank-you)
+  var waItemLines = "";
+  if (data.items && data.items.length) {
+    for (var wi = 0; wi < data.items.length; wi++) {
+      var waItem = data.items[wi];
+      waItemLines += "  • " + waItem.name + (waItem.unit ? " (" + waItem.unit + ")" : "") + " × " + waItem.quantity + " = ₹" + ((waItem.price || 0) * (waItem.quantity || 1)) + "\n";
+    }
+  } else {
+    waItemLines = "  " + (data.productsSummary || "Your order items") + "\n";
+  }
+  var waMsg =
+    "Hello " + customerName + ",\n\n" +
+    "Thank you for your order from Shree Hari Keerai! 🌿\n\n" +
+    "*Order Details* (#" + orderId + ")\n" +
+    "━━━━━━━━━━━━━━━━━━━━\n" +
+    waItemLines +
+    "━━━━━━━━━━━━━━━━━━━━\n" +
+    (discount > 0 ? "Subtotal: ₹" + subtotal + "\nDiscount: −₹" + discount + "\n" : "") +
+    "Delivery Charge: ₹" + deliveryCharge + "\n" +
+    "*Total Paid: ₹" + total + "*\n\n" +
+    "*Delivery Address:*\n" + address + (pincode ? ", " + pincode : "") + "\n\n" +
+    "Your fresh keerai will be delivered tomorrow morning (6:00 AM – 10:30 AM). 🚚\n\n" +
+    "For any queries, feel free to WhatsApp or call us at 8438758801.\n\n" +
+    "Thank you for choosing Shree Hari Keerai! 🙏";
+  var waPhone = "91" + mobile.replace(/\D/g, "");
+  var waUrl = "https://wa.me/" + waPhone + "?text=" + encodeURIComponent(waMsg);
+
   var subject = "🌿 New Order Received: #" + orderId + " · ₹" + total + " (" + customerName + ")";
 
   // Build Ordered Items HTML Rows
@@ -344,9 +371,28 @@ function sendAdminOrderEmail(data) {
         '</div>' +
 
         // Action Quick Bar
-        '<div style="text-align:center; padding-top:10px;">' +
-          '<a href="tel:' + mobile + '" style="display:inline-block; background-color:#111111; color:#FFFFFF; padding:10px 18px; border-radius:10px; text-decoration:none; font-size:13px; font-weight:bold; margin-right:8px;">📞 Call Customer</a>' +
-          '<a href="https://wa.me/91' + mobile.replace(/\D/g, '') + '" style="display:inline-block; background-color:#25D366; color:#FFFFFF; padding:10px 18px; border-radius:10px; text-decoration:none; font-size:13px; font-weight:bold;">💬 WhatsApp</a>' +
+        '<div style="text-align:center; padding-top:10px; display:flex; flex-direction:column; align-items:center; gap:10px;">' +
+
+          // Row 1: Call + plain WhatsApp
+          '<div>' +
+            '<a href="tel:' + mobile + '" style="display:inline-block; background-color:#111111; color:#FFFFFF; padding:10px 18px; border-radius:10px; text-decoration:none; font-size:13px; font-weight:bold; margin-right:8px;">📞 Call Customer</a>' +
+            '<a href="https://wa.me/' + waPhone + '" style="display:inline-block; background-color:#25D366; color:#FFFFFF; padding:10px 18px; border-radius:10px; text-decoration:none; font-size:13px; font-weight:bold;">💬 WhatsApp</a>' +
+          '</div>' +
+
+          // Row 2: Send WhatsApp with pre-filled order message (prominent green button)
+          '<a href="' + waUrl + '" target="_blank" style="' +
+            'display:inline-block; ' +
+            'background:linear-gradient(135deg, #25D366 0%, #128C7E 100%); ' +
+            'color:#FFFFFF; ' +
+            'padding:13px 28px; ' +
+            'border-radius:12px; ' +
+            'text-decoration:none; ' +
+            'font-size:14px; ' +
+            'font-weight:900; ' +
+            'letter-spacing:0.3px; ' +
+            'box-shadow:0 4px 12px rgba(37,211,102,0.35);' +
+          '">📲 Send WhatsApp (Order Details Pre-filled)</a>' +
+
         '</div>' +
 
       '</div>' +

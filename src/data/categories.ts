@@ -17,6 +17,13 @@ export const CATEGORIES: Category[] = [
     color: "#EAF8F0",
   },
   {
+    id: "microgreens",
+    name: "Microgreens",
+    emoji: "🌱",
+    description: "Nutrient-packed microgreens (40g Pack)",
+    color: "#E8F5E9",
+  },
+  {
     id: "vegetables",
     name: "Vegetables",
     emoji: "🧅",

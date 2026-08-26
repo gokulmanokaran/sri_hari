@@ -1,5 +1,6 @@
 export type ProductCategory =
   | "keerai"
+  | "microgreens"
   | "vegetables"
   | "ready-to-cook"
   | "dry-fruits"
@@ -29,29 +30,335 @@ export function getProductDisplayName(product: Product): string {
 }
 
 export const PRODUCTS: Product[] = [
-  // ── Fresh / Cleaned Products ────────────────────────────────────────────
+  // ── Greens / Keerai (Fresh Cleaned Packs) ───────────────────────────────
+  {
+    id: "ponnangani-keerai",
+    name: "Ponnangani Keerai",
+    nameTamil: "பொன்னாங்கண்ணி கீரை",
+    price: 49,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Fresh cleaned Ponnangani Keerai (Sessile Joyweed). Rich in iron and vitamins. Ready to cook straight from the pack.",
+    image: "/product-images/ponnangani-keerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "palak-leaves",
+    name: "Palak Leaves",
+    nameTamil: "பாலக்கீரை",
+    price: 53,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Freshly cleaned Palak (Spinach) leaves. Naturally rich in iron, calcium and vitamins. Ready to cook.",
+    image: "/product-images/palak-leaves.jpg",
+    inStock: true,
+  },
+  {
+    id: "araikeerai",
+    name: "Araikeerai",
+    nameTamil: "அரைக்கீரை",
+    price: 47,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Tender Araikeerai (Amaranthus dubius) leaves, carefully cleaned and packed fresh. Great for kootu and poriyal.",
+    image: "/product-images/araikeerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "thandukeerai",
+    name: "Thandukeerai",
+    nameTamil: "தண்டுக்கீரை",
+    price: 45,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Fresh Thandukeerai with juicy stems and bright green leaves. Packed with nutrients and perfect for South Indian recipes.",
+    image: "/product-images/thandukeerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "senkeerai",
+    name: "Senkeerai",
+    nameTamil: "செங்கீரை",
+    price: 45,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Vibrant Senkeerai (Red Amaranth) with distinctive red-purple veins. Highly nutritious and full of natural colour.",
+    image: "/product-images/senkeerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "murungaikeerai",
+    name: "Murungaikeerai",
+    nameTamil: "முருங்கைக்கீரை",
+    price: 77,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Premium Murungaikeerai (Moringa / Drumstick Leaves). A superfood packed with protein, vitamins and minerals.",
+    image: "/product-images/murungaikeerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "manathakkaali-keerai",
+    name: "Manathakkaali Keerai",
+    nameTamil: "மணத்தக்காளி கீரை",
+    price: 49,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Fresh Manathakkaali (Black Nightshade) leaves. Traditionally used for its cooling properties and digestive benefits.",
+    image: "/product-images/manathakkaali-keerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "paruppukeerai",
+    name: "Paruppukeerai",
+    nameTamil: "பருப்புக்கீரை",
+    price: 49,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Tender Paruppukeerai (Tropical Amaranth) with delicate pale green leaves. Excellent for dal-based dishes.",
+    image: "/product-images/paruppukeerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "sirukeerai",
+    name: "Sirukeerai",
+    nameTamil: "சிறுகீரை",
+    price: 49,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Fresh Sirukeerai (Tropical Amaranth / Slender Amaranth) leaves. Mild in taste and rich in nutrients.",
+    image: "/product-images/sirukeerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "venthayakeerai",
+    name: "Venthayakeerai",
+    nameTamil: "வெந்தயக்கீரை",
+    price: 59,
+    unit: "250g Cleaned Pack",
+    category: "keerai",
+    description:
+      "Fresh Venthayakeerai (Fenugreek Leaves / Methi). Distinctively aromatic with a slight bitterness. Excellent for health.",
+    image: "/product-images/venthayakeerai.jpg",
+    inStock: true,
+  },
+  {
+    id: "puthina",
+    name: "Puthina",
+    nameTamil: "புதினா",
+    price: 43,
+    unit: "100g Pack",
+    category: "keerai",
+    description:
+      "Fresh Puthina (Mint Leaves). Aromatic and refreshing. Perfect for chutneys, biriyani, juices and teas.",
+    image: "/product-images/puthina.jpg",
+    inStock: true,
+  },
+  {
+    id: "karuveppillai",
+    name: "Karuveppillai",
+    nameTamil: "கருவேப்பிலை",
+    price: 23,
+    unit: "100g Pack",
+    category: "keerai",
+    description:
+      "Fresh Karuveppillai (Curry Leaves). An essential ingredient in South Indian cooking — aromatic and flavourful.",
+    image: "/product-images/karuveppillai.jpg",
+    inStock: true,
+  },
+  {
+    id: "coriander-leaves",
+    name: "Coriander Leaves",
+    nameTamil: "கொத்தமல்லி",
+    price: 27,
+    unit: "100g Pack",
+    category: "keerai",
+    description:
+      "Fresh Coriander (Kothamalli) Leaves. Fragrant and versatile — perfect for garnishing, chutneys and cooking.",
+    image: "/product-images/coriander-leaves.jpg",
+    inStock: true,
+  },
   {
     id: "dwarf-copper-leaves",
     name: "Dwarf Copper Leaves",
-    nameTamil: "சிறு செம்பு கீரை",
-    price: 40,
-    unit: "Cleaned Pack",
+    nameTamil: "சிவப்பு பொன்னாங்கண்ணிக்கீரை",
+    price: 59,
+    unit: "250g Cleaned Pack",
     category: "keerai",
     description:
-      "Freshly cleaned dwarf copper leaves, rich in natural goodness. Ready to cook straight from the pack.",
+      "Fresh cleaned Dwarf Copper Leaves (Sivappu Ponnanganni Keerai). Deep copper-red leaves rich in antioxidants and iron. Ready to cook.",
+    image: "/product-images/dwarf-copper-leaves.jpg",
+    inStock: true,
+  },
+
+  // ── Microgreens (40g Packs) ──────────────────────────────────────────────
+  {
+    id: "methi-microgreens",
+    name: "Methi",
+    nameTamil: "வெந்தயக் கீரை",
+    price: 79,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Fresh tender Methi (Fenugreek) microgreens packed in a 40g container. Loaded with vital enzymes, minerals, and rich aroma.",
+    image: "/product-images/methi-microgreens.jpg",
     inStock: true,
   },
   {
-    id: "spleen-amaranthus",
-    name: "Spleen Amaranthus",
-    nameTamil: "முளைக்கீரை",
-    price: 40,
-    unit: "Cleaned Pack",
-    category: "keerai",
+    id: "alfalfa-microgreens",
+    name: "Alfalfa",
+    nameTamil: "குதிரை மசால்",
+    price: 99,
+    unit: "40g Pack",
+    category: "microgreens",
     description:
-      "Tender spleen amaranthus greens, carefully cleaned and packed fresh for your kitchen.",
+      "Nutrient-rich delicate Alfalfa microgreens. Crisp, nutty, and exceptionally rich in vitamins A, C, E, and K.",
+    image: "/product-images/alfalfa-microgreens.jpg",
     inStock: true,
   },
+  {
+    id: "mustard-microgreens",
+    name: "Mustard",
+    nameTamil: "கடுகு",
+    price: 99,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Fresh zesty Mustard microgreens with a pleasant peppery kick. Excellent for salads, sandwiches, and garnishing.",
+    image: "/product-images/mustard-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "radish-china-rose-microgreens",
+    name: "Radish (China Rose)",
+    nameTamil: "சீனா ரோஸ் முள்ளங்கி",
+    price: 99,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Vibrant pink-stemmed China Rose Radish microgreens. Crunchy, mildly spicy, and rich in immune-boosting antioxidants.",
+    image: "/product-images/radish-china-rose-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "radish-white-microgreens",
+    name: "Radish (White)",
+    nameTamil: "வெள்ளை முள்ளங்கி",
+    price: 99,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Crisp white-stemmed Radish microgreens with a refreshing spicy tang. Packed with digestive enzymes and vitamin C.",
+    image: "/product-images/radish-white-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "spinach-microgreens",
+    name: "Spinach",
+    nameTamil: "பாலக்",
+    price: 99,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Tender Spinach microgreens with soft baby leaves. Mild, buttery flavor packed with bioavailable iron and folate.",
+    image: "/product-images/spinach-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "sunflower-microgreens",
+    name: "Sunflower",
+    nameTamil: "சூரியகாந்தி",
+    price: 99,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Plump, crunchy Sunflower microgreens with a delicious nutty flavor. Rich in complete plant protein and essential amino acids.",
+    image: "/product-images/sunflower-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "amaranthus-pink-microgreens",
+    name: "Amaranthus (Pink)",
+    nameTamil: "இளஞ்சிவப்பு தண்டுக்கீரை",
+    price: 109,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Stunning magenta-pink Amaranthus microgreens. Adds vibrant color, subtle earthy sweetness, and high concentrations of betalains.",
+    image: "/product-images/amaranthus-pink-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "beetroot-microgreens",
+    name: "Beetroot",
+    nameTamil: "பீட்ரூட்",
+    price: 109,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Gorgeous ruby-stemmed Beetroot microgreens with deep purple-green leaves. Sweet, earthy flavor rich in dietary nitrates and iron.",
+    image: "/product-images/beetroot-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "broccoli-microgreens",
+    name: "Broccoli",
+    nameTamil: "ப்ரோக்கோலி",
+    price: 109,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Powerhouse Broccoli microgreens celebrated for immense sulforaphane content. Mild, fresh cabbage-like flavor.",
+    image: "/product-images/broccoli-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "khol-rabi-microgreens",
+    name: "Khol Rabi",
+    nameTamil: "நூல் கோல்",
+    price: 109,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Tender purple and green Kohlrabi microgreens with a sweet, mild turnip-like crunch. Rich in vitamin C and glucosinolates.",
+    image: "/product-images/khol-rabi-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "pak-choi-microgreens",
+    name: "Pak Choi",
+    nameTamil: "பாக் சோய்",
+    price: 109,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Juicy, tender Pak Choi (Bok Choy) microgreens with mild brassica sweetness. High in vitamins A, C, and dietary minerals.",
+    image: "/product-images/pak-choi-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "radish-purple-sango-microgreens",
+    name: "Radish (Purple Sango)",
+    nameTamil: "பர்பிள் சாங்கோ முள்ளங்கி",
+    price: 109,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Intense deep purple Radish Sango microgreens. Striking visual appeal with a crisp, spicy radish punch and anthocyanins.",
+    image: "/product-images/radish-purple-sango-microgreens.jpg",
+    inStock: true,
+  },
+
+  // ── Fresh / Cleaned Vegetables ──────────────────────────────────────────
   {
     id: "small-onion",
     name: "Small Onion",
@@ -89,11 +396,11 @@ export const PRODUCTS: Product[] = [
     inStock: true,
   },
 
-  // ── Premium Quality Products ─────────────────────────────────────────────
+  // ── Premium Quality Dry Fruits ───────────────────────────────────────────
   {
     id: "black-dates",
     name: "Black Dates",
-    nameTamil: "கருப்பு பேரீட்டை",
+    nameTamil: "கருப்பு பேரீச்சை",
     price: 200,
     unit: "500g",
     category: "dry-fruits",
@@ -178,6 +485,8 @@ export const PRODUCTS: Product[] = [
       "Creamy, premium whole cashews. Perfect for snacking or cooking rich, flavourful dishes.",
     inStock: true,
   },
+
+  // ── Healthy Seeds ────────────────────────────────────────────────────────
   {
     id: "chia-seeds",
     name: "Chia Seeds",
@@ -244,6 +553,8 @@ export const PRODUCTS: Product[] = [
       "Delicate melon seeds with a mild, nutty taste. Versatile for snacking or adding to recipes.",
     inStock: true,
   },
+
+  // ── Healthy Choices & Herbal ─────────────────────────────────────────────
   {
     id: "badam-gum",
     name: "Badam Gum",
