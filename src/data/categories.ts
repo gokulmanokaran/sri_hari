@@ -53,9 +53,9 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: "premium-products",
-    name: "Premium Powders",
+    name: "Natural Powders",
     emoji: "✨",
-    description: "Premium health powders",
+    description: "Pure natural herbal powders",
     color: "#FAF0FF",
   },
   {

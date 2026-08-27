@@ -127,12 +127,17 @@ export function loadRazorpayScript(): Promise<boolean> {
 }
 
 /**
- * Optional server-side Razorpay Order Creator (used if backend endpoint is active)
+ * Optional server-side Razorpay Order Creator (used if backend endpoint is configured)
  */
 async function createBackendRazorpayOrder(amount: number, orderId: string): Promise<string | undefined> {
+  // Only attempt if explicit backend endpoint is enabled
+  if (typeof window === "undefined" || !import.meta.env.VITE_ENABLE_BACKEND_RAZORPAY) {
+    return undefined;
+  }
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2-second max timeout
+    const timeoutId = setTimeout(() => controller.abort(), 800);
 
     const res = await fetch("/api/create-razorpay-order", {
       method: "POST",
@@ -146,7 +151,7 @@ async function createBackendRazorpayOrder(amount: number, orderId: string): Prom
       return data.orderId || undefined;
     }
   } catch {
-    // Timeout or serverless endpoint not configured; proceed with standard client checkout
+    // Proceed with standard direct Razorpay client checkout
   }
   return undefined;
 }
@@ -159,7 +164,7 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
   if (!isScriptLoaded || typeof window === "undefined" || !window.Razorpay) {
     return {
       success: false,
-      error: "Unable to load Razorpay payment gateway. Please check your internet connection.",
+      error: "Unable to connect to Razorpay payment gateway. Please check your internet connection and retry.",
     };
   }
 

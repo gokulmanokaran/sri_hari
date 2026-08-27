@@ -27,8 +27,6 @@ import {
   type DeliveryLocation,
 } from "../utils/validation";
 import { DEFAULT_MINIMUM_ORDER, isValidPincode } from "../data/deliveryZones";
-import { processPayment } from "../services/paymentService";
-import { submitOrderNotification } from "../services/orderService";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -159,10 +157,20 @@ export default function CheckoutPage() {
     setShowAddressEdit(true);
   }, [setPincode]);
 
-  const handlePlaceOrder = async () => {
-    if (subtotal < minOrder) { navigate("/cart"); return; }
+  const handleProceedToPayment = () => {
+    if (subtotal < minOrder) {
+      navigate("/cart");
+      return;
+    }
 
-    const formData: CheckoutFormData = { fullName, mobile, alternateMobile, email, delivery };
+    const formData: CheckoutFormData = {
+      fullName: fullName.trim(),
+      mobile: mobile.trim(),
+      alternateMobile: alternateMobile.trim(),
+      email: email.trim(),
+      delivery,
+    };
+
     const newErrors = validateCheckoutForm(formData);
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -175,7 +183,9 @@ export default function CheckoutPage() {
         GUEST_STORAGE_KEY,
         JSON.stringify({ fullName, mobile, alternateMobile, email })
       );
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     isNavigatingRef.current = true;
     setPlacing(true);
@@ -190,91 +200,56 @@ export default function CheckoutPage() {
       unit: i.product.unit,
     }));
 
-    let paymentResult: { success: boolean; razorpayPaymentId?: string; razorpayOrderId?: string; error?: string };
-    try {
-      paymentResult = await processPayment({
-        orderId, amount: total, currency: "INR",
-        customerName: fullName, customerEmail: email, customerPhone: mobile,
-        description: `Shree Hari Keerai — Order #${orderId}`,
-      });
-    } catch (err) {
-      setPlacing(false);
-      isNavigatingRef.current = false;
-      setErrors((prev) => ({
-        ...prev,
-        payment: err instanceof Error ? err.message : "Failed to open payment gateway. Please try again.",
-      }));
-      return;
-    }
-
-    if (!paymentResult.success) {
-      setPlacing(false);
-      isNavigatingRef.current = false;
-      setErrors((prev) => ({
-        ...prev,
-        payment: paymentResult.error || "Payment was cancelled. Please try again.",
-      }));
-      return;
-    }
-
     // Build full address string
     const fullAddress = [
       delivery.houseNo,
       delivery.street,
       delivery.area,
       delivery.landmark,
-      delivery.city,
-      delivery.district,
-      delivery.state,
-      delivery.pincode,
-    ].filter(Boolean).join(", ");
+      delivery.city || "Coimbatore",
+      delivery.district || "Coimbatore",
+      delivery.state || "Tamil Nadu",
+      delivery.pincode || pincode,
+    ]
+      .filter(Boolean)
+      .join(", ");
 
-    const razorpayPaymentId = paymentResult.razorpayPaymentId || "";
-    const razorpayOrderId = paymentResult.razorpayOrderId || "";
-
-    const orderRecord = {
-      orderId, total, subtotal,
-      discount: discount.amount, discountPercentage: discount.percentage,
+    const pendingOrder = {
+      orderId,
+      total,
+      subtotal,
+      discount: discount.amount,
+      discountPercentage: discount.percentage,
       deliveryCharge: charge,
-      fullName, mobile,
+      fullName: fullName.trim(),
+      mobile: mobile.trim(),
       alternateMobile: alternateMobile.trim() || undefined,
-      email,
-      pincode: delivery.pincode,
-      lat: delivery.lat, lng: delivery.lng,
+      email: email.trim() || undefined,
+      pincode: delivery.pincode || pincode,
+      lat: delivery.lat,
+      lng: delivery.lng,
       address: fullAddress || delivery.formattedAddress,
-      street: delivery.street, area: delivery.area,
-      city: delivery.city, district: delivery.district, state: delivery.state,
-      houseNo: delivery.houseNo, landmark: delivery.landmark,
-      paymentStatus: `Paid (Razorpay)${razorpayPaymentId ? ` · ${razorpayPaymentId}` : ""}`,
-      paymentId: razorpayPaymentId,
-      razorpayPaymentId,
-      razorpayOrderId,
+      street: delivery.street,
+      area: delivery.area,
+      city: delivery.city || "Coimbatore",
+      district: delivery.district || "Coimbatore",
+      state: delivery.state || "Tamil Nadu",
+      houseNo: delivery.houseNo,
+      landmark: delivery.landmark,
       items: orderItems,
       createdAt: new Date().toISOString(),
+      paymentStatus: "Pending",
     };
 
-    // Save to local storage for persistence
+    // Save pending order to storage so it survives page reloads
     try {
-      localStorage.setItem("shreehari_latest_order", JSON.stringify(orderRecord));
-      const existingRaw = localStorage.getItem("shreehari_orders");
-      const existing = existingRaw ? JSON.parse(existingRaw) : [];
-      localStorage.setItem("shreehari_orders", JSON.stringify([orderRecord, ...existing]));
-    } catch { /* ignore */ }
+      sessionStorage.setItem("shreehari_pending_order", JSON.stringify(pendingOrder));
+      localStorage.setItem("shreehari_pending_order", JSON.stringify(pendingOrder));
+    } catch {
+      /* ignore */
+    }
 
-    // ── Send to Google Sheets & Email (awaited — only on successful Razorpay payment) ──
-    // We await but do NOT block navigation on failure — if it fails it queues for retry.
-    submitOrderNotification(orderRecord).then((result) => {
-      if (result.success) {
-        console.info(`[Checkout] ✅ Order #${orderId} sent to Google Sheets & Email.`);
-      } else {
-        console.warn(`[Checkout] ⚠️ Google Sheets submission failed for #${orderId}. Queued for retry.`, result.error);
-      }
-    }).catch((err) => {
-      console.warn("[Checkout] Google Sheets notification error:", err);
-    });
-
-    clearCart();
-    navigate("/order-success", { replace: true, state: orderRecord });
+    navigate("/payment", { state: { order: pendingOrder } });
   };
 
   if (items.length === 0 && !placing) return null;
@@ -643,11 +618,11 @@ export default function CheckoutPage() {
 
             <Button
               variant="primary" size="xl" fullWidth
-              loading={placing} onClick={handlePlaceOrder}
+              loading={placing} onClick={handleProceedToPayment}
               icon={<ChevronRight size={18} />} iconPosition="right"
               id="checkout-place-order-btn"
             >
-              {placing ? "Processing Payment…" : `Confirm & Pay · ₹${total}`}
+              {placing ? "Proceeding to Payment…" : `Proceed to Payment · ₹${total}`}
             </Button>
             <p className="text-xs text-[#999999] text-center mt-3 leading-relaxed">
               No account needed. Delivered tomorrow to your pinned location.

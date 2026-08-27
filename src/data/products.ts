@@ -300,27 +300,15 @@ export const PRODUCTS: Product[] = [
     inStock: true,
   },
   {
-    id: "amaranthus-red-microgreens",
-    name: "Amaranthus (Red)",
-    nameTamil: "சிவப்பு தண்டுக்கீரை",
-    price: 109,
+    id: "spinach-microgreens",
+    name: "Spinach",
+    nameTamil: "பாலக் கீரை",
+    price: 99,
     unit: "40g Pack",
     category: "microgreens",
     description:
-      "Spectacular crimson Amaranthus microgreens packed with vitamin K, E, C, calcium, and dietary iron.",
-    image: "/product-images/amaranthus-red-microgreens.jpg",
-    inStock: true,
-  },
-  {
-    id: "amaranthus-green-microgreens",
-    name: "Amaranthus (Green)",
-    nameTamil: "பச்சை தண்டுக்கீரை",
-    price: 109,
-    unit: "40g Pack",
-    category: "microgreens",
-    description:
-      "Lush tender Green Amaranthus microgreens. Mild, sweet, spinach-like flavor suitable for daily juicing and garnishing.",
-    image: "/product-images/amaranthus-green-microgreens.jpg",
+      "Fresh tender Spinach microgreens packed with iron, folate, and vital vitamins. Mild, sweet taste perfect for smoothies, salads, and garnishing.",
+    image: "/product-images/Spinach.png",
     inStock: true,
   },
   {
@@ -903,6 +891,7 @@ export const PRODUCTS: Product[] = [
     price: 200,
     unit: "500g",
     category: "nuts-seeds",
+    image: "/product-images/Black Dates.png",
     description:
       "Naturally sweet and rich black dates. A wholesome snack or natural sweetener for your recipes.",
     inStock: true,
@@ -914,6 +903,7 @@ export const PRODUCTS: Product[] = [
     price: 275,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Almond.png",
     description:
       "Premium quality almonds, carefully selected. Crunchy, nutritious and perfect for snacking.",
     inStock: true,
@@ -925,6 +915,7 @@ export const PRODUCTS: Product[] = [
     price: 830,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Pista unsalted.png",
     description:
       "Premium unsalted pistachios. Rich, buttery flavour with no added salt — pure natural goodness.",
     inStock: true,
@@ -936,6 +927,7 @@ export const PRODUCTS: Product[] = [
     price: 420,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Walnut.png",
     description:
       "Whole walnuts with a rich, earthy taste. Versatile for snacking, baking or adding to salads.",
     inStock: true,
@@ -947,6 +939,7 @@ export const PRODUCTS: Product[] = [
     price: 300,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Fig.png",
     description:
       "Soft, naturally sweet dried figs. A wholesome treat packed with natural flavour.",
     inStock: true,
@@ -958,6 +951,7 @@ export const PRODUCTS: Product[] = [
     price: 160,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Yellow raisins.png",
     description:
       "Golden yellow raisins, naturally sweet and tender. Great for snacking, cooking or baking.",
     inStock: true,
@@ -969,6 +963,7 @@ export const PRODUCTS: Product[] = [
     price: 185,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Black Raisins.png",
     description:
       "Rich black raisins with intense natural sweetness. A classic nutritious addition to any meal.",
     inStock: true,
@@ -980,6 +975,7 @@ export const PRODUCTS: Product[] = [
     price: 265,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Cashew.png",
     description:
       "Creamy, premium whole cashews. Perfect for snacking or cooking rich, flavourful dishes.",
     inStock: true,
@@ -991,6 +987,7 @@ export const PRODUCTS: Product[] = [
     price: 115,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Chia seeds.png",
     description:
       "Tiny but mighty chia seeds. Mix into drinks, smoothies, puddings or sprinkle on meals.",
     inStock: true,
@@ -1002,6 +999,7 @@ export const PRODUCTS: Product[] = [
     price: 175,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Pumpkin seeds.png",
     description:
       "Crunchy pumpkin seeds, naturally nutritious. Great for snacking or adding texture to dishes.",
     inStock: true,
@@ -1013,6 +1011,7 @@ export const PRODUCTS: Product[] = [
     price: 100,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Sabja seeds.png",
     description:
       "Sabja (basil) seeds that bloom beautifully in water. A refreshing addition to drinks and desserts.",
     inStock: true,
@@ -1024,6 +1023,7 @@ export const PRODUCTS: Product[] = [
     price: 80,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Flax seeds.png",
     description:
       "Earthy flax seeds packed with natural goodness. Sprinkle on yogurt, salads or add to smoothies.",
     inStock: true,
@@ -1035,6 +1035,7 @@ export const PRODUCTS: Product[] = [
     price: 95,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Sunflower seeds.png",
     description:
       "Light and crunchy sunflower seeds. A satisfying natural snack or salad topping.",
     inStock: true,
@@ -1046,32 +1047,303 @@ export const PRODUCTS: Product[] = [
     price: 230,
     unit: "250g",
     category: "nuts-seeds",
+    image: "/product-images/Melon seeds.png",
     description:
       "Delicate melon seeds with a mild, nutty taste. Versatile for snacking or adding to recipes.",
     inStock: true,
   },
-
-  // ── Healthy Choices & Herbal / Premium Powders ────────────────────────────
   {
     id: "badam-gum",
     name: "Badam Gum",
     nameTamil: "பாதாம் பிசின்",
     price: 160,
     unit: "250g",
-    category: "premium-products",
+    category: "nuts-seeds",
+    image: "/product-images/Badam Gum.png",
     description:
-      "Natural badam gum, traditionally used in refreshing drinks and desserts. A unique premium product.",
+      "Natural badam gum (Badam Pisin), traditionally used in refreshing drinks, desserts and cooling health tonics.",
     inStock: true,
   },
   {
-    id: "arappu-powder",
-    name: "Arappu Powder",
-    nameTamil: "அரப்பு பொடி",
-    price: 90,
-    unit: "250g",
-    category: "premium-products",
+    id: "makhanna",
+    name: "Makhanna",
+    nameTamil: "தாமரை விதை (மக்கானா)",
+    price: 200,
+    unit: "100g",
+    category: "nuts-seeds",
+    image: "/product-images/Makhanna.png",
     description:
-      "Traditional pure arappu powder for natural hair wash and cooling. 100% herbal and chemical-free.",
+      "Premium crunchy Fox Nuts (Makhanna / Lotus Seeds). A light, protein-rich, low-calorie wholesome snack.",
+    inStock: true,
+  },
+
+  // ── Natural Powders ───────────────────────────────────────────────────────
+  {
+    id: "amla-powder",
+    name: "Amla Powder",
+    nameTamil: "நெல்லிக்காய் பொடி",
+    price: 99,
+    unit: "100g",
+    category: "premium-products",
+    image: "/product-images/Amla Powder.png",
+    description:
+      "Pure organic Amla (Indian Gooseberry) powder. Rich in vitamin C and powerful antioxidants.",
+    inStock: true,
+  },
+  {
+    id: "curry-leaves-powder",
+    name: "Curry Leaves Powder",
+    nameTamil: "கருவேப்பிலை பொடி",
+    price: 99,
+    unit: "100g",
+    category: "premium-products",
+    image: "/product-images/Curry Leaves Powder.png",
+    description:
+      "Naturally dehydrated and ground curry leaves powder. Excellent for hair health and digestion.",
+    inStock: true,
+  },
+  {
+    id: "onion-powder",
+    name: "Onion Powder",
+    nameTamil: "வெங்காய பொடி",
+    price: 149,
+    unit: "100g",
+    category: "premium-products",
+    image: "/product-images/Onion Powder.png",
+    description:
+      "Dehydrated pure onion powder. Perfect seasoning for gravies, curries and snacks without peeling.",
+    inStock: true,
+  },
+  {
+    id: "garlic-powder",
+    name: "Garlic Powder",
+    nameTamil: "பூண்டு பொடி",
+    price: 149,
+    unit: "100g",
+    category: "premium-products",
+    image: "/product-images/Garlic Powder.png",
+    description:
+      "Aromatic pure garlic powder. Adds rich flavour to culinary dishes and supports heart health.",
+    inStock: true,
+  },
+  {
+    id: "coconut-powder",
+    name: "Coconut Powder",
+    nameTamil: "தேங்காய் பொடி",
+    price: 49,
+    unit: "100g",
+    category: "premium-products",
+    image: "/product-images/Coconut Powder.png",
+    description:
+      "Finely grated and dried coconut powder. Convenient for instant chutneys, sweets and baking.",
+    inStock: true,
+  },
+  {
+    id: "health-mix-powder",
+    name: "Health Mix Powder",
+    nameTamil: "சத்து மாவு",
+    price: 199,
+    unit: "100g",
+    category: "premium-products",
+    image: "/product-images/Health Mix Powder.png",
+    variantType: "weight",
+    variants: [
+      { id: "health-mix-powder-100g", unit: "100g", price: 199 },
+      { id: "health-mix-powder-250g", unit: "250g", price: 459 },
+    ],
+    description:
+      "Traditional multigrain Sathu Maavu (Health Mix) made with sprouted grains, pulses, and nuts.",
+    inStock: true,
+  },
+
+  // ── Seasonal & Exotic Fruits ─────────────────────────────────────────────
+  {
+    id: "dragon-fruit",
+    name: "Dragon Fruit",
+    nameTamil: "டிராகன் பழம்",
+    price: 99,
+    unit: "1 Pack",
+    category: "seasonal-exotic-fruits",
+    image: "/product-images/Dragon Fruit.png",
+    description:
+      "Fresh exotic dragon fruit with striking pink skin and nutrient-dense, subtly sweet flesh.",
+    inStock: true,
+  },
+  {
+    id: "rambutan",
+    name: "Rambutan",
+    nameTamil: "ரம்புட்டான்",
+    price: 139,
+    unit: "1 Pack",
+    category: "seasonal-exotic-fruits",
+    image: "/product-images/Rambutan.png",
+    description:
+      "Juicy, sweet and floral tropical rambutan fruits. Packed fresh and full of natural goodness.",
+    inStock: true,
+  },
+  {
+    id: "avocado",
+    name: "Avocado",
+    nameTamil: "அவகேடோ (வெண்ணெய் பழம்)",
+    price: 139,
+    unit: "1 Pack",
+    category: "seasonal-exotic-fruits",
+    image: "/product-images/Avocado.png",
+    description:
+      "Creamy, nutrient-rich fresh avocados. Loaded with healthy monounsaturated fats and vitamins.",
+    inStock: true,
+  },
+  {
+    id: "custard-apple",
+    name: "Custard Apple",
+    nameTamil: "சீதாப்பழம்",
+    price: 179,
+    unit: "1 Pack",
+    category: "seasonal-exotic-fruits",
+    image: "/product-images/Custard Apple.png",
+    description:
+      "Sweet, creamy and fragrant seasonal custard apples (Seethapazham). Rich in vitamin C and magnesium.",
+    inStock: true,
+  },
+  {
+    id: "pears",
+    name: "Pears",
+    nameTamil: "பேரிக்காய்",
+    price: 99,
+    unit: "1 Pack",
+    category: "seasonal-exotic-fruits",
+    image: "/product-images/Pears.png",
+    description:
+      "Crisp and juicy fresh pears. Naturally sweet, high in dietary fibre and deeply refreshing.",
+    inStock: true,
+  },
+  {
+    id: "kiwi",
+    name: "Kiwi",
+    nameTamil: "கிவி பழம்",
+    price: 119,
+    unit: "1 Pack",
+    category: "seasonal-exotic-fruits",
+    image: "/product-images/Kiwi.png",
+    description:
+      "Zesty and sweet fresh kiwi fruits. Packed with immune-boosting vitamin C and digestive enzymes.",
+    inStock: true,
+  },
+
+  // ── Healthy Snacks ───────────────────────────────────────────────────────
+  {
+    id: "thattai-murukku",
+    name: "Thattai Murukku",
+    nameTamil: "தட்டை முறுக்கு",
+    price: 179,
+    unit: "250g",
+    note: "Made with Coconut Oil",
+    category: "healthy-snacks",
+    image: "/product-images/Thattai Murukku.png",
+    variantType: "weight",
+    variants: [
+      { id: "thattai-murukku-250g", unit: "250g", price: 179 },
+      { id: "thattai-murukku-300g", unit: "300g", price: 349 },
+    ],
+    description:
+      "Crunchy traditional Thattai Murukku crafted using pure unrefined coconut oil. Crispy and delicious.",
+    inStock: true,
+  },
+  {
+    id: "ellu-vadai",
+    name: "Ellu Vadai",
+    nameTamil: "எள்ளு வடை",
+    price: 199,
+    unit: "250g",
+    note: "Made with Brown Sugar",
+    category: "healthy-snacks",
+    image: "/product-images/Ellu Vadai.png",
+    variantType: "weight",
+    variants: [
+      { id: "ellu-vadai-250g", unit: "250g", price: 199 },
+      { id: "ellu-vadai-500g", unit: "500g", price: 389 },
+    ],
+    description:
+      "Traditional sweet sesame patties (Ellu Vadai) made with nutritious brown sugar and sesame seeds.",
+    inStock: true,
+  },
+
+  // ── Mushrooms ────────────────────────────────────────────────────────────
+  {
+    id: "button-mushroom",
+    name: "Button Mushroom",
+    nameTamil: "பட்டன் காளான்",
+    price: 59,
+    unit: "200g",
+    category: "mushrooms",
+    image: "/product-images/Button Mushroom.png",
+    description:
+      "Plump, fresh white button mushrooms. Tender, versatile and rich in vitamin D and minerals.",
+    inStock: true,
+  },
+  {
+    id: "oyster-mushroom",
+    name: "Oyster Mushroom",
+    nameTamil: "சிப்பி காளான்",
+    price: 59,
+    unit: "200g",
+    category: "mushrooms",
+    image: "/product-images/Oyster Mushroom.png",
+    description:
+      "Delicate and velvety fresh oyster mushrooms. High in protein, fibre and savoury umami flavour.",
+    inStock: true,
+  },
+
+  // ── Cold Pressed Oil ─────────────────────────────────────────────────────
+  {
+    id: "cold-pressed-coconut-oil",
+    name: "Coconut Oil",
+    nameTamil: "மரச்செக்கு தேங்காய் எண்ணெய்",
+    price: 189,
+    unit: "500ml",
+    category: "cold-pressed-oil",
+    image: "/product-images/Coconut Oil.png",
+    variantType: "weight",
+    variants: [
+      { id: "cold-pressed-coconut-oil-500ml", unit: "500ml", price: 189 },
+      { id: "cold-pressed-coconut-oil-1l", unit: "1L", price: 369 },
+    ],
+    description:
+      "100% pure cold pressed (Marachekku) coconut oil. Unrefined, unbleached, and naturally aromatic.",
+    inStock: true,
+  },
+  {
+    id: "cold-pressed-sesame-oil",
+    name: "Sesame Oil",
+    nameTamil: "மரச்செக்கு நல்லெண்ணெய்",
+    price: 229,
+    unit: "500ml",
+    category: "cold-pressed-oil",
+    image: "/product-images/Sesame Oil.png",
+    variantType: "weight",
+    variants: [
+      { id: "cold-pressed-sesame-oil-500ml", unit: "500ml", price: 229 },
+      { id: "cold-pressed-sesame-oil-1l", unit: "1L", price: 439 },
+    ],
+    description:
+      "Traditional cold pressed sesame (gingelly) oil extracted with palm jaggery. Rich aroma and flavour.",
+    inStock: true,
+  },
+  {
+    id: "cold-pressed-groundnut-oil",
+    name: "Groundnut Oil",
+    nameTamil: "மரச்செக்கு கடலை எண்ணெய்",
+    price: 139,
+    unit: "500ml",
+    category: "cold-pressed-oil",
+    image: "/product-images/Groundnut Oil.png",
+    variantType: "weight",
+    variants: [
+      { id: "cold-pressed-groundnut-oil-500ml", unit: "500ml", price: 139 },
+      { id: "cold-pressed-groundnut-oil-1l", unit: "1L", price: 269 },
+    ],
+    description:
+      "Pure cold pressed groundnut (peanut) oil. High smoke point, heart-healthy and free of chemicals.",
     inStock: true,
   },
 ];

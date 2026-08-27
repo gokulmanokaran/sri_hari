@@ -92,6 +92,15 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             </p>
           )}
 
+          {/* Note badge for products with variants */}
+          {hasVariants && product.note && (
+            <div className="mb-1">
+              <span className="inline-block text-[10px] bg-amber-50 text-amber-800 font-semibold px-2 py-0.5 rounded-full border border-amber-200/60">
+                {product.note}
+              </span>
+            </div>
+          )}
+
           {/* Unit / Variant Selector */}
           {hasVariants && product.variants ? (
             <div

@@ -14,6 +14,7 @@ import ProductsPage from "./pages/ProductsPage";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import PaymentPage from "./pages/PaymentPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 
 import SearchPage from "./pages/SearchPage";
@@ -119,6 +120,14 @@ export default function App() {
               element={
                 <PincodeGuard>
                   <CheckoutPage />
+                </PincodeGuard>
+              }
+            />
+            <Route
+              path="/payment"
+              element={
+                <PincodeGuard>
+                  <PaymentPage />
                 </PincodeGuard>
               }
             />
