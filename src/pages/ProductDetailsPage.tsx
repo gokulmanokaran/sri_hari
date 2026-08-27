@@ -1,11 +1,11 @@
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Minus, Plus, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Minus, Plus, ShoppingBag, Check } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getProductById } from "../data/products";
+import { getProductById, getVariantProduct } from "../data/products";
 import { useCart } from "../store/CartContext";
 import { ProductImage } from "../components/ui/ProductImage";
 import { Button } from "../components/ui/Button";
-import { useEffect } from "react";
 
 export default function ProductDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,11 +14,20 @@ export default function ProductDetailsPage() {
     useCart();
 
   const product = id ? getProductById(id) : undefined;
-  const qty = product ? getItemQuantity(product.id) : 0;
+
+  // Selected variant state
+  const [selectedVariantId, setSelectedVariantId] = useState<string>("");
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [id]);
+    if (product?.variants && product.variants.length > 0) {
+      // If the incoming ID was already a variant ID, preserve it, else default to first variant
+      const matchingVariant = product.variants.find((v) => v.id === id);
+      setSelectedVariantId(matchingVariant ? matchingVariant.id : product.variants[0].id);
+    } else if (product) {
+      setSelectedVariantId(product.id);
+    }
+  }, [id, product]);
 
   if (!product) {
     return (
@@ -31,6 +40,14 @@ export default function ProductDetailsPage() {
       </div>
     );
   }
+
+  const activeVariant =
+    product.variants?.find((v) => v.id === selectedVariantId) || product.variants?.[0];
+  const effectiveProduct = activeVariant
+    ? getVariantProduct(product, activeVariant)
+    : product;
+
+  const qty = getItemQuantity(effectiveProduct.id);
 
   return (
     <motion.div
@@ -95,14 +112,17 @@ export default function ProductDetailsPage() {
               {product.nameTamil}
             </p>
           )}
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-2xl font-black text-[#00A651]">
-              ₹{product.price}
+
+          {/* Dynamic Price Display */}
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-3xl font-black text-[#00A651]">
+              ₹{effectiveProduct.price}
             </span>
-            <span className="text-sm text-[#999999] font-medium">
-              / {product.unit}
+            <span className="text-sm text-[#888888] font-semibold">
+              / {effectiveProduct.unit}
             </span>
           </div>
+
           {product.note && (
             <span className="text-xs bg-amber-50 text-amber-700 font-semibold px-2.5 py-1 rounded-full">
               {product.note}
@@ -110,24 +130,65 @@ export default function ProductDetailsPage() {
           )}
         </motion.div>
 
+        {/* Variant Selection Options */}
+        {product.variants && product.variants.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="my-5 p-4 rounded-2xl bg-[#F8FAF9] border border-[#E3EFE7]"
+          >
+            <p className="text-xs font-bold text-[#444444] uppercase tracking-wider mb-2.5">
+              {product.variantType === "sugar" ? "Sugar Option" : "Select Quantity / Weight"}
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {product.variants.map((v) => {
+                const isSelected = v.id === selectedVariantId;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setSelectedVariantId(v.id)}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-sm font-bold transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-[#00A651] text-white border-[#00A651] shadow-sm scale-[1.02]"
+                        : "bg-white text-[#222222] border-[#DCE8E0] hover:border-[#00A651]/50"
+                    }`}
+                  >
+                    <span>{v.unit}</span>
+                    <div className="flex items-center gap-1">
+                      {product.variantType !== "sugar" && (
+                        <span className={isSelected ? "text-white/90" : "text-[#00A651]"}>
+                          ₹{v.price}
+                        </span>
+                      )}
+                      {isSelected && <Check size={16} strokeWidth={3} className="ml-1" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
         {/* Availability */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.25 }}
           className="flex items-center gap-2 my-4"
         >
           <div
             className={`w-2 h-2 rounded-full ${
-              product.inStock ? "bg-[#00A651]" : "bg-gray-400"
+              effectiveProduct.inStock ? "bg-[#00A651]" : "bg-gray-400"
             }`}
           />
           <span
             className={`text-sm font-semibold ${
-              product.inStock ? "text-[#00A651]" : "text-gray-500"
+              effectiveProduct.inStock ? "text-[#00A651]" : "text-gray-500"
             }`}
           >
-            {product.inStock ? "In Stock" : "Currently Unavailable"}
+            {effectiveProduct.inStock ? "In Stock" : "Currently Unavailable"}
           </span>
         </motion.div>
 
@@ -136,7 +197,7 @@ export default function ProductDetailsPage() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
+            transition={{ delay: 0.3 }}
             className="mb-6"
           >
             <h2 className="text-sm font-bold text-[#111111] mb-2">About this product</h2>
@@ -153,7 +214,7 @@ export default function ProductDetailsPage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.35 }}
           className="flex flex-col gap-4"
         >
           {qty > 0 && (
@@ -161,11 +222,11 @@ export default function ProductDetailsPage() {
               <span className="text-sm font-semibold text-[#666666]">
                 Quantity
               </span>
-              <div className="flex items-center gap-3 bg-[#EAF8F0] rounded-full px-2 py-1.5">
+              <div className="flex items-center gap-3 bg-[#EAF8F0] rounded-full px-2 py-1.5 border border-[#CDEED9]">
                 <motion.button
                   whileTap={{ scale: 0.85 }}
-                  onClick={() => decrementItem(product.id)}
-                  className="w-8 h-8 bg-[#00A651] text-white rounded-full flex items-center justify-center"
+                  onClick={() => decrementItem(effectiveProduct.id)}
+                  className="w-8 h-8 bg-[#00A651] text-white rounded-full flex items-center justify-center cursor-pointer"
                   aria-label="Decrease quantity"
                 >
                   <Minus size={14} strokeWidth={3} />
@@ -181,15 +242,15 @@ export default function ProductDetailsPage() {
                 </motion.span>
                 <motion.button
                   whileTap={{ scale: 0.85 }}
-                  onClick={() => incrementItem(product.id)}
-                  className="w-8 h-8 bg-[#00A651] text-white rounded-full flex items-center justify-center"
+                  onClick={() => incrementItem(effectiveProduct.id)}
+                  className="w-8 h-8 bg-[#00A651] text-white rounded-full flex items-center justify-center cursor-pointer"
                   aria-label="Increase quantity"
                 >
                   <Plus size={14} strokeWidth={3} />
                 </motion.button>
               </div>
               <span className="text-sm font-black text-[#111111] ml-auto">
-                ₹{product.price * qty}
+                ₹{effectiveProduct.price * qty}
               </span>
             </div>
           )}
@@ -206,8 +267,8 @@ export default function ProductDetailsPage() {
                   variant="primary"
                   size="xl"
                   fullWidth
-                  disabled={!product.inStock}
-                  onClick={() => addItem(product)}
+                  disabled={!effectiveProduct.inStock}
+                  onClick={() => addItem(effectiveProduct)}
                   icon={<ShoppingBag size={18} />}
                   iconPosition="left"
                 >

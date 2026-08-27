@@ -2,23 +2,37 @@ export type ProductCategory =
   | "keerai"
   | "microgreens"
   | "vegetables"
-  | "ready-to-cook"
-  | "dry-fruits"
-  | "seeds"
-  | "healthy-choices"
-  | "premium-products";
+  | "premium-products"
+  | "cut-fruits"
+  | "sprouts"
+  | "fresh-juices"
+  | "nuts-seeds"
+  | "healthy-snacks"
+  | "seasonal-exotic-fruits"
+  | "mushrooms"
+  | "cold-pressed-oil";
+
+export interface ProductVariant {
+  id: string; // Unique variant ID (e.g. "pomegranate-peeled-250g", "lemon-juice-with-sugar")
+  name?: string; // Optional variant name override
+  unit: string; // e.g. "250g", "500g", "With Sugar", "Without Sugar"
+  price: number;
+  inStock?: boolean;
+}
 
 export interface Product {
   id: string;
   name: string;          // English name
   nameTamil?: string;    // Tamil name (optional)
-  price: number;
-  unit: string;
+  price: number;         // Default/starting price
+  unit: string;          // Default/starting unit
   category: ProductCategory;
   description?: string;
   note?: string;
   image?: string;
   inStock: boolean;
+  variantType?: "weight" | "sugar";
+  variants?: ProductVariant[];
 }
 
 /** Returns display label: "English / Tamil" if Tamil name is set, else just English */
@@ -27,6 +41,18 @@ export function getProductDisplayName(product: Product): string {
     return `${product.name} / ${product.nameTamil}`;
   }
   return product.name;
+}
+
+/** Helper to create an effective cart product from a parent product and a chosen variant */
+export function getVariantProduct(product: Product, variant: ProductVariant): Product {
+  const isSugar = product.variantType === "sugar";
+  return {
+    ...product,
+    id: variant.id,
+    price: variant.price,
+    unit: isSugar ? `${product.unit} (${variant.unit})` : variant.unit,
+    inStock: variant.inStock !== false && product.inStock,
+  };
 }
 
 export const PRODUCTS: Product[] = [
@@ -245,7 +271,7 @@ export const PRODUCTS: Product[] = [
     unit: "40g Pack",
     category: "microgreens",
     description:
-      "Vibrant pink-stemmed China Rose Radish microgreens. Crunchy, mildly spicy, and rich in immune-boosting antioxidants.",
+      "Vibrant China Rose Radish microgreens with stunning pink stems and spicy radish punch. High in vitamin C and antioxidants.",
     image: "/product-images/radish-china-rose-microgreens.jpg",
     inStock: true,
   },
@@ -257,20 +283,8 @@ export const PRODUCTS: Product[] = [
     unit: "40g Pack",
     category: "microgreens",
     description:
-      "Crisp white-stemmed Radish microgreens with a refreshing spicy tang. Packed with digestive enzymes and vitamin C.",
+      "Crisp white Radish microgreens with tender green leaves. Refreshing peppery crunch with digestive enzymes and zinc.",
     image: "/product-images/radish-white-microgreens.jpg",
-    inStock: true,
-  },
-  {
-    id: "spinach-microgreens",
-    name: "Spinach",
-    nameTamil: "பாலக்",
-    price: 99,
-    unit: "40g Pack",
-    category: "microgreens",
-    description:
-      "Tender Spinach microgreens with soft baby leaves. Mild, buttery flavor packed with bioavailable iron and folate.",
-    image: "/product-images/spinach-microgreens.jpg",
     inStock: true,
   },
   {
@@ -281,8 +295,32 @@ export const PRODUCTS: Product[] = [
     unit: "40g Pack",
     category: "microgreens",
     description:
-      "Plump, crunchy Sunflower microgreens with a delicious nutty flavor. Rich in complete plant protein and essential amino acids.",
+      "Nutty, crunchy Sunflower microgreens with thick, juicy cotyledons. A complete plant protein powerhouse.",
     image: "/product-images/sunflower-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "amaranthus-red-microgreens",
+    name: "Amaranthus (Red)",
+    nameTamil: "சிவப்பு தண்டுக்கீரை",
+    price: 109,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Spectacular crimson Amaranthus microgreens packed with vitamin K, E, C, calcium, and dietary iron.",
+    image: "/product-images/amaranthus-red-microgreens.jpg",
+    inStock: true,
+  },
+  {
+    id: "amaranthus-green-microgreens",
+    name: "Amaranthus (Green)",
+    nameTamil: "பச்சை தண்டுக்கீரை",
+    price: 109,
+    unit: "40g Pack",
+    category: "microgreens",
+    description:
+      "Lush tender Green Amaranthus microgreens. Mild, sweet, spinach-like flavor suitable for daily juicing and garnishing.",
+    image: "/product-images/amaranthus-green-microgreens.jpg",
     inStock: true,
   },
   {
@@ -358,52 +396,483 @@ export const PRODUCTS: Product[] = [
     inStock: true,
   },
 
-  // ── Fresh / Cleaned Vegetables ──────────────────────────────────────────
+  // ── Cut Vegetables (250g & 500g Variants) ─────────────────────────────────
   {
-    id: "small-onion",
-    name: "Small Onion",
-    nameTamil: "சின்ன வெங்காயம்",
-    price: 70,
-    unit: "500g",
+    id: "small-onion-peeled",
+    name: "Small Onion (Peeled)",
+    nameTamil: "சிறிய வெங்காயம் (உரித்தது)",
+    price: 49,
+    unit: "250g",
     category: "vegetables",
-    note: "Peeled",
+    variantType: "weight",
+    variants: [
+      { id: "small-onion-peeled-250g", unit: "250g", price: 49 },
+      { id: "small-onion-peeled-500g", unit: "500g", price: 89 },
+    ],
     description:
-      "Small onions peeled and ready to use. Saves time in the kitchen while delivering authentic flavour.",
+      "Fresh small onions, peeled and ready to use. Saves time in the kitchen without compromising on authentic flavour.",
     inStock: true,
   },
   {
-    id: "garlic",
-    name: "Garlic",
-    nameTamil: "பூண்டு",
-    price: 120,
+    id: "garlic-peeled",
+    name: "Garlic (Peeled)",
+    nameTamil: "பூண்டு (உரித்தது)",
+    price: 119,
     unit: "250g",
     category: "vegetables",
-    note: "Peeled",
+    variantType: "weight",
+    variants: [
+      { id: "garlic-peeled-250g", unit: "250g", price: 119 },
+      { id: "garlic-peeled-500g", unit: "500g", price: 229 },
+    ],
     description:
       "Premium garlic cloves, peeled and ready to use. Fresh, pungent and full of natural goodness.",
     inStock: true,
   },
   {
-    id: "pomegranate",
-    name: "Pomegranate",
-    nameTamil: "மாதுளை",
-    price: 200,
-    unit: "500g",
+    id: "green-peas-peeled",
+    name: "Green Peas (Peeled)",
+    nameTamil: "பச்சை பட்டாணி (உரித்தது)",
+    price: 119,
+    unit: "250g",
     category: "vegetables",
-    note: "Peeled",
+    variantType: "weight",
+    variants: [
+      { id: "green-peas-peeled-250g", unit: "250g", price: 119 },
+      { id: "green-peas-peeled-500g", unit: "500g", price: 229 },
+    ],
     description:
-      "Fresh pomegranate seeds, peeled and ready to eat or use in recipes. Ruby-red and bursting with flavour.",
+      "Fresh green peas, shelled and ready to cook. Plump, tender and naturally sweet.",
+    inStock: true,
+  },
+  {
+    id: "sweet-corn-peeled",
+    name: "Sweet Corn (Peeled)",
+    nameTamil: "ஸ்வீட் கார்ன் (உரித்தது)",
+    price: 79,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "sweet-corn-peeled-250g", unit: "250g", price: 79 },
+      { id: "sweet-corn-peeled-500g", unit: "500g", price: 149 },
+    ],
+    description:
+      "Fresh sweet corn kernels, peeled and ready to use. Juicy, crunchy and naturally sweet.",
+    inStock: true,
+  },
+  {
+    id: "avaraikkai-sliced",
+    name: "Avaraikkai (Sliced)",
+    nameTamil: "அவரைக்காய் (நறுக்கியது)",
+    price: 69,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "avaraikkai-sliced-250g", unit: "250g", price: 69 },
+      { id: "avaraikkai-sliced-500g", unit: "500g", price: 129 },
+    ],
+    description:
+      "Fresh avaraikkai (broad beans) sliced and ready to cook. Perfect for South Indian stir fries.",
+    inStock: true,
+  },
+  {
+    id: "coconut-grated",
+    name: "Coconut (Grated)",
+    nameTamil: "தேங்காய் (துறுவியது)",
+    price: 119,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "coconut-grated-250g", unit: "250g", price: 119 },
+      { id: "coconut-grated-500g", unit: "500g", price: 229 },
+    ],
+    description:
+      "Freshly grated coconut, ready to use in chutneys, curries and sweets. No grating needed.",
+    inStock: true,
+  },
+  {
+    id: "cauliflower-sliced",
+    name: "Cauliflower (Sliced)",
+    nameTamil: "காலிஃப்ளவர் (நறுக்கியது)",
+    price: 119,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "cauliflower-sliced-250g", unit: "250g", price: 119 },
+      { id: "cauliflower-sliced-500g", unit: "500g", price: 229 },
+    ],
+    description:
+      "Fresh cauliflower florets, sliced and ready to cook. Tender and versatile for any recipe.",
+    inStock: true,
+  },
+  {
+    id: "carrot-sliced",
+    name: "Carrot (Sliced)",
+    nameTamil: "கேரட் (நறுக்கியது)",
+    price: 49,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "carrot-sliced-250g", unit: "250g", price: 49 },
+      { id: "carrot-sliced-500g", unit: "500g", price: 89 },
+    ],
+    description:
+      "Fresh carrots, sliced and ready to cook. Crisp, sweet and full of beta-carotene.",
+    inStock: true,
+  },
+  {
+    id: "beans-sliced",
+    name: "Beans (Sliced)",
+    nameTamil: "பீன்ஸ் (நறுக்கியது)",
+    price: 59,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "beans-sliced-250g", unit: "250g", price: 59 },
+      { id: "beans-sliced-500g", unit: "500g", price: 109 },
+    ],
+    description:
+      "Fresh green beans, sliced and ready to use. Tender and ideal for poriyal, stir fries and curries.",
+    inStock: true,
+  },
+  {
+    id: "beetroot-sliced",
+    name: "Beetroot (Sliced)",
+    nameTamil: "பீட்ரூட் (நறுக்கியது)",
+    price: 49,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "beetroot-sliced-250g", unit: "250g", price: 49 },
+      { id: "beetroot-sliced-500g", unit: "500g", price: 89 },
+    ],
+    description:
+      "Fresh beetroot, sliced and ready to cook. Earthy, naturally sweet and rich in iron.",
+    inStock: true,
+  },
+  {
+    id: "cabbage-sliced",
+    name: "Cabbage (Sliced)",
+    nameTamil: "முட்டைகோஸ் (நறுக்கியது)",
+    price: 39,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "cabbage-sliced-250g", unit: "250g", price: 39 },
+      { id: "cabbage-sliced-500g", unit: "500g", price: 69 },
+    ],
+    description:
+      "Crisp cabbage, finely sliced and ready to cook. Great for kootu, poriyal and salads.",
+    inStock: true,
+  },
+  {
+    id: "drumstick-sliced",
+    name: "Drumstick (Sliced)",
+    nameTamil: "முருங்கைக்காய் (நறுக்கியது)",
+    price: 39,
+    unit: "250g",
+    category: "vegetables",
+    variantType: "weight",
+    variants: [
+      { id: "drumstick-sliced-250g", unit: "250g", price: 39 },
+      { id: "drumstick-sliced-500g", unit: "500g", price: 79 },
+    ],
+    description:
+      "Fresh drumstick (moringa pods), sliced and ready to cook. Perfect for sambar and curries.",
     inStock: true,
   },
 
-  // ── Premium Quality Dry Fruits ───────────────────────────────────────────
+  // ── Cut Fruits ───────────────────────────────────────────────────────────
+  {
+    id: "pomegranate-peeled",
+    name: "Pomegranate (Peeled)",
+    nameTamil: "மாதுளை (தோல் உரிக்கப்பட்டது)",
+    price: 99,
+    unit: "250g",
+    category: "cut-fruits",
+    variantType: "weight",
+    variants: [
+      { id: "pomegranate-peeled-250g", unit: "250g", price: 99 },
+      { id: "pomegranate-peeled-500g", unit: "500g", price: 189 },
+    ],
+    description:
+      "Fresh pomegranate seeds, peeled and ready to eat. Bursting with ruby-red sweetness.",
+    inStock: true,
+  },
+  {
+    id: "papaya-cut",
+    name: "Papaya (Cut)",
+    nameTamil: "பப்பாளி (வெட்டியது)",
+    price: 59,
+    unit: "250g",
+    category: "cut-fruits",
+    variantType: "weight",
+    variants: [
+      { id: "papaya-cut-250g", unit: "250g", price: 59 },
+      { id: "papaya-cut-500g", unit: "500g", price: 99 },
+    ],
+    description:
+      "Ripe papaya cut fresh and ready to eat. Naturally sweet with a smooth texture.",
+    inStock: true,
+  },
+  {
+    id: "fruits-mix-salad-250g",
+    name: "Fruits Mix Salad",
+    nameTamil: "பழ கலவை சாலட்",
+    price: 69,
+    unit: "250g",
+    category: "cut-fruits",
+    description:
+      "A colourful medley of fresh seasonal fruits, cut and ready to enjoy. Perfect for a healthy snack.",
+    inStock: true,
+  },
+
+  // ── Sprouts (100g Packs) ──────────────────────────────────────────────────
+  {
+    id: "pachai-payaru-sprouts",
+    name: "Pachai Payaru",
+    nameTamil: "பச்சை பயறு முளைகட்டியது",
+    price: 29,
+    unit: "100g",
+    category: "sprouts",
+    description:
+      "Fresh green moong sprouts. Light, crisp and packed with protein and enzymes. Ready to eat.",
+    inStock: true,
+  },
+  {
+    id: "brown-chana-sprouts",
+    name: "Brown Chana",
+    nameTamil: "பழுப்பு சனா முளைகட்டியது",
+    price: 29,
+    unit: "100g",
+    category: "sprouts",
+    description:
+      "Freshly sprouted brown chana. Rich in fibre and protein. Great for salads or a healthy snack.",
+    inStock: true,
+  },
+  {
+    id: "mixed-sprouts",
+    name: "Mixed Sprouts",
+    nameTamil: "கலப்பு முளைகட்டியது",
+    price: 29,
+    unit: "100g",
+    category: "sprouts",
+    description:
+      "A nourishing mix of sprouted legumes and seeds. Full of vitamins, minerals and plant protein.",
+    inStock: true,
+  },
+
+  // ── Fresh Juices (250 ml — With / Without Sugar) ──────────────────────────
+  {
+    id: "lemon-juice",
+    name: "Lemon Juice",
+    nameTamil: "எலுமிச்சை ஜூஸ்",
+    price: 29,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "lemon-juice-with-sugar", unit: "With Sugar", price: 29 },
+      { id: "lemon-juice-without-sugar", unit: "Without Sugar", price: 29 },
+    ],
+    description:
+      "Freshly squeezed lemon juice made to order. Choose with or without sugar for a tangy refresher.",
+    inStock: true,
+  },
+  {
+    id: "apple-juice",
+    name: "Apple Juice",
+    nameTamil: "ஆப்பிள் ஜூஸ்",
+    price: 139,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "apple-juice-with-sugar", unit: "With Sugar", price: 139 },
+      { id: "apple-juice-without-sugar", unit: "Without Sugar", price: 139 },
+    ],
+    description:
+      "Freshly pressed crisp apple juice. Choose with or without sugar for pure natural sweetness.",
+    inStock: true,
+  },
+  {
+    id: "muskmelon-juice",
+    name: "Muskmelon Juice",
+    nameTamil: "முலாம்பழம் ஜூஸ்",
+    price: 89,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "muskmelon-juice-with-sugar", unit: "With Sugar", price: 89 },
+      { id: "muskmelon-juice-without-sugar", unit: "Without Sugar", price: 89 },
+    ],
+    description:
+      "Smooth, hydrating muskmelon juice. Choose with or without sugar for a cooling experience.",
+    inStock: true,
+  },
+  {
+    id: "watermelon-juice",
+    name: "Watermelon Juice",
+    nameTamil: "தர்பூசணி ஜூஸ்",
+    price: 49,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "watermelon-juice-with-sugar", unit: "With Sugar", price: 49 },
+      { id: "watermelon-juice-without-sugar", unit: "Without Sugar", price: 49 },
+    ],
+    description:
+      "Chilled pure watermelon juice. Choose with or without sugar for the ultimate refresher.",
+    inStock: true,
+  },
+  {
+    id: "pomegranate-juice",
+    name: "Pomegranate Juice",
+    nameTamil: "மாதுளை ஜூஸ்",
+    price: 109,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "pomegranate-juice-with-sugar", unit: "With Sugar", price: 109 },
+      { id: "pomegranate-juice-without-sugar", unit: "Without Sugar", price: 109 },
+    ],
+    description:
+      "Antioxidant-packed ruby pomegranate juice. Choose with or without sugar.",
+    inStock: true,
+  },
+  {
+    id: "sathukudi-juice",
+    name: "Sathukudi Juice",
+    nameTamil: "சாத்துக்குடி ஜூஸ்",
+    price: 49,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "sathukudi-juice-with-sugar", unit: "With Sugar", price: 49 },
+      { id: "sathukudi-juice-without-sugar", unit: "Without Sugar", price: 49 },
+    ],
+    description:
+      "Freshly squeezed Sathukudi (sweet lime) juice. Choose with or without sugar.",
+    inStock: true,
+  },
+  {
+    id: "amla-juice",
+    name: "Amla Juice",
+    nameTamil: "நெல்லிக்காய் ஜூஸ்",
+    price: 79,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "amla-juice-with-sugar", unit: "With Sugar", price: 79 },
+      { id: "amla-juice-without-sugar", unit: "Without Sugar", price: 79 },
+    ],
+    description:
+      "Immunity-boosting fresh amla (gooseberry) juice. Choose with or without sugar.",
+    inStock: true,
+  },
+  {
+    id: "beetroot-juice",
+    name: "Beetroot Juice",
+    nameTamil: "பீட்ரூட் ஜூஸ்",
+    price: 49,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "beetroot-juice-with-sugar", unit: "With Sugar", price: 49 },
+      { id: "beetroot-juice-without-sugar", unit: "Without Sugar", price: 49 },
+    ],
+    description:
+      "Iron-rich vibrant beetroot juice. Choose with or without sugar.",
+    inStock: true,
+  },
+  {
+    id: "grape-juice",
+    name: "Grape Juice",
+    nameTamil: "திராட்சை ஜூஸ்",
+    price: 49,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "grape-juice-with-sugar", unit: "With Sugar", price: 49 },
+      { id: "grape-juice-without-sugar", unit: "Without Sugar", price: 49 },
+    ],
+    description:
+      "Fresh grape juice rich in antioxidants. Choose with or without sugar.",
+    inStock: true,
+  },
+  {
+    id: "carrot-juice",
+    name: "Carrot Juice",
+    nameTamil: "கேரட் ஜூஸ்",
+    price: 49,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "carrot-juice-with-sugar", unit: "With Sugar", price: 49 },
+      { id: "carrot-juice-without-sugar", unit: "Without Sugar", price: 49 },
+    ],
+    description:
+      "Beta-carotene rich freshly extracted carrot juice. Choose with or without sugar.",
+    inStock: true,
+  },
+  {
+    id: "orange-juice",
+    name: "Orange Juice",
+    nameTamil: "ஆரஞ்சு ஜூஸ்",
+    price: 89,
+    unit: "250 ml",
+    category: "fresh-juices",
+    variantType: "sugar",
+    variants: [
+      { id: "orange-juice-with-sugar", unit: "With Sugar", price: 89 },
+      { id: "orange-juice-without-sugar", unit: "Without Sugar", price: 89 },
+    ],
+    description:
+      "Freshly squeezed orange juice loaded with vitamin C. Choose with or without sugar.",
+    inStock: true,
+  },
+  {
+    id: "abc-juice",
+    name: "ABC Juice",
+    nameTamil: "ABC ஜூஸ்",
+    price: 119,
+    unit: "250 ml",
+    category: "fresh-juices",
+    note: "Apple, Beetroot & Carrot",
+    variantType: "sugar",
+    variants: [
+      { id: "abc-juice-with-sugar", unit: "With Sugar", price: 119 },
+      { id: "abc-juice-without-sugar", unit: "Without Sugar", price: 119 },
+    ],
+    description:
+      "The powerhouse blend of Apple, Beetroot, and Carrot. Choose with or without sugar for daily vitality.",
+    inStock: true,
+  },
+
+  // ── Premium Quality Dry Fruits & Seeds ────────────────────────────────────
   {
     id: "black-dates",
     name: "Black Dates",
     nameTamil: "கருப்பு பேரீச்சை",
     price: 200,
     unit: "500g",
-    category: "dry-fruits",
+    category: "nuts-seeds",
     description:
       "Naturally sweet and rich black dates. A wholesome snack or natural sweetener for your recipes.",
     inStock: true,
@@ -414,7 +883,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "பாதாம்",
     price: 275,
     unit: "250g",
-    category: "dry-fruits",
+    category: "nuts-seeds",
     description:
       "Premium quality almonds, carefully selected. Crunchy, nutritious and perfect for snacking.",
     inStock: true,
@@ -425,7 +894,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "உப்பில்லா பிஸ்தா",
     price: 830,
     unit: "250g",
-    category: "dry-fruits",
+    category: "nuts-seeds",
     description:
       "Premium unsalted pistachios. Rich, buttery flavour with no added salt — pure natural goodness.",
     inStock: true,
@@ -436,7 +905,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "வால்நட்",
     price: 420,
     unit: "250g",
-    category: "dry-fruits",
+    category: "nuts-seeds",
     description:
       "Whole walnuts with a rich, earthy taste. Versatile for snacking, baking or adding to salads.",
     inStock: true,
@@ -447,7 +916,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "அத்திப்பழம்",
     price: 300,
     unit: "250g",
-    category: "dry-fruits",
+    category: "nuts-seeds",
     description:
       "Soft, naturally sweet dried figs. A wholesome treat packed with natural flavour.",
     inStock: true,
@@ -458,7 +927,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "மஞ்சள் திராட்சை",
     price: 160,
     unit: "250g",
-    category: "dry-fruits",
+    category: "nuts-seeds",
     description:
       "Golden yellow raisins, naturally sweet and tender. Great for snacking, cooking or baking.",
     inStock: true,
@@ -469,7 +938,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "கருப்பு திராட்சை",
     price: 185,
     unit: "250g",
-    category: "dry-fruits",
+    category: "nuts-seeds",
     description:
       "Rich black raisins with intense natural sweetness. A classic nutritious addition to any meal.",
     inStock: true,
@@ -480,20 +949,18 @@ export const PRODUCTS: Product[] = [
     nameTamil: "முந்திரி",
     price: 265,
     unit: "250g",
-    category: "dry-fruits",
+    category: "nuts-seeds",
     description:
       "Creamy, premium whole cashews. Perfect for snacking or cooking rich, flavourful dishes.",
     inStock: true,
   },
-
-  // ── Healthy Seeds ────────────────────────────────────────────────────────
   {
     id: "chia-seeds",
     name: "Chia Seeds",
     nameTamil: "சியா விதைகள்",
     price: 115,
     unit: "250g",
-    category: "seeds",
+    category: "nuts-seeds",
     description:
       "Tiny but mighty chia seeds. Mix into drinks, smoothies, puddings or sprinkle on meals.",
     inStock: true,
@@ -504,7 +971,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "பூசணி விதைகள்",
     price: 175,
     unit: "250g",
-    category: "seeds",
+    category: "nuts-seeds",
     description:
       "Crunchy pumpkin seeds, naturally nutritious. Great for snacking or adding texture to dishes.",
     inStock: true,
@@ -515,7 +982,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "சப்ஜா விதைகள்",
     price: 100,
     unit: "250g",
-    category: "seeds",
+    category: "nuts-seeds",
     description:
       "Sabja (basil) seeds that bloom beautifully in water. A refreshing addition to drinks and desserts.",
     inStock: true,
@@ -526,7 +993,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "ஆளி விதைகள்",
     price: 80,
     unit: "250g",
-    category: "seeds",
+    category: "nuts-seeds",
     description:
       "Earthy flax seeds packed with natural goodness. Sprinkle on yogurt, salads or add to smoothies.",
     inStock: true,
@@ -537,7 +1004,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "சூரியகாந்தி விதைகள்",
     price: 95,
     unit: "250g",
-    category: "seeds",
+    category: "nuts-seeds",
     description:
       "Light and crunchy sunflower seeds. A satisfying natural snack or salad topping.",
     inStock: true,
@@ -548,20 +1015,20 @@ export const PRODUCTS: Product[] = [
     nameTamil: "முலாம்பழ விதைகள்",
     price: 230,
     unit: "250g",
-    category: "seeds",
+    category: "nuts-seeds",
     description:
       "Delicate melon seeds with a mild, nutty taste. Versatile for snacking or adding to recipes.",
     inStock: true,
   },
 
-  // ── Healthy Choices & Herbal ─────────────────────────────────────────────
+  // ── Healthy Choices & Herbal / Premium Powders ────────────────────────────
   {
     id: "badam-gum",
     name: "Badam Gum",
     nameTamil: "பாதாம் பிசின்",
     price: 160,
     unit: "250g",
-    category: "healthy-choices",
+    category: "premium-products",
     description:
       "Natural badam gum, traditionally used in refreshing drinks and desserts. A unique premium product.",
     inStock: true,
@@ -572,7 +1039,7 @@ export const PRODUCTS: Product[] = [
     nameTamil: "அரப்பு பொடி",
     price: 90,
     unit: "250g",
-    category: "healthy-choices",
+    category: "premium-products",
     description:
       "Traditional pure arappu powder for natural hair wash and cooling. 100% herbal and chemical-free.",
     inStock: true,
@@ -584,7 +1051,19 @@ export function getProductsByCategory(category: ProductCategory): Product[] {
 }
 
 export function getProductById(id: string): Product | undefined {
-  return PRODUCTS.find((p) => p.id === id);
+  const direct = PRODUCTS.find((p) => p.id === id);
+  if (direct) return direct;
+
+  // Check if id matches any variant id
+  const parent = PRODUCTS.find((p) => p.variants?.some((v) => v.id === id));
+  if (parent && parent.variants) {
+    const variant = parent.variants.find((v) => v.id === id);
+    if (variant) {
+      return getVariantProduct(parent, variant);
+    }
+  }
+
+  return undefined;
 }
 
 export function searchProducts(query: string): Product[] {
@@ -596,6 +1075,7 @@ export function searchProducts(query: string): Product[] {
       (p.nameTamil && p.nameTamil.toLowerCase().includes(q)) ||
       p.category.toLowerCase().includes(q) ||
       p.unit.toLowerCase().includes(q) ||
-      (p.note && p.note.toLowerCase().includes(q))
+      (p.note && p.note.toLowerCase().includes(q)) ||
+      p.variants?.some((v) => v.unit.toLowerCase().includes(q))
   );
 }
