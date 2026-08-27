@@ -404,6 +404,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Onion (Peeled).png",
     variantType: "weight",
     variants: [
       { id: "small-onion-peeled-250g", unit: "250g", price: 49 },
@@ -420,6 +421,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Garlic (Peeled).png",
     variantType: "weight",
     variants: [
       { id: "garlic-peeled-250g", unit: "250g", price: 119 },
@@ -436,6 +438,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Green Peas (Peeled).png",
     variantType: "weight",
     variants: [
       { id: "green-peas-peeled-250g", unit: "250g", price: 119 },
@@ -452,6 +455,7 @@ export const PRODUCTS: Product[] = [
     price: 79,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Sweet Corn (Peeled).png",
     variantType: "weight",
     variants: [
       { id: "sweet-corn-peeled-250g", unit: "250g", price: 79 },
@@ -468,6 +472,7 @@ export const PRODUCTS: Product[] = [
     price: 69,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Avaraikkai (Sliced).png",
     variantType: "weight",
     variants: [
       { id: "avaraikkai-sliced-250g", unit: "250g", price: 69 },
@@ -484,6 +489,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Coconut (Grated).png",
     variantType: "weight",
     variants: [
       { id: "coconut-grated-250g", unit: "250g", price: 119 },
@@ -500,6 +506,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Cauliflower (Sliced).png",
     variantType: "weight",
     variants: [
       { id: "cauliflower-sliced-250g", unit: "250g", price: 119 },
@@ -516,6 +523,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Carrot (Sliced).png",
     variantType: "weight",
     variants: [
       { id: "carrot-sliced-250g", unit: "250g", price: 49 },
@@ -532,6 +540,7 @@ export const PRODUCTS: Product[] = [
     price: 59,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Beans (Sliced).png",
     variantType: "weight",
     variants: [
       { id: "beans-sliced-250g", unit: "250g", price: 59 },
@@ -548,6 +557,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Beetroot (Sliced).png",
     variantType: "weight",
     variants: [
       { id: "beetroot-sliced-250g", unit: "250g", price: 49 },
@@ -564,6 +574,7 @@ export const PRODUCTS: Product[] = [
     price: 39,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Cabbage (Sliced).png",
     variantType: "weight",
     variants: [
       { id: "cabbage-sliced-250g", unit: "250g", price: 39 },
@@ -580,6 +591,7 @@ export const PRODUCTS: Product[] = [
     price: 39,
     unit: "250g",
     category: "vegetables",
+    image: "/product-images/Drumstick (Sliced).png",
     variantType: "weight",
     variants: [
       { id: "drumstick-sliced-250g", unit: "250g", price: 39 },
@@ -598,6 +610,7 @@ export const PRODUCTS: Product[] = [
     price: 99,
     unit: "250g",
     category: "cut-fruits",
+    image: "/product-images/Pomegranate (Peeled).png",
     variantType: "weight",
     variants: [
       { id: "pomegranate-peeled-250g", unit: "250g", price: 99 },
@@ -614,6 +627,7 @@ export const PRODUCTS: Product[] = [
     price: 59,
     unit: "250g",
     category: "cut-fruits",
+    image: "/product-images/Papaya (Cut).png",
     variantType: "weight",
     variants: [
       { id: "papaya-cut-250g", unit: "250g", price: 59 },
@@ -630,6 +644,7 @@ export const PRODUCTS: Product[] = [
     price: 69,
     unit: "250g",
     category: "cut-fruits",
+    image: "/product-images/Fruits Mix Salad.png",
     description:
       "A colourful medley of fresh seasonal fruits, cut and ready to enjoy. Perfect for a healthy snack.",
     inStock: true,
@@ -643,6 +658,7 @@ export const PRODUCTS: Product[] = [
     price: 29,
     unit: "100g",
     category: "sprouts",
+    image: "/product-images/Pachai Payaru.png",
     description:
       "Fresh green moong sprouts. Light, crisp and packed with protein and enzymes. Ready to eat.",
     inStock: true,
@@ -654,6 +670,7 @@ export const PRODUCTS: Product[] = [
     price: 29,
     unit: "100g",
     category: "sprouts",
+    image: "/product-images/Brown Chana.png",
     description:
       "Freshly sprouted brown chana. Rich in fibre and protein. Great for salads or a healthy snack.",
     inStock: true,
@@ -665,6 +682,7 @@ export const PRODUCTS: Product[] = [
     price: 29,
     unit: "100g",
     category: "sprouts",
+    image: "/product-images/Mixed Sprouts.png",
     description:
       "A nourishing mix of sprouted legumes and seeds. Full of vitamins, minerals and plant protein.",
     inStock: true,
@@ -678,6 +696,7 @@ export const PRODUCTS: Product[] = [
     price: 29,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/lemon.png",
     variantType: "sugar",
     variants: [
       { id: "lemon-juice-with-sugar", unit: "With Sugar", price: 29 },
@@ -694,6 +713,7 @@ export const PRODUCTS: Product[] = [
     price: 139,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/apple.png",
     variantType: "sugar",
     variants: [
       { id: "apple-juice-with-sugar", unit: "With Sugar", price: 139 },
@@ -710,6 +730,7 @@ export const PRODUCTS: Product[] = [
     price: 89,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Muskmelon Juice.png",
     variantType: "sugar",
     variants: [
       { id: "muskmelon-juice-with-sugar", unit: "With Sugar", price: 89 },
@@ -726,6 +747,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Watermelon Juice.png",
     variantType: "sugar",
     variants: [
       { id: "watermelon-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -742,6 +764,7 @@ export const PRODUCTS: Product[] = [
     price: 109,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Pomegranate Juice.png",
     variantType: "sugar",
     variants: [
       { id: "pomegranate-juice-with-sugar", unit: "With Sugar", price: 109 },
@@ -758,6 +781,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Sathukudi Juice.png",
     variantType: "sugar",
     variants: [
       { id: "sathukudi-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -774,6 +798,7 @@ export const PRODUCTS: Product[] = [
     price: 79,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Amla Juice.png",
     variantType: "sugar",
     variants: [
       { id: "amla-juice-with-sugar", unit: "With Sugar", price: 79 },
@@ -790,6 +815,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Beetroot Juice.png",
     variantType: "sugar",
     variants: [
       { id: "beetroot-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -806,6 +832,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Grape Juice.png",
     variantType: "sugar",
     variants: [
       { id: "grape-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -822,6 +849,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Carrot Juice.png",
     variantType: "sugar",
     variants: [
       { id: "carrot-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -838,6 +866,7 @@ export const PRODUCTS: Product[] = [
     price: 89,
     unit: "250 ml",
     category: "fresh-juices",
+    image: "/product-images/Orange Juice.png",
     variantType: "sugar",
     variants: [
       { id: "orange-juice-with-sugar", unit: "With Sugar", price: 89 },
@@ -855,6 +884,7 @@ export const PRODUCTS: Product[] = [
     unit: "250 ml",
     category: "fresh-juices",
     note: "Apple, Beetroot & Carrot",
+    image: "/product-images/ABC juice.png",
     variantType: "sugar",
     variants: [
       { id: "abc-juice-with-sugar", unit: "With Sugar", price: 119 },
