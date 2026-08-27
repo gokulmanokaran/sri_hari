@@ -204,29 +204,31 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
         if (isHandled) return;
         isHandled = true;
 
-        // Verify with backend endpoint if available
-        try {
-          const verifyRes = await fetch("/api/verify-razorpay-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id || backendOrderId,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
-          if (verifyRes.ok) {
-            const verifyData = await verifyRes.json();
-            if (verifyData.verified === false) {
-              resolve({
-                success: false,
-                error: "Payment verification failed. Please contact support.",
-              });
-              return;
+        // Optional server-side verification if enabled
+        if (import.meta.env.VITE_ENABLE_BACKEND_RAZORPAY) {
+          try {
+            const verifyRes = await fetch("/api/verify-razorpay-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id || backendOrderId,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            if (verifyRes.ok) {
+              const verifyData = await verifyRes.json();
+              if (verifyData.verified === false) {
+                resolve({
+                  success: false,
+                  error: "Payment verification failed. Please contact support.",
+                });
+                return;
+              }
             }
+          } catch {
+            // Fallback: Proceed with Razorpay client confirmation
           }
-        } catch {
-          // Fallback: Proceed with Razorpay client confirmation
         }
 
         resolve({
