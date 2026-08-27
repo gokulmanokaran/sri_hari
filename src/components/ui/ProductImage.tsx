@@ -1,11 +1,12 @@
 import { Leaf } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 interface ProductImageProps {
   src?: string;
   alt: string;
   className?: string;
   aspectRatio?: "square" | "4/3" | "3/2";
+  priority?: boolean;
 }
 
 const GRADIENT_PALETTES = [
@@ -21,8 +22,10 @@ export function ProductImage({
   alt,
   className = "",
   aspectRatio = "square",
+  priority = false,
 }: ProductImageProps) {
   const [imgError, setImgError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const aspectClass =
     aspectRatio === "4/3"
@@ -31,7 +34,13 @@ export function ProductImage({
       ? "aspect-[3/2]"
       : "aspect-square";
 
-  // Pick a consistent palette based on alt text
+  // Derive WebP alternative path if available
+  const webpSrc = useMemo(() => {
+    if (!src) return undefined;
+    return src.replace(/\.(png|jpg|jpeg)$/i, ".webp");
+  }, [src]);
+
+  // Consistent palette fallback
   const paletteIndex =
     alt.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0) %
     GRADIENT_PALETTES.length;
@@ -39,20 +48,36 @@ export function ProductImage({
 
   if (src && !imgError) {
     return (
-      <div className={`${aspectClass} overflow-hidden ${className}`}>
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          decoding="async"
-          onError={() => setImgError(true)}
-          className="w-full h-full object-cover"
-        />
+      <div className={`relative ${aspectClass} overflow-hidden bg-[#F4F9F6] ${className}`}>
+        {/* Shimmer skeleton while image loads */}
+        {!isLoaded && (
+          <div className="absolute inset-0 bg-[#F4FAF6] animate-pulse flex items-center justify-center pointer-events-none">
+            <div className="w-8 h-8 rounded-full bg-[#EAF8F0] flex items-center justify-center opacity-70">
+              <Leaf size={14} className="text-[#00A651]/40" />
+            </div>
+          </div>
+        )}
+
+        <picture className="w-full h-full">
+          {webpSrc && <source srcSet={webpSrc} type="image/webp" />}
+          <img
+            src={src}
+            alt={alt}
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={priority ? "high" : "auto"}
+            onLoad={() => setIsLoaded(true)}
+            onError={() => setImgError(true)}
+            className={`w-full h-full object-cover transition-opacity duration-200 ${
+              isLoaded ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        </picture>
       </div>
     );
   }
 
-  // Premium placeholder
+  // Premium Fallback Placeholder
   return (
     <div
       className={`${aspectClass} flex items-center justify-center relative overflow-hidden ${className}`}
@@ -61,7 +86,6 @@ export function ProductImage({
       }}
       aria-label={`Image placeholder for ${alt}`}
     >
-      {/* Decorative organic circle */}
       <div
         className="absolute -bottom-4 -right-4 w-20 h-20 rounded-full opacity-30"
         style={{ background: palette.icon }}
@@ -70,8 +94,6 @@ export function ProductImage({
         className="absolute -top-3 -left-3 w-12 h-12 rounded-full opacity-20"
         style={{ background: palette.icon }}
       />
-
-      {/* Leaf icon */}
       <div className="relative z-10 flex flex-col items-center gap-1">
         <Leaf
           size={28}

@@ -69,6 +69,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             src={product.image}
             alt={product.name}
             className="w-full rounded-none"
+            priority={index < 4}
           />
           {!effectiveProduct.inStock && (
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center">

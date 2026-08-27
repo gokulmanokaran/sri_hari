@@ -129,6 +129,12 @@ export default function CheckoutPage() {
 
   const isNavigatingRef = useRef(false);
 
+  // Reset placing state on mount
+  useEffect(() => {
+    setPlacing(false);
+    isNavigatingRef.current = false;
+  }, []);
+
   // Redirect to cart if empty
   useEffect(() => {
     if (!isNavigatingRef.current && !placing && items.length === 0) {

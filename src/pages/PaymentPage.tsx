@@ -183,13 +183,21 @@ export default function PaymentPage() {
     }
   };
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/checkout");
+    }
+  };
+
   return (
     <div className="min-h-dvh bg-[#F9FAF9] pb-24">
       {/* Top Header */}
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-[#EAEAEA] px-4 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate("/checkout")}
+            onClick={handleBack}
             disabled={isProcessing}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
             aria-label="Back to checkout"
@@ -335,7 +343,7 @@ export default function PaymentPage() {
               <MapPin size={14} className="text-[#00A651]" /> Delivery Address
             </h3>
             <button
-              onClick={() => navigate("/checkout")}
+              onClick={handleBack}
               disabled={isProcessing}
               className="text-xs font-bold text-[#00A651] hover:underline cursor-pointer"
             >

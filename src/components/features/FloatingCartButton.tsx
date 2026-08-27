@@ -8,10 +8,11 @@ export function FloatingCartButton() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Hide on cart and checkout pages
+  // Hide on cart, checkout, payment, and order success pages
   const isCartOrCheckout =
     location.pathname === "/cart" ||
     location.pathname === "/checkout" ||
+    location.pathname === "/payment" ||
     location.pathname === "/order-success" ||
     location.pathname === "/pincode";
 

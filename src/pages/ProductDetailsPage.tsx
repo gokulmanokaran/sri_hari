@@ -82,6 +82,7 @@ export default function ProductDetailsPage() {
           alt={product.name}
           className="w-full h-full rounded-none"
           aspectRatio="3/2"
+          priority={true}
         />
       </motion.div>
 
