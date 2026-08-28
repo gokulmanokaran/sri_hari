@@ -100,7 +100,7 @@ export function CategoryModal({
               <Plus size={14} /> Add New Category
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
                   Category ID
@@ -140,6 +140,26 @@ export function CategoryModal({
                   placeholder="🍵"
                   className="w-full h-10 px-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-base text-center"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
+                  Badge Color
+                </label>
+                <div className="flex items-center gap-2 h-10 px-3 bg-slate-900 border border-slate-700 rounded-xl">
+                  <input
+                    type="color"
+                    value={newColor}
+                    onChange={(e) => setNewColor(e.target.value)}
+                    className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent"
+                  />
+                  <input
+                    type="text"
+                    value={newColor}
+                    onChange={(e) => setNewColor(e.target.value)}
+                    className="w-full bg-transparent text-white text-xs font-mono outline-none"
+                  />
+                </div>
               </div>
             </div>
 
