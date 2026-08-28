@@ -16,6 +16,7 @@ import {
   findProductById,
   filterProductsByQuery,
 } from "../services/productService";
+import { getSupabaseClient } from "../lib/supabase";
 
 interface ProductContextValue {
   products: Product[];
@@ -38,9 +39,9 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
-  // Background stale-while-revalidate synchronization
+  // Background synchronization from Supabase Database
   const syncCatalog = useCallback(async (isInitial = false) => {
-    if (isInitial) setIsLoading(false); // cached data loaded immediately
+    if (isInitial) setIsLoading(false);
     setIsSyncing(true);
 
     try {
@@ -57,7 +58,7 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
       }
       setLastSyncedAt(new Date());
     } catch (err) {
-      console.warn("[ProductContext] Background sync error:", err);
+      console.warn("[ProductContext] Sync error:", err);
     } finally {
       setIsSyncing(false);
     }
@@ -66,6 +67,36 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
   // Fetch on mount
   useEffect(() => {
     syncCatalog(true);
+  }, [syncCatalog]);
+
+  // Supabase Realtime live subscription
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel("storefront-realtime-catalog")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => {
+          console.info("[Realtime] Product change detected in Supabase. Refreshing storefront...");
+          syncCatalog(false);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "categories" },
+        () => {
+          console.info("[Realtime] Category change detected in Supabase. Refreshing storefront...");
+          syncCatalog(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [syncCatalog]);
 
   // Auto re-sync when tab gains focus / visibility or periodically
@@ -79,7 +110,6 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("focus", handleVisibilityOrFocus);
     document.addEventListener("visibilitychange", handleVisibilityOrFocus);
 
-    // Periodic background sync every 60 seconds
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") {
         syncCatalog(false);
@@ -146,7 +176,6 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
 export function useProductCatalog(): ProductContextValue {
   const ctx = useContext(ProductContext);
   if (!ctx) {
-    // Fallback if rendered outside provider
     return {
       products: PRODUCTS,
       categories: CATEGORIES,

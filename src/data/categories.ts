@@ -6,6 +6,8 @@ export interface Category {
   emoji: string;
   description: string;
   color: string;
+  sortOrder?: number;
+  active?: boolean;
 }
 
 export const CATEGORIES: Category[] = [

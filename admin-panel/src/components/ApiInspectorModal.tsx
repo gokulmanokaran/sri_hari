@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { X, Code, CheckCircle2, Copy, ExternalLink, RefreshCw, Server, Save } from "lucide-react";
-import { getApiBaseUrl, setCustomApiUrl, fetchProducts } from "../services/api";
+import { X, CheckCircle2, Copy, ExternalLink, RefreshCw, Server, Database, Save } from "lucide-react";
+import { fetchProducts } from "../services/api";
+import { getAdminSupabaseConfig, setCustomAdminSupabaseConfig, getAdminSupabaseClient } from "../lib/supabase";
 import { Product } from "../types";
 
 interface ApiInspectorModalProps {
@@ -11,20 +12,18 @@ interface ApiInspectorModalProps {
 export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
   if (!isOpen) return null;
 
-  const currentBaseUrl = getApiBaseUrl();
-  const [customUrlInput, setCustomUrlInput] = useState(currentBaseUrl);
+  const currentConfig = getAdminSupabaseConfig();
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState(currentConfig.url);
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(currentConfig.key);
+
   const [sampleData, setSampleData] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; msg: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const fullApiBase = currentBaseUrl.startsWith("http")
-    ? currentBaseUrl
-    : `${window.location.origin}${currentBaseUrl}`;
-
-  const productsApiUrl = `${fullApiBase}/products`;
-  const categoriesApiUrl = `${fullApiBase}/categories`;
+  const productsApiUrl = `${window.location.origin}/api/products`;
+  const categoriesApiUrl = `${window.location.origin}/api/categories`;
 
   const loadPreview = () => {
     setLoading(true);
@@ -44,49 +43,45 @@ export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSaveApiUrl = async (e: React.FormEvent) => {
+  const handleSaveSupabaseConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setTesting(true);
     setTestResult(null);
 
-    const targetUrl = customUrlInput.trim();
-    setCustomApiUrl(targetUrl === "/api" ? null : targetUrl);
+    setCustomAdminSupabaseConfig(supabaseUrlInput.trim(), supabaseKeyInput.trim());
 
     try {
-      const activeBase = targetUrl.startsWith("http")
-        ? targetUrl
-        : `${window.location.origin}${targetUrl}`;
-      const res = await fetch(`${activeBase}/products?_ts=${Date.now()}`, {
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
-
-      const text = await res.text();
-      if (text.startsWith("<") || text.includes("<!DOCTYPE")) {
-        throw new Error("Target returned HTML instead of JSON. Ensure URL points to the store API (e.g. https://your-store.vercel.app/api).");
+      const client = getAdminSupabaseClient();
+      if (!client) {
+        throw new Error("Please enter both Supabase Project URL and API Key.");
       }
 
-      const json = JSON.parse(text);
-      const count = Array.isArray(json.data) ? json.data.length : Array.isArray(json) ? json.length : 0;
+      const { data, error } = await client.from("products").select("id").limit(5);
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const count = Array.isArray(data) ? data.length : 0;
       setTestResult({
         success: true,
-        msg: `✓ Connected successfully! Found ${count} live products.`,
+        msg: `✓ Supabase Connected Successfully! Found ${count > 0 ? count + "+ " : ""}products in database.`,
       });
       loadPreview();
     } catch (err) {
       setTestResult({
         success: false,
-        msg: err instanceof Error ? `Connection Failed: ${err.message}` : "Failed to connect to API.",
+        msg: err instanceof Error ? `Connection Failed: ${err.message}` : "Failed to connect to Supabase.",
       });
     } finally {
       setTesting(false);
     }
   };
 
-  const handleResetDefault = () => {
-    setCustomApiUrl(null);
-    setCustomUrlInput("/api");
-    setTestResult({ success: true, msg: "Reset to default relative API (/api)." });
+  const handleResetSupabase = () => {
+    setCustomAdminSupabaseConfig(null, null);
+    setSupabaseUrlInput("");
+    setSupabaseKeyInput("");
+    setTestResult({ success: true, msg: "Reset to environment default." });
     loadPreview();
   };
 
@@ -96,13 +91,13 @@ export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
         {/* Header */}
         <div className="p-6 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center">
-              <Code size={20} />
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+              <Database size={20} />
             </div>
             <div>
-              <h2 className="text-base font-black text-white">Central Product API & Endpoints</h2>
+              <h2 className="text-base font-black text-white">Supabase Database & API Status</h2>
               <p className="text-xs text-slate-400">
-                Unified persistent JSON source for Storefront, Admin Panel & Android App
+                Single authoritative PostgreSQL source for Storefront, Admin Panel & Android App
               </p>
             </div>
           </div>
@@ -116,39 +111,48 @@ export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
 
         {/* Content */}
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
-          {/* Active API URL Configuration Form */}
-          <form onSubmit={handleSaveApiUrl} className="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl space-y-3">
+          {/* Supabase Connection Configuration */}
+          <form onSubmit={handleSaveSupabaseConfig} className="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Server size={14} className="text-[#00A651]" />
-                API Connection URL
+                <Database size={14} className="text-[#00A651]" />
+                Supabase Database Connection
               </label>
               <button
                 type="button"
-                onClick={handleResetDefault}
+                onClick={handleResetSupabase}
                 className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
               >
-                Reset to Default (/api)
+                Reset to Default
               </button>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              If your Admin Panel is hosted on a separate domain from your main store, enter your main website API URL below (e.g. <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded font-mono">https://sri-hari.vercel.app/api</code>).
+              Connect directly to your Supabase PostgreSQL project. Products and category edits persist immediately across all platforms.
             </p>
-            <div className="flex gap-2">
+            <div className="space-y-2">
               <input
                 type="text"
-                value={customUrlInput}
-                onChange={(e) => setCustomUrlInput(e.target.value)}
-                placeholder="/api or https://your-site.vercel.app/api"
-                className="flex-1 h-10 px-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-[#00A651]"
+                value={supabaseUrlInput}
+                onChange={(e) => setSupabaseUrlInput(e.target.value)}
+                placeholder="Supabase Project URL (e.g. https://xyzcompany.supabase.co)"
+                className="w-full h-10 px-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-[#00A651]"
               />
+              <input
+                type="password"
+                value={supabaseKeyInput}
+                onChange={(e) => setSupabaseKeyInput(e.target.value)}
+                placeholder="Supabase Anon Key or Service Role Key"
+                className="w-full h-10 px-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-[#00A651]"
+              />
+            </div>
+            <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={testing}
-                className="h-10 px-4 bg-[#00A651] hover:bg-[#008f45] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                className="h-10 px-5 bg-[#00A651] hover:bg-[#008f45] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
               >
                 {testing ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
-                <span>Save & Test</span>
+                <span>Save & Test Supabase</span>
               </button>
             </div>
 
@@ -165,10 +169,11 @@ export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
             )}
           </form>
 
-          {/* Endpoints */}
+          {/* REST Endpoints for Android & API */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Live Product Endpoints
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Server size={14} className="text-blue-400" />
+              Central REST Endpoints (for Future Android App)
             </h3>
 
             {/* Products Endpoint */}
@@ -178,7 +183,7 @@ export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
                   GET
                 </span>
                 <p className="text-xs text-white font-mono truncate">{productsApiUrl}</p>
-                <p className="text-[10px] text-slate-500">Fetches live 90+ product catalog with prices, stock, and images</p>
+                <p className="text-[10px] text-slate-500">Fetches live 90+ product catalog directly from Supabase</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -206,7 +211,7 @@ export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
                   GET
                 </span>
                 <p className="text-xs text-white font-mono truncate">{categoriesApiUrl}</p>
-                <p className="text-[10px] text-slate-500">Fetches store categories and display colors/emojis</p>
+                <p className="text-[10px] text-slate-500">Fetches live categories from Supabase</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -238,7 +243,7 @@ export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Live JSON Response Preview
+                Live Data Preview
               </h3>
               {loading && <RefreshCw size={14} className="animate-spin text-slate-400" />}
             </div>
@@ -252,7 +257,7 @@ export function ApiInspectorModal({ isOpen, onClose }: ApiInspectorModalProps) {
         <div className="p-6 border-t border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-emerald-400">
             <CheckCircle2 size={16} />
-            <span>Central API is operational and ready for Android</span>
+            <span>Supabase architecture active</span>
           </div>
           <button
             onClick={onClose}

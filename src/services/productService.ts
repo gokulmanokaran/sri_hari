@@ -1,33 +1,66 @@
 /**
- * Central Product Catalog Service
- * ────────────────────────────────
- * Fetches dynamic product and category data from the Central Online Product API.
- * Uses a stale-while-revalidate caching pattern:
- * 1. Immediately returns cached catalog for 0ms startup.
- * 2. Fetches latest catalog in background.
- * 3. Updates cache and notifies React context if changes are detected.
- * 4. Falls back safely to bundled catalog if offline.
+ * Supabase Product & Category Service
+ * ────────────────────────────────────
+ * Single Source of Truth for the Storefront.
+ * 1. Queries Supabase PostgreSQL database directly.
+ * 2. Implements real-time synchronization and stale-while-revalidate local cache.
+ * 3. Falls back smoothly if network is temporarily offline.
  */
 import { Product, PRODUCTS } from "../data/products";
 import { Category, CATEGORIES } from "../data/categories";
+import { getSupabaseClient } from "../lib/supabase";
 
-const CACHED_PRODUCTS_KEY = "shreehari_cached_products_v2";
-const CACHED_CATEGORIES_KEY = "shreehari_cached_categories_v2";
+const CACHED_PRODUCTS_KEY = "shreehari_cached_products_v3";
+const CACHED_CATEGORIES_KEY = "shreehari_cached_categories_v3";
 const CACHE_TIMESTAMP_KEY = "shreehari_catalog_last_synced";
 
-/** Get API Base URL (defaults to current origin /api) */
-export function getApiBaseUrl(): string {
-  return import.meta.env.VITE_PRODUCT_API_URL || "/api";
+/** Map Supabase DB Row to Frontend Product Interface */
+export function mapDbProductToProduct(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    nameTamil: row.name_tamil || row.tamil_name || "",
+    tamilName: row.tamil_name || row.name_tamil || "",
+    price: Number(row.price) || 0,
+    mrp: Number(row.mrp) || Number(row.price) || 0,
+    unit: row.unit || "1 Pack",
+    quantity: row.quantity || row.unit || "1 Pack",
+    category: row.category,
+    image: row.image || row.image_url || "",
+    description: row.description || "",
+    shortDescription: row.short_description || "",
+    note: row.note || "",
+    inStock: row.in_stock !== false,
+    stockQuantity: row.stock_quantity !== null && row.stock_quantity !== undefined ? Number(row.stock_quantity) : undefined,
+    featured: Boolean(row.featured),
+    active: row.active !== false,
+    sortOrder: row.sort_order !== undefined ? Number(row.sort_order) : 0,
+    variantType: row.variant_type || undefined,
+    variants: Array.isArray(row.variants) ? row.variants : undefined,
+    updatedAt: row.updated_at || undefined,
+  };
 }
 
-/** Get cached products or fallback to bundled catalog */
+/** Map Supabase DB Row to Frontend Category Interface */
+export function mapDbCategoryToCategory(row: any): Category {
+  return {
+    id: row.id,
+    name: row.name,
+    emoji: row.emoji || "🌿",
+    description: row.description || "",
+    color: row.color || "#EAF8F0",
+    sortOrder: row.sort_order !== undefined ? Number(row.sort_order) : 0,
+    active: row.active !== false,
+  };
+}
+
+/** Get cached products or fallback to initial catalog */
 export function getStoredProducts(): Product[] {
   try {
     const raw = localStorage.getItem(CACHED_PRODUCTS_KEY);
-    if (!raw) return PRODUCTS;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (err) {
     console.warn("[ProductService] Error reading cached products:", err);
@@ -35,14 +68,13 @@ export function getStoredProducts(): Product[] {
   return PRODUCTS;
 }
 
-/** Get cached categories or fallback to bundled categories */
+/** Get cached categories or fallback to initial categories */
 export function getStoredCategories(): Category[] {
   try {
     const raw = localStorage.getItem(CACHED_CATEGORIES_KEY);
-    if (!raw) return CATEGORIES;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (err) {
     console.warn("[ProductService] Error reading cached categories:", err);
@@ -70,85 +102,102 @@ export function cacheCategories(categories: Category[]): void {
 }
 
 /**
- * Fetches live products from the Central Product API
+ * Fetches live products from Supabase Database (or REST API fallback)
  */
 export async function fetchLiveProducts(): Promise<Product[]> {
-  const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}/products?_ts=${Date.now()}`;
+  const supabase = getSupabaseClient();
 
+  // 1. Fetch from Supabase Database
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const mapped = data.map(mapDbProductToProduct);
+        cacheProducts(mapped);
+        return mapped;
+      }
+      if (error) {
+        console.warn("[ProductService] Supabase products error:", error.message);
+      }
+    } catch (err) {
+      console.warn("[ProductService] Supabase fetch exception:", err);
+    }
+  }
+
+  // 2. Fallback to API endpoint
   try {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-      },
+    const res = await fetch(`/api/products?_ts=${Date.now()}`, {
+      headers: { Accept: "application/json", "Cache-Control": "no-cache" },
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      console.warn(`[ProductService] API returned ${res.status}, falling back to cache.`);
-      return getStoredProducts();
-    }
-
-    const data = await res.json();
-    let productList: Product[] = [];
-
-    if (data && Array.isArray(data.data)) {
-      productList = data.data;
-    } else if (Array.isArray(data)) {
-      productList = data;
-    } else if (data && Array.isArray(data.products)) {
-      productList = data.products;
-    }
-
-    if (productList.length > 0) {
-      cacheProducts(productList);
-      return productList;
+    if (res.ok) {
+      const json = await res.json();
+      const list = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+      if (list.length > 0) {
+        const mapped = list.map(mapDbProductToProduct);
+        cacheProducts(mapped);
+        return mapped;
+      }
     }
   } catch (err) {
-    console.info("[ProductService] Network issue while fetching live products. Serving cached data.", err);
+    console.info("[ProductService] API fallback unreachable. Serving cached catalog.", err);
   }
 
   return getStoredProducts();
 }
 
 /**
- * Fetches live categories from the Central Product API
+ * Fetches live categories from Supabase Database (or REST API fallback)
  */
 export async function fetchLiveCategories(): Promise<Category[]> {
-  const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}/categories?_ts=${Date.now()}`;
+  const supabase = getSupabaseClient();
 
+  // 1. Fetch from Supabase Database
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const mapped = data.map(mapDbCategoryToCategory);
+        cacheCategories(mapped);
+        return mapped;
+      }
+      if (error) {
+        console.warn("[ProductService] Supabase categories error:", error.message);
+      }
+    } catch (err) {
+      console.warn("[ProductService] Supabase categories fetch exception:", err);
+    }
+  }
+
+  // 2. Fallback to API endpoint
   try {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-      },
+    const res = await fetch(`/api/categories?_ts=${Date.now()}`, {
+      headers: { Accept: "application/json", "Cache-Control": "no-cache" },
       cache: "no-store",
     });
 
     if (res.ok) {
-      const data = await res.json();
-      let catList: Category[] = [];
-
-      if (data && Array.isArray(data.data)) {
-        catList = data.data;
-      } else if (Array.isArray(data)) {
-        catList = data;
-      }
-
-      if (catList.length > 0) {
-        cacheCategories(catList);
-        return catList;
+      const json = await res.json();
+      const list = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+      if (list.length > 0) {
+        const mapped = list.map(mapDbCategoryToCategory);
+        cacheCategories(mapped);
+        return mapped;
       }
     }
   } catch (err) {
-    console.info("[ProductService] Could not reach live categories API. Serving cached data.", err);
+    console.info("[ProductService] API fallback unreachable. Serving cached categories.", err);
   }
 
   return getStoredCategories();
