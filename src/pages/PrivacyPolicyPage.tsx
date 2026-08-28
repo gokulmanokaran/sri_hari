@@ -49,7 +49,7 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul className="text-xs text-[#555555] space-y-2 list-disc pl-5 leading-relaxed">
             <li><strong>Customer Contact Details:</strong> Full Name, Primary Mobile Number, Alternative Mobile Number (optional), and Email Address (optional).</li>
-            <li><strong>Delivery Location Data:</strong> Pinned GPS coordinates (Latitude & Longitude) from Google Maps, Door/Flat No., Street, Area, City, District, State, and Pincode for route navigation and fresh morning delivery.</li>
+            <li><strong>Delivery Location Data:</strong> Pinned GPS coordinates (Latitude & Longitude) from Google Maps, Door/Flat No., Street, Area, City, District, State, and Pincode for route navigation and fresh delivery.</li>
             <li><strong>Order & Transaction Records:</strong> Selected items, quantities, subtotal, delivery charges, discounts, total payable, and Razorpay Transaction Payment ID.</li>
           </ul>
           <div className="bg-[#EAF8F0] p-3 rounded-xl border border-[#B9E8CE] text-xs text-[#087A43] font-medium">
@@ -117,6 +117,10 @@ export default function PrivacyPolicyPage() {
               <Mail size={14} className="text-[#00A651]" />
               <a href="mailto:shreeharikeerai1@gmail.com" className="text-[#00A651] font-semibold">shreeharikeerai1@gmail.com</a>
             </p>
+            <div className="pt-2 border-t border-[#EAEAEA] flex flex-col gap-1 text-[#666666]">
+              <p><strong>FSSAI:</strong> 22423557000359</p>
+              <p><strong>GSTIN:</strong> 33BBHPP5925L1ZA</p>
+            </div>
           </div>
         </div>
 

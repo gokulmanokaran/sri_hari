@@ -39,7 +39,7 @@ export function DailyNotification() {
 
       try {
         const notif = new Notification("🌿 Shree Hari Keerai — Pre-Order Now!", {
-          body: "Fresh greens & natural foods are ready to order! Place your order today for tomorrow delivery.",
+          body: "Fresh greens & natural foods are ready to order! Today Order – Tomorrow Evening Delivery Guaranteed.",
           icon: "/favicon.ico",
           badge: "/favicon.ico",
           tag: "daily-promo",

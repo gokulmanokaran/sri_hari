@@ -53,7 +53,7 @@ export const DELIVERY_ZONES: Record<string, DeliveryZone> = {
 /** Fallback global minimum (used before a location is pinned) */
 export const DEFAULT_MINIMUM_ORDER = 199;
 
-export const BUSINESS_PHONE = "8438758801";
+export const BUSINESS_PHONE = "9790209685";
 
 /** Get delivery zone details for a pincode */
 export function getDeliveryZone(pincode: string): DeliveryZone | null {

@@ -8,7 +8,7 @@ const BANNERS = [
     id: "pre-order",
     tag: "PRE ORDER NOW",
     title: "Freshness Delivered Daily",
-    subtitle: "Today Order → Tomorrow Delivery Guaranteed",
+    subtitle: "Today Order – Tomorrow Evening Delivery Guaranteed",
     chips: ["⭐ Farm Fresh", "🚚 Distance Delivery", "🏷️ Auto Discounts", "🚀 Next-Day Drop"],
     gradient: "from-[#00A651] via-[#087A43] to-[#065A31]",
     accent: "rgba(255,255,255,0.12)",

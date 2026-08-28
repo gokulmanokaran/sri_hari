@@ -41,7 +41,7 @@ export default function TermsPage() {
         <div className="bg-white rounded-[20px] p-5 border border-[#EAEAEA] shadow-xs space-y-3">
           <h2 className="text-sm font-bold text-[#111111]">1. Ordering & Fresh Harvest Process</h2>
           <ul className="text-xs text-[#555555] space-y-2 list-disc pl-5 leading-relaxed">
-            <li><strong>Next-Day Morning Delivery Schedule:</strong> Orders placed today are freshly harvested and delivered the next morning (between 6:00 AM – 10:30 AM).</li>
+            <li><strong>Delivery Schedule:</strong> Today Order – Tomorrow Evening Delivery Guaranteed. Orders placed today are freshly harvested and delivered the next evening.</li>
             <li><strong>Perishable Nature:</strong> Our leafy greens and keerai varieties are 100% natural, farm-fresh harvests. Sizes and seasonal variations may naturally occur.</li>
             <li><strong>Order Confirmation:</strong> An order is only confirmed once digital payment is successfully verified through Razorpay.</li>
           </ul>
@@ -86,16 +86,16 @@ export default function TermsPage() {
           <ul className="text-xs text-[#555555] space-y-2 list-disc pl-5 leading-relaxed">
             <li>Ensure the delivery pin placed on the Google Map is accurate.</li>
             <li>Provide an active, reachable mobile number (and optional alternative number) for delivery driver coordination.</li>
-            <li>Be available or arrange someone to collect the fresh greens during morning delivery hours.</li>
+            <li>Be available or arrange someone to collect the fresh products during evening delivery hours.</li>
           </ul>
         </div>
 
-        {/* 6. Order Cancellation & Refunds */}
+        {/* 6. Order Cancellation & Replacements */}
         <div className="bg-white rounded-[20px] p-5 border border-[#EAEAEA] shadow-xs space-y-3">
-          <h2 className="text-sm font-bold text-[#111111]">6. Cancellation & Refunds</h2>
+          <h2 className="text-sm font-bold text-[#111111]">6. Cancellation & Replacements</h2>
           <p className="text-xs text-[#555555] leading-relaxed">
-            Cancellations and refunds are governed by our <Link to="/refund-policy" className="text-[#00A651] font-semibold underline">Refund & Cancellation Policy</Link>.
-            Orders can be cancelled before 8:00 PM on the order day for a 100% refund. Once dispatched for morning delivery, refunds are provided in cases of damaged/spoiled goods or delivery logistics issues.
+            Order replacements are governed by our <Link to="/refund-policy" className="text-[#00A651] font-semibold underline">Cancellation & Replacement Policy</Link>.
+            If you receive a damaged or incorrect product, please contact us. We will collect the damaged/incorrect product and provide a replacement with a new product.
           </p>
         </div>
 
@@ -115,6 +115,10 @@ export default function TermsPage() {
               <Mail size={14} className="text-[#00A651]" />
               <a href="mailto:shreeharikeerai1@gmail.com" className="text-[#00A651] font-semibold">shreeharikeerai1@gmail.com</a>
             </p>
+            <div className="pt-2 border-t border-[#EAEAEA] flex flex-col gap-1 text-[#666666]">
+              <p><strong>FSSAI:</strong> 22423557000359</p>
+              <p><strong>GSTIN:</strong> 33BBHPP5925L1ZA</p>
+            </div>
           </div>
         </div>
 

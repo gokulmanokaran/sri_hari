@@ -80,7 +80,7 @@ export function EcommerceHero() {
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-extrabold text-white leading-tight">Today Order</p>
-                <p className="text-[9px] text-white/75 font-medium truncate">→ Tomorrow Delivery</p>
+                <p className="text-[9px] text-white/75 font-medium truncate">Tomorrow Evening Delivery Guaranteed</p>
               </div>
             </div>
 

@@ -19,10 +19,18 @@ export function Footer() {
           <div className="text-xs text-[#00A651] font-bold mb-2 tracking-wide uppercase">
             Fresh • Natural • Premium
           </div>
-          <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
+          <p className="text-sm text-gray-400 leading-relaxed max-w-xs mb-2">
             Bringing fresh greens, premium dry fruits, and healthy products
             straight to your doorstep.
           </p>
+          <div className="flex flex-col gap-1 text-xs text-gray-300 font-medium">
+            <div>
+              <span className="text-gray-400 font-normal">FSSAI:</span> 22423557000359
+            </div>
+            <div>
+              <span className="text-gray-400 font-normal">GSTIN:</span> 33BBHPP5925L1ZA
+            </div>
+          </div>
         </div>
 
         {/* Contact */}

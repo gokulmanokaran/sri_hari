@@ -152,7 +152,7 @@ export function Header({ onSearchOpen }: HeaderProps) {
             <div className="flex items-center gap-2.5 mb-1.5">
               <MapPin size={18} className="text-[#00A651]" />
               <p className="text-sm font-black text-[#111111]">
-                Coimbatore Fresh Morning Delivery
+                Today Order – Tomorrow Evening Delivery Guaranteed
               </p>
             </div>
             <p className="text-xs text-[#555555] leading-relaxed">

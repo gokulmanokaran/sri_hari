@@ -5,7 +5,7 @@
  * 1. Open your Google Sheet (or create a new Google Sheet).
  * 2. In the top menu, click Extensions > Apps Script.
  * 3. Delete any existing code and PASTE THIS ENTIRE SCRIPT.
- * 4. Update the `ADMIN_EMAIL` below with your business email address (e.g. "shreeharikeerai@gmail.com").
+ * 4. Update the `ADMIN_EMAIL` below with your business email address (e.g. "shreeharikeerai1@gmail.com").
  * 5. Click "Deploy" > "New deployment" (or "Manage deployments" > "Edit" > "New version" if updating).
  * 6. Select type "Web app".
  * 7. Set "Execute as": "Me" (your Google account).
@@ -14,10 +14,14 @@
  * 10. Copy the "Web app URL" and add it to your project's `.env` as `VITE_ORDER_WEBHOOK_URL=...`
  */
 
-// ── CONFIGURATION ─────────────────────────────────────────────────────────────
+// ── CONFIGURATION & BUSINESS DETAILS ─────────────────────────────────────────
 var ADMIN_EMAIL = "shreeharikeerai1@gmail.com"; // Admin email — order notifications sent here
 var STORE_NAME = "Shree Hari Keerai";
 var SHEET_NAME = "Orders"; // Tab name in Google Sheets
+var GSTIN_NO = "33BBHPP5925L1ZA";
+var FSSAI_NO = "22423557000359";
+var SUPPORT_PHONE = "9790209685";
+var SUPPORT_EMAIL = "shreeharikeerai1@gmail.com";
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -38,7 +42,7 @@ function doPost(e) {
     // 2. Send Admin Email Notification
     var emailResult = sendAdminOrderEmail(data);
 
-    // 3. Send Customer Email Notification if email is provided
+    // 3. Send Customer Email Notification immediately if email is entered
     var customerEmailResult = sendCustomerOrderEmail(data);
 
     return createJsonResponse({
@@ -62,6 +66,8 @@ function doGet(e) {
   return createJsonResponse({
     status: "online",
     service: "Shree Hari Keerai Order Webhook",
+    gstin: GSTIN_NO,
+    fssai: FSSAI_NO,
     timestamp: new Date().toISOString()
   });
 }
@@ -214,8 +220,8 @@ function sendAdminOrderEmail(data) {
     "Delivery Charge: ₹" + deliveryCharge + "\n" +
     "*Total Paid: ₹" + total + "*\n\n" +
     "*Delivery Address:*\n" + address + (pincode ? ", " + pincode : "") + "\n\n" +
-    "Your fresh keerai will be delivered tomorrow morning (6:00 AM – 10:30 AM). 🚚\n\n" +
-    "For any queries, feel free to WhatsApp or call us at 8438758801.\n\n" +
+    "Today Order – Tomorrow Evening Delivery Guaranteed. 🚚\n\n" +
+    "For any queries, feel free to WhatsApp or call us at " + SUPPORT_PHONE + ".\n\n" +
     "Thank you for choosing Shree Hari Keerai! 🙏";
   var waPhone = "91" + mobile.replace(/\D/g, "");
   var waUrl = "https://wa.me/" + waPhone + "?text=" + encodeURIComponent(waMsg);
@@ -367,7 +373,13 @@ function sendAdminOrderEmail(data) {
 
         // Delivery Schedule Note
         '<div style="background-color:#EAF8F0; border-left:4px solid #00A651; padding:10px 14px; border-radius:6px; font-size:12px; color:#087A43; margin-bottom:20px;">' +
-          '🚚 <strong>Delivery Schedule:</strong> Today Order → Tomorrow Fresh Morning Delivery.' +
+          '🚚 <strong>Delivery Schedule:</strong> Today Order – Tomorrow Evening Delivery Guaranteed.' +
+        '</div>' +
+
+        // Business Credentials Box
+        '<div style="background-color:#F5F5F5; border-radius:10px; padding:10px 14px; font-size:11px; color:#666666; margin-bottom:20px; text-align:center;">' +
+          '<span><strong>GSTIN:</strong> ' + GSTIN_NO + '</span> &nbsp;·&nbsp; ' +
+          '<span><strong>FSSAI:</strong> ' + FSSAI_NO + '</span>' +
         '</div>' +
 
         // Action Quick Bar
@@ -399,7 +411,8 @@ function sendAdminOrderEmail(data) {
 
       // Footer
       '<div style="background-color:#FAFAFA; border-top:1px solid #EAEAEA; padding:14px; text-align:center; font-size:11px; color:#999999;">' +
-        '© ' + new Date().getFullYear() + ' ' + STORE_NAME + ' · Automated Order Notification' +
+        '© ' + new Date().getFullYear() + ' ' + STORE_NAME + ' · Automated Order Notification<br>' +
+        'GSTIN: ' + GSTIN_NO + ' | FSSAI: ' + FSSAI_NO +
       '</div>' +
 
     '</div>' +
@@ -420,44 +433,208 @@ function sendAdminOrderEmail(data) {
 }
 
 /**
- * Sends a customer confirmation email if customer email was provided
+ * Sends a clean, comprehensive, professional HTML Order Confirmation Email to the Customer
+ * Triggered automatically immediately after successful payment & order confirmation.
+ * Only sends if a customer email is provided.
  */
 function sendCustomerOrderEmail(data) {
-  if (!data.email || data.email === "N/A" || data.email.indexOf("@") === -1) {
+  // Check if customer email was provided
+  if (!data.email || data.email === "N/A" || data.email.trim() === "" || data.email.indexOf("@") === -1) {
+    Logger.log("No valid customer email entered. Skipping customer confirmation email for order #" + (data.orderId || ""));
     return { sent: false, reason: "No customer email provided" };
   }
 
-  var orderId = data.orderId || "";
+  var recipient = data.email.trim();
+  var orderId = data.orderId || "SHK-" + new Date().getTime();
   var customerName = data.fullName || "Valued Customer";
   var total = data.total || 0;
+  var subtotal = data.subtotal || total;
+  var deliveryCharge = data.deliveryCharge || 0;
+  var discount = data.discount || 0;
   var formattedDate = data.formattedDate || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  var paymentStatus = data.paymentStatus || "Paid (Razorpay)";
   var paymentId = data.paymentId || data.razorpayPaymentId || "N/A";
+  var address = data.address || "";
+  var city = data.city || "";
+  var state = data.state || "";
+  var pincode = data.pincode || "";
 
   var subject = "🌿 Order Confirmed #" + orderId + " — " + STORE_NAME;
 
-  var htmlBody = '<!DOCTYPE html><html><body style="font-family:sans-serif; background:#F5F7F6; padding:20px;">' +
-    '<div style="max-width:550px; margin:0 auto; background:#fff; border-radius:14px; padding:20px; border:1px solid #eee;">' +
-      '<h2 style="color:#00A651; margin-top:0;">🌿 Thank You for Your Order!</h2>' +
-      '<p>Hello <strong>' + customerName + '</strong>,</p>' +
-      '<p>Your order <strong>#' + orderId + '</strong> has been placed successfully.</p>' +
-      '<div style="background:#EAF8F0; padding:12px; border-radius:8px; margin:16px 0;">' +
-        '<div><strong>Total Paid:</strong> ₹' + total + '</div>' +
-        '<div><strong>Payment ID:</strong> ' + paymentId + '</div>' +
-        '<div><strong>Order Date:</strong> ' + formattedDate + '</div>' +
+  // Build Ordered Items HTML Rows for Customer
+  var itemsHtml = "";
+  if (data.items && data.items.length) {
+    for (var i = 0; i < data.items.length; i++) {
+      var item = data.items[i];
+      var tamilName = item.nameTamil ? ' <span style="color:#00A651; font-size:12px;">(' + item.nameTamil + ')</span>' : '';
+      var itemTotal = (item.price || 0) * (item.quantity || 1);
+
+      itemsHtml += '<tr>' +
+        '<td style="padding:12px 14px; border-bottom:1px solid #EEEEEE; font-size:13px; color:#222222; text-align:left;">' +
+          '<strong style="color:#111111;">' + item.name + '</strong>' + tamilName +
+          (item.unit ? '<div style="font-size:11px; color:#777777; margin-top:2px;">' + item.unit + '</div>' : '') +
+        '</td>' +
+        '<td style="padding:12px 14px; border-bottom:1px solid #EEEEEE; font-size:13px; color:#444444; text-align:center;">' +
+          item.quantity +
+        '</td>' +
+        '<td style="padding:12px 14px; border-bottom:1px solid #EEEEEE; font-size:13px; color:#444444; text-align:right;">' +
+          '₹' + item.price +
+        '</td>' +
+        '<td style="padding:12px 14px; border-bottom:1px solid #EEEEEE; font-size:13px; font-weight:bold; color:#00A651; text-align:right;">' +
+          '₹' + itemTotal +
+        '</td>' +
+      '</tr>';
+    }
+  } else {
+    itemsHtml = '<tr><td colspan="4" style="padding:16px; text-align:center; color:#888;">' + (data.productsSummary || "Order items") + '</td></tr>';
+  }
+
+  // Construct Full Responsive HTML Customer Receipt Email
+  var htmlBody = '<!DOCTYPE html>' +
+  '<html>' +
+  '<head>' +
+    '<meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<title>Order Confirmation #' + orderId + '</title>' +
+  '</head>' +
+  '<body style="margin:0; padding:20px 10px; background-color:#F5F7F6; font-family:-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; color:#222222;">' +
+    '<div style="max-width:600px; margin:0 auto; background-color:#FFFFFF; border-radius:20px; overflow:hidden; box-shadow:0 6px 28px rgba(0,0,0,0.07); border:1px solid #EAEAEA;">' +
+
+      // Top Header Banner
+      '<div style="background:linear-gradient(135deg, #00A651 0%, #087A43 100%); padding:28px 24px; text-align:center; color:#FFFFFF;">' +
+        '<h1 style="margin:0; font-size:24px; font-weight:900; letter-spacing:0.5px;">🌿 ' + STORE_NAME + '</h1>' +
+        '<p style="margin:6px 0 0 0; font-size:14px; opacity:0.95; font-weight:500;">Order Confirmation & Receipt</p>' +
       '</div>' +
-      '<p style="font-size:13px; color:#555;">Delivery will be completed tomorrow morning as per our fresh morning schedule.</p>' +
-      '<p style="font-size:12px; color:#888; margin-top:24px;">Shree Hari Keerai — Fresh, Natural & Premium Products</p>' +
-    '</div></body></html>';
+
+      // Success Confirmation Banner
+      '<div style="background-color:#EAF8F0; padding:16px 24px; border-bottom:1px solid #CDEED9; text-align:center;">' +
+        '<div style="display:inline-block; background-color:#00A651; color:#FFFFFF; font-size:12px; font-weight:bold; padding:4px 14px; border-radius:20px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">' +
+          '✓ Order Placed & Confirmed' +
+        '</div>' +
+        '<h2 style="margin:4px 0 0 0; font-size:17px; font-weight:bold; color:#087A43;">Thank You for Your Order, ' + customerName + '! 🎉</h2>' +
+      '</div>' +
+
+      '<div style="padding:24px;">' +
+
+        // Order & Payment Summary Box
+        '<div style="background-color:#F9FBFA; border:1px solid #E5ECE8; border-radius:14px; padding:16px; margin-bottom:20px;">' +
+          '<table style="width:100%; border-collapse:collapse; font-size:13px;">' +
+            '<tr>' +
+              '<td style="padding:4px 0; color:#666666; width:130px;">Order ID:</td>' +
+              '<td style="padding:4px 0; color:#111111; font-weight:bold;">#' + orderId + '</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="padding:4px 0; color:#666666;">Order Date & Time:</td>' +
+              '<td style="padding:4px 0; color:#111111; font-weight:600;">' + formattedDate + '</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="padding:4px 0; color:#666666;">Payment Status:</td>' +
+              '<td style="padding:4px 0; color:#00A651; font-weight:bold;">' + paymentStatus + '</td>' +
+            '</tr>' +
+            (paymentId && paymentId !== "N/A" ?
+            '<tr>' +
+              '<td style="padding:4px 0; color:#666666;">Payment Ref ID:</td>' +
+              '<td style="padding:4px 0; color:#555555;"><code>' + paymentId + '</code></td>' +
+            '</tr>' : '') +
+          '</table>' +
+        '</div>' +
+
+        // Delivery Address Box
+        '<div style="background-color:#FFFFFF; border:1px solid #EAEAEA; border-radius:14px; padding:16px; margin-bottom:20px;">' +
+          '<h3 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; color:#00A651; letter-spacing:0.5px;">📍 Delivery Address</h3>' +
+          '<p style="margin:0; font-size:13px; line-height:1.5; color:#333333; font-weight:600;">' + address + '</p>' +
+          (city || state || pincode ?
+          '<p style="margin:4px 0 0 0; font-size:12px; color:#666666;">' + [city, state, pincode ? '📮 ' + pincode : ''].filter(Boolean).join(', ') + '</p>' : '') +
+        '</div>' +
+
+        // Itemized Products Table
+        '<h3 style="margin:0 0 10px 0; font-size:13px; text-transform:uppercase; color:#00A651; letter-spacing:0.5px;">📦 Purchased Products</h3>' +
+        '<table style="width:100%; border-collapse:collapse; margin-bottom:20px; border:1px solid #EAEAEA; border-radius:12px; overflow:hidden;">' +
+          '<thead>' +
+            '<tr style="background-color:#F5F5F5; font-size:12px; color:#555555; text-transform:uppercase;">' +
+              '<th style="padding:10px 14px; text-align:left;">Product</th>' +
+              '<th style="padding:10px 14px; text-align:center;">Qty</th>' +
+              '<th style="padding:10px 14px; text-align:right;">Price</th>' +
+              '<th style="padding:10px 14px; text-align:right;">Total</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' +
+            itemsHtml +
+          '</tbody>' +
+        '</table>' +
+
+        // Financial Summary Box
+        '<div style="background-color:#F9F9F9; border-radius:14px; padding:16px; margin-bottom:20px; border:1px solid #EAEAEA;">' +
+          '<table style="width:100%; font-size:13px; border-collapse:collapse;">' +
+            '<tr>' +
+              '<td style="padding:4px 0; color:#666666;">Subtotal:</td>' +
+              '<td style="padding:4px 0; color:#111111; text-align:right; font-weight:600;">₹' + subtotal + '</td>' +
+            '</tr>' +
+            (discount > 0 ?
+            '<tr>' +
+              '<td style="padding:4px 0; color:#00A651;">Discount Applied:</td>' +
+              '<td style="padding:4px 0; color:#00A651; text-align:right; font-weight:600;">−₹' + discount + '</td>' +
+            '</tr>' : '') +
+            '<tr>' +
+              '<td style="padding:4px 0; color:#666666;">Delivery Charge:</td>' +
+              '<td style="padding:4px 0; color:#111111; text-align:right; font-weight:600;">' +
+                (deliveryCharge === 0 ? '<span style="color:#00A651; font-weight:bold;">FREE</span>' : '₹' + deliveryCharge) +
+              '</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="padding:10px 0 0 0; border-top:1px solid #E0E0E0; font-size:16px; font-weight:bold; color:#111111;">Total Amount Paid:</td>' +
+              '<td style="padding:10px 0 0 0; border-top:1px solid #E0E0E0; font-size:18px; font-weight:900; color:#00A651; text-align:right;">₹' + total + '</td>' +
+            '</tr>' +
+          '</table>' +
+        '</div>' +
+
+        // Delivery Guarantee Highlight Box
+        '<div style="background-color:#EAF8F0; border-left:4px solid #00A651; padding:12px 16px; border-radius:8px; font-size:13px; color:#087A43; margin-bottom:24px; line-height:1.5;">' +
+          '🚚 <strong>Delivery Schedule:</strong> Today Order – Tomorrow Evening Delivery Guaranteed directly to your pinned address.' +
+        '</div>' +
+
+        // Official Business Credentials Card
+        '<div style="background-color:#F5FCF8; border:1px solid #B9E8CE; border-radius:14px; padding:16px; margin-bottom:20px; font-size:12px; color:#444444; line-height:1.6;">' +
+          '<div style="font-weight:bold; color:#087A43; margin-bottom:6px; font-size:13px;">🌿 Shree Hari Keerai — Business Credentials</div>' +
+          '<div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">' +
+            '<div><strong>GSTIN:</strong> ' + GSTIN_NO + '</div>' +
+            '<div><strong>FSSAI:</strong> ' + FSSAI_NO + '</div>' +
+          '</div>' +
+          '<div style="margin-top:6px; font-size:11px; color:#666666;">' +
+            'Location: Coimbatore, Tamil Nadu, India' +
+          '</div>' +
+        '</div>' +
+
+        // Support & Help Contact
+        '<div style="text-align:center; padding:10px 0; border-top:1px solid #EEEEEE;">' +
+          '<p style="margin:0 0 10px 0; font-size:12px; color:#666666;">Need help or have questions about your delivery?</p>' +
+          '<a href="https://wa.me/91' + SUPPORT_PHONE + '" style="display:inline-block; background-color:#25D366; color:#FFFFFF; padding:10px 22px; border-radius:10px; text-decoration:none; font-size:13px; font-weight:bold; margin-right:8px;">💬 WhatsApp Support</a>' +
+          '<a href="tel:' + SUPPORT_PHONE + '" style="display:inline-block; background-color:#111111; color:#FFFFFF; padding:10px 22px; border-radius:10px; text-decoration:none; font-size:13px; font-weight:bold;">📞 Call Us</a>' +
+        '</div>' +
+
+      '</div>' +
+
+      // Email Footer
+      '<div style="background-color:#FAFAFA; border-top:1px solid #EAEAEA; padding:16px; text-align:center; font-size:11px; color:#888888; line-height:1.6;">' +
+        '© ' + new Date().getFullYear() + ' ' + STORE_NAME + ' · Fresh • Natural • Premium<br>' +
+        '<strong>GSTIN:</strong> ' + GSTIN_NO + ' &nbsp;|&nbsp; <strong>FSSAI:</strong> ' + FSSAI_NO + '<br>' +
+        'Coimbatore, Tamil Nadu, India' +
+      '</div>' +
+
+    '</div>' +
+  '</body>' +
+  '</html>';
 
   try {
     MailApp.sendEmail({
-      to: data.email,
+      to: recipient,
       subject: subject,
       htmlBody: htmlBody
     });
-    return { sent: true, recipient: data.email };
+    Logger.log("Customer order confirmation email sent successfully to: " + recipient + " for Order #" + orderId);
+    return { sent: true, recipient: recipient };
   } catch (err) {
-    Logger.log("Error sending customer email: " + err.toString());
+    Logger.log("Error sending customer confirmation email: " + err.toString());
     return { sent: false, error: err.toString() };
   }
 }

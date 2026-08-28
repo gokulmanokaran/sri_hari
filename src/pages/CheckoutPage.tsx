@@ -539,8 +539,8 @@ export default function CheckoutPage() {
                   <Truck size={20} className="text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-[#111111]">Today Order → Tomorrow Delivery</p>
-                  <p className="text-xs text-[#666666] mt-0.5">Order placed today will be delivered tomorrow</p>
+                  <p className="text-sm font-bold text-[#111111]">Today Order – Tomorrow Evening Delivery Guaranteed</p>
+                  <p className="text-xs text-[#666666] mt-0.5">Order placed today will be delivered tomorrow evening guaranteed</p>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-base font-black text-[#00A651]">₹{charge}</p>
@@ -631,7 +631,7 @@ export default function CheckoutPage() {
               {placing ? "Proceeding to Payment…" : `Proceed to Payment · ₹${total}`}
             </Button>
             <p className="text-xs text-[#999999] text-center mt-3 leading-relaxed">
-              No account needed. Delivered tomorrow to your pinned location.
+              No account needed. Today Order – Tomorrow Evening Delivery Guaranteed to your pinned location.
             </p>
           </motion.div>
 

@@ -89,7 +89,24 @@ Whenever an order is placed, an email is sent instantly containing:
 - 📞 **Clickable Call Customer Button**
 - 📦 **Structured Itemized Table with Tamil names, quantities, and pricing**
 - 💰 **Financial Breakdown (Subtotal, Discount, Delivery Fee, Total Paid)**
-- 🚚 **Delivery Schedule Note: Today Order → Tomorrow Fresh Morning Delivery**
+- 🚚 **Delivery Schedule Note: Today Order – Tomorrow Evening Delivery Guaranteed**
+- 🏢 **GSTIN: 33BBHPP5925L1ZA & FSSAI: 22423557000359**
+
+---
+
+## ✉️ What Customer Receives in Email (Immediate Order Confirmation)
+
+If the customer entered an email address during checkout, an automated **Order Confirmation & Receipt** email is immediately dispatched with:
+- 🌿 **Brand Header & Order Confirmed Badge**
+- 👤 **Customer Name & Order ID**
+- 📅 **Order Date & Time**
+- 💳 **Payment Status & Razorpay Payment Ref ID**
+- 📍 **Complete Delivery Address**
+- 📦 **Itemized Purchased Products Table (Name, Unit, Quantity, Unit Price, Total)**
+- 💰 **Financial Summary (Subtotal, Discount, Delivery Charge, Total Amount Paid)**
+- 🚚 **Guaranteed Delivery Schedule: Today Order – Tomorrow Evening Delivery Guaranteed**
+- 🏢 **Official Business Credentials: GSTIN (33BBHPP5925L1ZA) & FSSAI (22423557000359)**
+- 💬 **1-Tap WhatsApp & Call Support Buttons**
 
 ---
 

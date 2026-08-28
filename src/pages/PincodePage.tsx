@@ -177,7 +177,7 @@ export default function PincodePage() {
                         </p>
                       )}
                       <p className="text-xs text-[#00A651] font-medium mt-1">
-                        Today order → Tomorrow delivery 🚚
+                        Today Order – Tomorrow Evening Delivery Guaranteed 🚚
                       </p>
                     </div>
                     <p className="text-xs text-[#999999] mt-2">

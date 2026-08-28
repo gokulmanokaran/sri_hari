@@ -200,7 +200,7 @@ export function PermissionPromptModal() {
 
               {/* Description */}
               <p className="text-xs text-[#666666] mt-2 mb-4 leading-relaxed px-2">
-                Get timely morning alerts when fresh greens are harvested and track your delivery status directly.
+                Get timely alerts when fresh greens are harvested and track your delivery status directly.
               </p>
 
               {/* Feature Benefit Items */}
@@ -210,7 +210,7 @@ export function PermissionPromptModal() {
                     <CheckCircle2 size={13} />
                   </div>
                   <p className="text-xs text-[#444444] font-medium">
-                    <strong className="text-[#111111]">Daily Morning Harvest:</strong> Pre-order before stocks sell out.
+                    <strong className="text-[#111111]">Daily Fresh Harvest:</strong> Pre-order before stocks sell out.
                   </p>
                 </div>
                 <div className="flex items-start gap-2.5">

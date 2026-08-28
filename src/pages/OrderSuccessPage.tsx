@@ -245,7 +245,7 @@ export default function OrderSuccessPage() {
               </div>
               <div className="flex-1">
                 <p className="text-xs font-bold text-[#111111]">Expected Delivery</p>
-                <p className="text-xs text-[#666666]">Tomorrow (Guaranteed)</p>
+                <p className="text-xs text-[#666666]">Today Order – Tomorrow Evening Delivery Guaranteed</p>
               </div>
             </div>
 
