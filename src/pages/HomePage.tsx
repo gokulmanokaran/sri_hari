@@ -7,27 +7,28 @@ import { ProductGrid } from "../components/features/ProductGrid";
 import { WhyChooseUs } from "../components/features/WhyChooseUs";
 import { WhatsAppCTA } from "../components/features/WhatsAppCTA";
 import { SearchOverlay } from "../components/features/SearchOverlay";
-import { PRODUCTS } from "../data/products";
+import { useProductCatalog } from "../store/ProductContext";
 
 export default function HomePage() {
   const [searchOpen, setSearchOpen] = useState(false);
+  const { products } = useProductCatalog();
 
   // Featured curated picks
-  const featuredProducts = PRODUCTS.filter((p) =>
-    ["dwarf-copper-leaves", "small-onion", "almond", "black-dates"].includes(p.id)
+  const featuredProducts = products.filter((p) =>
+    ["dwarf-copper-leaves", "small-onion", "onion-peeled", "almond", "black-dates"].includes(p.id) || p.featured
   );
 
   // Fresh & Cleaned Products
-  const freshProducts = PRODUCTS.filter((p) =>
+  const freshProducts = products.filter((p) =>
     ["keerai", "microgreens", "vegetables"].includes(p.category)
   );
 
   // Microgreens category
-  const microgreensProducts = PRODUCTS.filter((p) => p.category === "microgreens");
+  const microgreensProducts = products.filter((p) => p.category === "microgreens");
 
-  // Premium Quality Products (Dry Fruits, Seeds, Healthy Choices)
-  const premiumProducts = PRODUCTS.filter((p) =>
-    ["dry-fruits", "seeds", "healthy-choices"].includes(p.category)
+  // Premium Quality Products (Dry Fruits, Seeds, Healthy Choices, Nuts & Seeds)
+  const premiumProducts = products.filter((p) =>
+    ["dry-fruits", "seeds", "healthy-choices", "nuts-seeds", "premium-products"].includes(p.category)
   );
 
   return (

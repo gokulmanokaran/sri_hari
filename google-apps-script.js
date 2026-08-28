@@ -376,11 +376,7 @@ function sendAdminOrderEmail(data) {
           '🚚 <strong>Delivery Schedule:</strong> Today Order – Tomorrow Evening Delivery Guaranteed.' +
         '</div>' +
 
-        // Business Credentials Box
-        '<div style="background-color:#F5F5F5; border-radius:10px; padding:10px 14px; font-size:11px; color:#666666; margin-bottom:20px; text-align:center;">' +
-          '<span><strong>GSTIN:</strong> ' + GSTIN_NO + '</span> &nbsp;·&nbsp; ' +
-          '<span><strong>FSSAI:</strong> ' + FSSAI_NO + '</span>' +
-        '</div>' +
+
 
         // Action Quick Bar
         '<div style="text-align:center; padding-top:10px; display:flex; flex-direction:column; align-items:center; gap:10px;">' +
@@ -593,17 +589,7 @@ function sendCustomerOrderEmail(data) {
           '🚚 <strong>Delivery Schedule:</strong> Today Order – Tomorrow Evening Delivery Guaranteed directly to your pinned address.' +
         '</div>' +
 
-        // Official Business Credentials Card
-        '<div style="background-color:#F5FCF8; border:1px solid #B9E8CE; border-radius:14px; padding:16px; margin-bottom:20px; font-size:12px; color:#444444; line-height:1.6;">' +
-          '<div style="font-weight:bold; color:#087A43; margin-bottom:6px; font-size:13px;">🌿 Shree Hari Keerai — Business Credentials</div>' +
-          '<div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">' +
-            '<div><strong>GSTIN:</strong> ' + GSTIN_NO + '</div>' +
-            '<div><strong>FSSAI:</strong> ' + FSSAI_NO + '</div>' +
-          '</div>' +
-          '<div style="margin-top:6px; font-size:11px; color:#666666;">' +
-            'Location: Coimbatore, Tamil Nadu, India' +
-          '</div>' +
-        '</div>' +
+
 
         // Support & Help Contact
         '<div style="text-align:center; padding:10px 0; border-top:1px solid #EEEEEE;">' +

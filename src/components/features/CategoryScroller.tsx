@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { CATEGORIES } from "../../data/categories";
 import { ProductCategory } from "../../data/products";
+import { useProductCatalog } from "../../store/ProductContext";
 
 interface CategoryScrollerProps {
   activeCategory?: ProductCategory | "all";
@@ -15,10 +15,11 @@ export function CategoryScroller({
   mode = "home",
 }: CategoryScrollerProps) {
   const navigate = useNavigate();
+  const { categories } = useProductCatalog();
 
-  const handleClick = (id: ProductCategory) => {
+  const handleClick = (id: string) => {
     if (onSelect) {
-      onSelect(id);
+      onSelect(id as ProductCategory);
     } else {
       navigate(`/products?category=${id}`);
     }
@@ -39,7 +40,7 @@ export function CategoryScroller({
         >
           All
         </motion.button>
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <motion.button
             key={cat.id}
             whileTap={{ scale: 0.93 }}
@@ -64,7 +65,7 @@ export function CategoryScroller({
         <h2 className="text-lg font-black text-[#111111]">Shop by Category</h2>
       </div>
       <div className="flex gap-3 overflow-x-auto no-scrollbar px-5 pb-1">
-        {CATEGORIES.map((cat, i) => (
+        {categories.map((cat, i) => (
           <motion.button
             key={cat.id}
             initial={{ opacity: 0, x: 20 }}

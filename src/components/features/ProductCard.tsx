@@ -72,9 +72,18 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             priority={index < 4}
           />
           {!effectiveProduct.inStock && (
-            <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-              <span className="text-xs font-bold text-[#666666] bg-white/90 px-2 py-1 rounded-full">
-                Unavailable
+            <div className="absolute top-2 right-2 z-10 pointer-events-none">
+              <span
+                className="text-[10px] font-black tracking-wide uppercase px-2 py-1 rounded-md shadow-sm"
+                style={{
+                  background: "rgba(220,38,38,0.92)",
+                  color: "#ffffff",
+                  backdropFilter: "blur(2px)",
+                  WebkitBackdropFilter: "blur(2px)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Out of Stock
               </span>
             </div>
           )}

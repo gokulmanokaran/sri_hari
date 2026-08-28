@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Check } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getProductById, getVariantProduct } from "../data/products";
+import { getVariantProduct } from "../data/products";
 import { useCart } from "../store/CartContext";
+import { useProductCatalog } from "../store/ProductContext";
 import { ProductImage } from "../components/ui/ProductImage";
 import { Button } from "../components/ui/Button";
 
@@ -12,6 +13,7 @@ export default function ProductDetailsPage() {
   const navigate = useNavigate();
   const { addItem, incrementItem, decrementItem, getItemQuantity, itemCount } =
     useCart();
+  const { getProductById } = useProductCatalog();
 
   const product = id ? getProductById(id) : undefined;
 
@@ -74,7 +76,7 @@ export default function ProductDetailsPage() {
         initial={{ scale: 1.05 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.4 }}
-        className="w-full"
+        className="w-full relative"
         style={{ height: "45vw", maxHeight: 280 }}
       >
         <ProductImage
@@ -84,6 +86,22 @@ export default function ProductDetailsPage() {
           aspectRatio="3/2"
           priority={true}
         />
+        {!effectiveProduct.inStock && (
+          <div className="absolute top-3 right-3 z-10 pointer-events-none">
+            <span
+              className="text-[11px] font-black tracking-wide uppercase px-2.5 py-1.5 rounded-md shadow-md"
+              style={{
+                background: "rgba(220,38,38,0.92)",
+                color: "#ffffff",
+                backdropFilter: "blur(2px)",
+                WebkitBackdropFilter: "blur(2px)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Out of Stock
+            </span>
+          </div>
+        )}
       </motion.div>
 
       {/* Content */}

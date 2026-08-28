@@ -2,7 +2,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Search as SearchIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { searchProducts, Product } from "../../data/products";
+import { Product } from "../../data/products";
+import { useProductCatalog } from "../../store/ProductContext";
 import { ProductImage } from "../ui/ProductImage";
 
 interface SearchOverlayProps {
@@ -16,6 +17,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const { searchProducts } = useProductCatalog();
 
   // Focus on open
   useEffect(() => {
@@ -38,7 +40,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
       setResults(searchProducts(query));
     }, 200);
     return () => clearTimeout(debounceRef.current);
-  }, [query]);
+  }, [query, searchProducts]);
 
   // Close on Escape
   useEffect(() => {
@@ -139,12 +141,25 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                     onClick={() => handleResultClick(product.id)}
                     className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[#F9F9F9] text-left"
                   >
-                    <div className="w-12 h-12 rounded-[12px] overflow-hidden flex-shrink-0">
+                    <div className="relative w-12 h-12 rounded-[12px] overflow-hidden flex-shrink-0">
                       <ProductImage
                         src={product.image}
                         alt={product.name}
                         className="w-full h-full"
                       />
+                      {!product.inStock && (
+                        <div className="absolute inset-0 flex items-end justify-center pb-0.5">
+                          <span
+                            className="text-[8px] font-black uppercase tracking-wide px-1 py-0.5 rounded w-full text-center"
+                            style={{
+                              background: "rgba(220,38,38,0.90)",
+                              color: "#ffffff",
+                            }}
+                          >
+                            Out of Stock
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-[#111111] truncate">
@@ -158,8 +173,13 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                       <p className="text-xs text-[#999999] font-medium">
                         {product.unit}
                       </p>
+                      {!product.inStock && (
+                        <p className="text-[10px] font-bold text-red-500 mt-0.5">
+                          Out of Stock
+                        </p>
+                      )}
                     </div>
-                    <span className="text-sm font-black text-[#111111] flex-shrink-0">
+                    <span className={`text-sm font-black flex-shrink-0 ${product.inStock ? "text-[#111111]" : "text-[#AAAAAA]"}`}>
                       ₹{product.price}
                     </span>
                   </motion.button>

@@ -24,15 +24,24 @@ export interface Product {
   id: string;
   name: string;          // English name
   nameTamil?: string;    // Tamil name (optional)
+  tamilName?: string;    // Tamil name alias (optional)
   price: number;         // Default/starting price
+  mrp?: number;          // Maximum Retail Price
   unit: string;          // Default/starting unit
-  category: ProductCategory;
+  quantity?: string;     // Quantity descriptor
+  category: ProductCategory | string;
   description?: string;
+  shortDescription?: string;
   note?: string;
   image?: string;
   inStock: boolean;
+  stockQuantity?: number;
+  featured?: boolean;
+  active?: boolean;
+  sortOrder?: number;
   variantType?: "weight" | "sugar";
   variants?: ProductVariant[];
+  updatedAt?: string;
 }
 
 /** Returns display label: "English / Tamil" if Tamil name is set, else just English */

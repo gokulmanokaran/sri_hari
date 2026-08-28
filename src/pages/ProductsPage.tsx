@@ -4,13 +4,14 @@ import { Header } from "../components/layout/Header";
 import { CategoryScroller } from "../components/features/CategoryScroller";
 import { ProductGrid } from "../components/features/ProductGrid";
 import { SearchOverlay } from "../components/features/SearchOverlay";
-import { PRODUCTS, ProductCategory } from "../data/products";
-import { CATEGORIES } from "../data/categories";
+import { ProductCategory } from "../data/products";
 import { useSearchParams } from "react-router-dom";
+import { useProductCatalog } from "../store/ProductContext";
 
 export default function ProductsPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchParams] = useSearchParams();
+  const { products, categories } = useProductCatalog();
 
   const initialCategory = searchParams.get("category") as ProductCategory | "all" | null;
   const [activeCategory, setActiveCategory] = useState<ProductCategory | "all">(
@@ -19,13 +20,13 @@ export default function ProductsPage() {
 
   const filtered =
     activeCategory === "all"
-      ? PRODUCTS
-      : PRODUCTS.filter((p) => p.category === activeCategory);
+      ? products
+      : products.filter((p) => p.category === activeCategory);
 
   const categoryLabel =
     activeCategory === "all"
       ? "All Products"
-      : CATEGORIES.find((c) => c.id === activeCategory)?.name || activeCategory.replace(/-/g, " ");
+      : categories.find((c) => c.id === activeCategory)?.name || activeCategory.replace(/-/g, " ");
 
   return (
     <>

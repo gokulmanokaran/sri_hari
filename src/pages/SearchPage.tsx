@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { Search as SearchIcon, X, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { searchProducts, Product, PRODUCTS } from "../data/products";
+import { Product } from "../data/products";
 import { ProductCard } from "../components/features/ProductCard";
+import { useProductCatalog } from "../store/ProductContext";
 
 export default function SearchPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { products, searchProducts } = useProductCatalog();
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -23,7 +25,7 @@ export default function SearchPage() {
       setResults(searchProducts(query));
     }, 150);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, searchProducts]);
 
   return (
     <div className="min-h-dvh bg-white pb-24">
@@ -93,7 +95,7 @@ export default function SearchPage() {
               Featured Recommendations
             </p>
             <div className="grid grid-cols-2 gap-3">
-              {PRODUCTS.slice(0, 4).map((product, i) => (
+              {products.slice(0, 4).map((product, i) => (
                 <ProductCard key={product.id} product={product} index={i} />
               ))}
             </div>
