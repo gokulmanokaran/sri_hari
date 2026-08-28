@@ -68,6 +68,31 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
     syncCatalog(true);
   }, [syncCatalog]);
 
+  // Auto re-sync when tab gains focus / visibility or periodically
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        syncCatalog(false);
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    // Periodic background sync every 60 seconds
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        syncCatalog(false);
+      }
+    }, 60000);
+
+    return () => {
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      clearInterval(interval);
+    };
+  }, [syncCatalog]);
+
   const getProductByIdCallback = useCallback(
     (id: string) => findProductById(products, id),
     [products]

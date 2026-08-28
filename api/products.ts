@@ -5,27 +5,26 @@ import {
   getCloudProducts,
   saveCloudProducts,
   validateAdminAuth,
-  corsHeaders,
   getLastCatalogUpdate,
+  handleCors,
+  parseApiRequest,
+  sendApiResponse,
 } from "./_catalog";
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: any, res?: any): Promise<any> {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders(),
-    });
+  if (handleCors(req, res)) {
+    return;
   }
 
-  const url = new URL(req.url);
-  const productId = url.searchParams.get("id");
-  const category = url.searchParams.get("category");
-  const search = url.searchParams.get("search");
-  const inStockOnly = url.searchParams.get("inStock") === "true";
+  const { method, query, body, getHeader } = await parseApiRequest(req);
+  const productId = query.id;
+  const category = query.category;
+  const search = query.search;
+  const inStockOnly = query.inStock === "true";
 
   // ── GET: Public Read Products ──────────────────────────────────────────────
-  if (req.method === "GET") {
+  if (method === "GET") {
     try {
       let products = await getCloudProducts();
 
@@ -35,21 +34,17 @@ export default async function handler(req: Request): Promise<Response> {
           (p) => p.id === productId || p.variants?.some((v) => v.id === productId)
         );
         if (!found) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Product not found", id: productId }),
-            { status: 404, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-          );
+          return sendApiResponse(res, 404, {
+            success: false,
+            error: "Product not found",
+            id: productId,
+          });
         }
-        return new Response(
-          JSON.stringify({ success: true, data: found }),
-          {
-            status: 200,
-            headers: {
-              ...corsHeaders(),
-              "Content-Type": "application/json",
-              "Cache-Control": "public, max-age=60, s-maxage=120, stale-while-revalidate=86400",
-            },
-          }
+        return sendApiResponse(
+          res,
+          200,
+          { success: true, data: found },
+          "public, max-age=0, s-maxage=30, stale-while-revalidate=86400"
         );
       }
 
@@ -76,55 +71,47 @@ export default async function handler(req: Request): Promise<Response> {
         );
       }
 
-      return new Response(
-        JSON.stringify({
+      return sendApiResponse(
+        res,
+        200,
+        {
           success: true,
           count: products.length,
           lastUpdated: getLastCatalogUpdate(),
           data: products,
-        }),
-        {
-          status: 200,
-          headers: {
-            ...corsHeaders(),
-            "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=60, s-maxage=120, stale-while-revalidate=86400",
-          },
-        }
+        },
+        "public, max-age=0, s-maxage=30, stale-while-revalidate=86400"
       );
     } catch (err) {
-      return new Response(
-        JSON.stringify({ success: false, error: err instanceof Error ? err.message : "Internal Error" }),
-        { status: 500, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      console.error("[API /products GET Error]:", err);
+      return sendApiResponse(res, 500, {
+        success: false,
+        error: err instanceof Error ? err.message : "Internal Error fetching products",
+      });
     }
   }
 
-  // ── Protected Admin Write Methods (POST, PUT, DELETE) ──────────────────────
-  if (!validateAdminAuth(req)) {
-    return new Response(
-      JSON.stringify({ success: false, error: "Unauthorized. Valid Admin credentials required." }),
-      { status: 401, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-    );
+  // ── Protected Admin Write Operations (POST, PUT, DELETE, PATCH) ───────────
+  if (!validateAdminAuth(getHeader)) {
+    return sendApiResponse(res, 401, {
+      success: false,
+      error: "Unauthorized. Valid Admin authentication token or PIN required.",
+    });
   }
 
-  // ── POST: Create New Product / Bulk Update ─────────────────────────────────
-  if (req.method === "POST") {
+  // ── POST: Create New Product / Bulk Sync ───────────────────────────────────
+  if (method === "POST") {
     try {
-      const body = await req.json();
-
       // Bulk Sync / Save All Products
       if (Array.isArray(body)) {
-        await saveCloudProducts(body);
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: `Successfully synchronized ${body.length} products to Central API.`,
-            count: body.length,
-            lastUpdated: getLastCatalogUpdate(),
-          }),
-          { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-        );
+        const saveResult = await saveCloudProducts(body);
+        return sendApiResponse(res, 200, {
+          success: true,
+          message: `Successfully saved ${body.length} products to Central API.`,
+          count: body.length,
+          lastUpdated: getLastCatalogUpdate(),
+          storage: saveResult,
+        });
       }
 
       // Single Product Creation
@@ -154,55 +141,64 @@ export default async function handler(req: Request): Promise<Response> {
         updatedList = [newProduct, ...existingProducts];
       }
 
-      await saveCloudProducts(updatedList);
+      const saveResult = await saveCloudProducts(updatedList);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Product created/saved successfully.",
-          data: newProduct,
-          lastUpdated: getLastCatalogUpdate(),
-        }),
-        { status: 201, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      return sendApiResponse(res, 201, {
+        success: true,
+        message: "Product created and saved successfully.",
+        data: newProduct,
+        lastUpdated: getLastCatalogUpdate(),
+        storage: saveResult,
+      });
     } catch (err) {
-      return new Response(
-        JSON.stringify({ success: false, error: err instanceof Error ? err.message : "Error creating product" }),
-        { status: 400, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      console.error("[API /products POST Error]:", err);
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: err instanceof Error ? err.message : "Error creating product",
+      });
     }
   }
 
-  // ── PUT: Update Existing Product ───────────────────────────────────────────
-  if (req.method === "PUT" || req.method === "PATCH") {
+  // ── PUT / PATCH: Update Existing Product ───────────────────────────────────
+  if (method === "PUT" || method === "PATCH") {
     try {
-      const updateData = await req.json();
+      const updateData = body;
       const targetId = updateData.id || productId;
 
       if (!targetId) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Product ID is required for update." }),
-          { status: 400, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-        );
+        return sendApiResponse(res, 400, {
+          success: false,
+          error: "Product ID is required for update.",
+        });
       }
 
       const existingProducts = await getCloudProducts();
       const index = existingProducts.findIndex((p) => p.id === targetId);
 
       if (index === -1) {
-        return new Response(
-          JSON.stringify({ success: false, error: `Product with ID ${targetId} not found.` }),
-          { status: 404, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-        );
+        return sendApiResponse(res, 404, {
+          success: false,
+          error: `Product with ID "${targetId}" not found in catalog.`,
+        });
       }
 
       const current = existingProducts[index];
       const updatedProduct: Product = {
         ...current,
         ...updateData,
-        id: current.id, // preserve ID
-        nameTamil: updateData.nameTamil !== undefined ? updateData.nameTamil : (updateData.tamilName !== undefined ? updateData.tamilName : current.nameTamil),
-        tamilName: updateData.tamilName !== undefined ? updateData.tamilName : (updateData.nameTamil !== undefined ? updateData.nameTamil : current.tamilName),
+        id: current.id, // ID must remain constant
+        nameTamil:
+          updateData.nameTamil !== undefined
+            ? updateData.nameTamil
+            : updateData.tamilName !== undefined
+            ? updateData.tamilName
+            : current.nameTamil,
+        tamilName:
+          updateData.tamilName !== undefined
+            ? updateData.tamilName
+            : updateData.nameTamil !== undefined
+            ? updateData.nameTamil
+            : current.tamilName,
         price: updateData.price !== undefined ? Number(updateData.price) : current.price,
         inStock: updateData.inStock !== undefined ? Boolean(updateData.inStock) : current.inStock,
         updatedAt: new Date().toISOString(),
@@ -211,69 +207,63 @@ export default async function handler(req: Request): Promise<Response> {
       const updatedList = [...existingProducts];
       updatedList[index] = updatedProduct;
 
-      await saveCloudProducts(updatedList);
+      const saveResult = await saveCloudProducts(updatedList);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Product ${updatedProduct.name} (#${updatedProduct.id}) updated successfully.`,
-          data: updatedProduct,
-          lastUpdated: getLastCatalogUpdate(),
-        }),
-        { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      return sendApiResponse(res, 200, {
+        success: true,
+        message: `Product "${updatedProduct.name}" (#${updatedProduct.id}) updated successfully.`,
+        data: updatedProduct,
+        lastUpdated: getLastCatalogUpdate(),
+        storage: saveResult,
+      });
     } catch (err) {
-      return new Response(
-        JSON.stringify({ success: false, error: err instanceof Error ? err.message : "Error updating product" }),
-        { status: 400, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      console.error("[API /products PUT Error]:", err);
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: err instanceof Error ? err.message : "Error updating product",
+      });
     }
   }
 
-  // ── DELETE: Remove / Deactivate Product ────────────────────────────────────
-  if (req.method === "DELETE") {
+  // ── DELETE: Remove Product ────────────────────────────────────────────────
+  if (method === "DELETE") {
     try {
-      const body = await req.json().catch(() => ({}));
-      const targetId = productId || body.id;
+      const targetId = productId || body?.id;
 
       if (!targetId) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Product ID is required for deletion." }),
-          { status: 400, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-        );
+        return sendApiResponse(res, 400, {
+          success: false,
+          error: "Product ID is required for deletion.",
+        });
       }
 
       const existingProducts = await getCloudProducts();
       const filtered = existingProducts.filter((p) => p.id !== targetId);
 
       if (filtered.length === existingProducts.length) {
-        return new Response(
-          JSON.stringify({ success: false, error: `Product with ID ${targetId} not found.` }),
-          { status: 404, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-        );
+        return sendApiResponse(res, 404, {
+          success: false,
+          error: `Product with ID "${targetId}" not found.`,
+        });
       }
 
-      await saveCloudProducts(filtered);
+      const saveResult = await saveCloudProducts(filtered);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Product #${targetId} successfully removed.`,
-          remainingCount: filtered.length,
-          lastUpdated: getLastCatalogUpdate(),
-        }),
-        { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      return sendApiResponse(res, 200, {
+        success: true,
+        message: `Product #${targetId} successfully removed.`,
+        remainingCount: filtered.length,
+        lastUpdated: getLastCatalogUpdate(),
+        storage: saveResult,
+      });
     } catch (err) {
-      return new Response(
-        JSON.stringify({ success: false, error: err instanceof Error ? err.message : "Error deleting product" }),
-        { status: 400, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      console.error("[API /products DELETE Error]:", err);
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: err instanceof Error ? err.message : "Error deleting product",
+      });
     }
   }
 
-  return new Response(JSON.stringify({ error: "Method not allowed" }), {
-    status: 405,
-    headers: { ...corsHeaders(), "Content-Type": "application/json" },
-  });
+  return sendApiResponse(res, 405, { error: "Method not allowed" });
 }

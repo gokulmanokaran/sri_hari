@@ -34,10 +34,27 @@ export function ProductImage({
       ? "aspect-[3/2]"
       : "aspect-square";
 
-  // Derive WebP alternative path if available
-  const webpSrc = useMemo(() => {
+  // Derive WebP alternative path if available and URI-encode for srcset validity
+  const safeSrc = useMemo(() => {
+    if (!src) return "";
+    // If it's already encoded or data URI, keep as is; otherwise encodeURI
+    if (src.startsWith("data:") || src.startsWith("blob:")) return src;
+    try {
+      return encodeURI(decodeURI(src));
+    } catch {
+      return encodeURI(src);
+    }
+  }, [src]);
+
+  const safeWebpSrc = useMemo(() => {
     if (!src) return undefined;
-    return src.replace(/\.(png|jpg|jpeg)$/i, ".webp");
+    if (src.startsWith("data:") || src.startsWith("blob:")) return undefined;
+    const webpPath = src.replace(/\.(png|jpg|jpeg)$/i, ".webp");
+    try {
+      return encodeURI(decodeURI(webpPath));
+    } catch {
+      return encodeURI(webpPath);
+    }
   }, [src]);
 
   // Consistent palette fallback
@@ -59,9 +76,9 @@ export function ProductImage({
         )}
 
         <picture className="w-full h-full">
-          {webpSrc && <source srcSet={webpSrc} type="image/webp" />}
+          {safeWebpSrc && <source srcSet={safeWebpSrc} type="image/webp" />}
           <img
-            src={src}
+            src={safeSrc}
             alt={alt}
             loading={priority ? "eager" : "lazy"}
             decoding="async"

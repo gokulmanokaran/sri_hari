@@ -1,110 +1,122 @@
 // Vercel Serverless Function: /api/admin/upload-image
 // Handles safe product image uploads and returns a permanent image URL.
-import { corsHeaders, validateAdminAuth } from "../_catalog";
+import {
+  handleCors,
+  parseApiRequest,
+  sendApiResponse,
+  validateAdminAuth,
+} from "../_catalog";
 
-export default async function handler(req: Request): Promise<Response> {
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders(),
-    });
+export default async function handler(req: any, res?: any): Promise<any> {
+  if (handleCors(req, res)) {
+    return;
   }
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed. Use POST." }), {
-      status: 405,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
-    });
+  const { method, body, getHeader } = await parseApiRequest(req);
+
+  if (method !== "POST") {
+    return sendApiResponse(res, 405, { error: "Method not allowed. Use POST." });
   }
 
-  if (!validateAdminAuth(req)) {
-    return new Response(
-      JSON.stringify({ success: false, error: "Unauthorized. Admin credentials required." }),
-      { status: 401, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-    );
+  if (!validateAdminAuth(getHeader)) {
+    return sendApiResponse(res, 401, {
+      success: false,
+      error: "Unauthorized. Admin credentials required.",
+    });
   }
 
   try {
-    const body = await req.json();
-    const { image, imageName, productId } = body;
+    const { image, imageName, productId } = body || {};
 
     if (!image) {
-      return new Response(
-        JSON.stringify({ success: false, error: "No image data received." }),
-        { status: 400, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: "No image data received.",
+      });
     }
 
-    // If image is already an external URL (e.g. Cloudinary, S3, Unsplash)
+    // 1. External HTTP(S) URL
     if (typeof image === "string" && (image.startsWith("http://") || image.startsWith("https://"))) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          imageUrl: image,
-          verified: true,
-          message: "Image URL verified successfully.",
-        }),
-        { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      return sendApiResponse(res, 200, {
+        success: true,
+        imageUrl: image,
+        verified: true,
+        message: "External image URL verified successfully.",
+      });
     }
 
-    // If image is a local product image path (e.g. /product-images/Almond.webp)
+    // 2. Local catalog image path
     if (typeof image === "string" && image.startsWith("/product-images/")) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          imageUrl: image,
-          verified: true,
-          message: "Local catalog image path verified.",
-        }),
-        { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      return sendApiResponse(res, 200, {
+        success: true,
+        imageUrl: image,
+        verified: true,
+        message: "Local catalog image path verified.",
+      });
     }
 
-    // For Base64 / Data URI uploads:
-    // In production with Vercel Blob / Cloudinary / S3, this uploads to bucket.
-    // As a standalone zero-dependency fallback, we can store Data URI or pass through.
+    // 3. Base64 / Data URI image
     const isDataUri = typeof image === "string" && image.startsWith("data:image/");
     if (isDataUri) {
       // Validate image size (must not exceed 5MB)
       if (image.length > 5 * 1024 * 1024) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Image size exceeds 5MB limit. Please compress the image." }),
-          { status: 400, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-        );
+        return sendApiResponse(res, 400, {
+          success: false,
+          error: "Image size exceeds 5MB limit. Please compress the image.",
+        });
       }
 
-      const generatedUrl = image; // Data URI is immediately renderable across web and mobile
+      // Check if ImgBB API Key is configured for cloud upload
+      const imgbbKey = process.env.IMGBB_API_KEY;
+      if (imgbbKey) {
+        try {
+          const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+          const formData = new URLSearchParams();
+          formData.append("image", base64Data);
+          if (imageName) formData.append("name", imageName);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          imageUrl: generatedUrl,
-          verified: true,
-          fileName: imageName || `${productId || "prod"}_${Date.now()}.webp`,
-          message: "Image uploaded and verified successfully.",
-        }),
-        { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
-    }
+          const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
+            method: "POST",
+            body: formData,
+          });
 
-    return new Response(
-      JSON.stringify({
+          if (imgbbRes.ok) {
+            const imgbbJson = await imgbbRes.json();
+            if (imgbbJson.data?.url) {
+              return sendApiResponse(res, 200, {
+                success: true,
+                imageUrl: imgbbJson.data.url,
+                verified: true,
+                provider: "imgbb",
+                message: "Image uploaded to Cloud Image CDN successfully.",
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[UploadImage] ImgBB upload error, falling back to data URI:", e);
+        }
+      }
+
+      // Direct Data URI fallback (instantly viewable on web and mobile)
+      return sendApiResponse(res, 200, {
         success: true,
         imageUrl: image,
         verified: true,
-        message: "Image processed.",
-      }),
-      { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-    );
+        fileName: imageName || `${productId || "prod"}_${Date.now()}.webp`,
+        message: "Image verified and processed successfully.",
+      });
+    }
+
+    return sendApiResponse(res, 200, {
+      success: true,
+      imageUrl: image,
+      verified: true,
+      message: "Image processed.",
+    });
   } catch (err) {
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: err instanceof Error ? err.message : "Error processing image upload",
-      }),
-      { status: 500, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-    );
+    return sendApiResponse(res, 500, {
+      success: false,
+      error: err instanceof Error ? err.message : "Error processing image upload",
+    });
   }
 }

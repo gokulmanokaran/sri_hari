@@ -1,33 +1,23 @@
 // Vercel Serverless Function: /api/order-webhook
 // Forwards order payloads to Google Apps Script or other backend services securely.
+import { handleCors, parseApiRequest, sendApiResponse } from "./_catalog";
 
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
-    });
+export default async function handler(req: any, res?: any): Promise<any> {
+  if (handleCors(req, res)) {
+    return;
   }
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed. Use POST." }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+  const { method, body } = await parseApiRequest(req);
+
+  if (method !== "POST") {
+    return sendApiResponse(res, 405, { error: "Method not allowed. Use POST." });
   }
 
   try {
-    const orderData = await req.json();
+    const orderData = body;
 
     if (!orderData || !orderData.orderId) {
-      return new Response(JSON.stringify({ error: "Invalid order data: orderId is required." }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return sendApiResponse(res, 400, { error: "Invalid order data: orderId is required." });
     }
 
     const targetWebhookUrl =
@@ -37,19 +27,12 @@ export default async function handler(req: Request): Promise<Response> {
       "https://script.google.com/macros/s/AKfycbzjXsA4gHp4u30Qx9RhFamyOIrSjqs2yi9K5wAF1YylK8FU9Ushsex8kffAIIRUR3bI/exec";
 
     if (!targetWebhookUrl) {
-      // If no webhook URL is configured yet, acknowledge order received
       console.info("[API /order-webhook] Order received (No downstream webhook URL configured yet):", orderData.orderId);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          orderId: orderData.orderId,
-          note: "Order recorded in API. Configure GOOGLE_SHEETS_WEBHOOK_URL in Vercel environment variables to forward directly.",
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      return sendApiResponse(res, 200, {
+        success: true,
+        orderId: orderData.orderId,
+        note: "Order recorded in API. Configure GOOGLE_SHEETS_WEBHOOK_URL in Vercel environment variables to forward directly.",
+      });
     }
 
     // Forward to Google Apps Script Webhook
@@ -67,28 +50,16 @@ export default async function handler(req: Request): Promise<Response> {
       upstreamJson = { raw: upstreamText };
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        orderId: orderData.orderId,
-        upstream: upstreamJson,
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return sendApiResponse(res, 200, {
+      success: true,
+      orderId: orderData.orderId,
+      upstream: upstreamJson,
+    });
   } catch (error) {
     console.error("[API /order-webhook] Error processing order notification:", error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Internal error",
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return sendApiResponse(res, 500, {
+      success: false,
+      error: error instanceof Error ? error.message : "Internal error",
+    });
   }
 }

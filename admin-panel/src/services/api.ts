@@ -7,7 +7,12 @@ const LOCAL_CATALOG_KEY = "shk_admin_local_products_v2";
 const LOCAL_CATEGORIES_KEY = "shk_admin_local_categories_v2";
 
 export function getApiBaseUrl(): string {
-  return import.meta.env.VITE_API_URL || "/api";
+  // If VITE_API_URL is set, use it; otherwise use relative /api
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/+$/, "");
+  }
+  return "/api";
 }
 
 export function getStoredToken(): string | null {
@@ -47,7 +52,7 @@ export async function authenticateAdmin(passwordOrPin: string): Promise<AdminSes
   const clean = (passwordOrPin || "").trim();
   const baseUrl = getApiBaseUrl();
 
-  // 1. Try server-side authentication
+  // 1. Authenticate against central server
   try {
     const res = await fetch(`${baseUrl}/admin/auth`, {
       method: "POST",
@@ -55,14 +60,7 @@ export async function authenticateAdmin(passwordOrPin: string): Promise<AdminSes
       body: JSON.stringify({ pin: clean, password: clean }),
     });
 
-    const text = await res.text();
-    let data: { success?: boolean; token?: string; role?: string; storeName?: string; error?: string } = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
-      // Non-JSON response (e.g. 502 Bad Gateway when running standalone)
-      console.warn("[AdminAuth] Server returned non-JSON response:", text);
-    }
+    const data = await res.json().catch(() => ({}));
 
     if (res.ok && data.success) {
       const session: AdminSession = {
@@ -80,7 +78,7 @@ export async function authenticateAdmin(passwordOrPin: string): Promise<AdminSes
     if (err instanceof Error && err.message.includes("Invalid")) {
       throw err;
     }
-    console.warn("[AdminAuth] API server offline or proxy unavailable. Checking local credential validation.");
+    console.warn("[AdminAuth] API server unreachable. Checking local credentials.");
   }
 
   // 2. Standalone / Local Dev Fallback Validation
@@ -99,49 +97,36 @@ export async function authenticateAdmin(passwordOrPin: string): Promise<AdminSes
   throw new Error("Invalid Administrator PIN or password. (Default PIN: 2026)");
 }
 
-// ── Products API — always reads from shared catalog.json via dev server
+// ── Products API — reads from Central Online Product API
 export async function fetchProducts(): Promise<Product[]> {
   const baseUrl = getApiBaseUrl();
 
   try {
-    const res = await fetch(`${baseUrl}/products`, {
-      headers: { Accept: "application/json" },
+    const res = await fetch(`${baseUrl}/products?_ts=${Date.now()}`, {
+      headers: { Accept: "application/json", "Cache-Control": "no-cache" },
       cache: "no-store",
     });
 
     if (res.ok) {
-      const text = await res.text();
-      try {
-        const data = JSON.parse(text);
-        const list = Array.isArray(data.data)
-          ? data.data
-          : Array.isArray(data)
-          ? data
-          : Array.isArray(data.products)
-          ? data.products
-          : [];
+      const data = await res.json();
+      const list = Array.isArray(data.data)
+        ? data.data
+        : Array.isArray(data)
+        ? data
+        : Array.isArray(data.products)
+        ? data.products
+        : [];
 
-        if (list.length > 0) {
-          // Server has data — always trust it, update localStorage
-          localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(list));
-          return list;
-        }
-
-        // Server returned 0 products → seed catalog.json and return master list
-        console.info("[AdminApi] Catalog empty on server. Seeding all products...");
-        await seedCatalogToServer(baseUrl);
-        localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(INITIAL_PRODUCTS));
-        return INITIAL_PRODUCTS;
-
-      } catch (jsonErr) {
-        console.warn("[AdminApi] Non-JSON from /products:", text);
+      if (list.length > 0) {
+        localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(list));
+        return list;
       }
     }
   } catch (err) {
-    console.info("[AdminApi] Dev server unreachable. Using localStorage cache.", err);
+    console.warn("[AdminApi] Could not reach live products API, reading from cache:", err);
   }
 
-  // Fallback: localStorage (only when dev server is completely unreachable)
+  // Fallback: localStorage
   try {
     const stored = localStorage.getItem(LOCAL_CATALOG_KEY);
     if (stored) {
@@ -155,24 +140,6 @@ export async function fetchProducts(): Promise<Product[]> {
   }
 
   return INITIAL_PRODUCTS;
-}
-
-/** Push all 82 initial products to the shared catalog.json via the dev API (single bulk write) */
-async function seedCatalogToServer(baseUrl: string): Promise<void> {
-  try {
-    await fetch(`${baseUrl}/products/bulk-seed`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer shk_token_admin_2026",
-        "x-admin-key": "shk_token_admin_2026",
-      },
-      body: JSON.stringify({ products: INITIAL_PRODUCTS }),
-    });
-    console.info("[AdminApi] Seeded 82 products to shared catalog.json");
-  } catch (e) {
-    console.warn("[AdminApi] Could not seed catalog:", e);
-  }
 }
 
 export async function createProduct(product: Partial<Product>): Promise<Product> {
@@ -200,70 +167,59 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
   };
 
   const baseUrl = getApiBaseUrl();
-  try {
-    const res = await fetch(`${baseUrl}/products`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(newProduct),
-    });
+  const res = await fetch(`${baseUrl}/products`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(newProduct),
+  });
 
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      if (data.data) return data.data;
-    }
-  } catch (err) {
-    console.warn("[AdminApi] Server write error, saving to local cache:", err);
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || `Server responded with status ${res.status} while saving product.`);
   }
 
-  // Update local cache
-  const products = await fetchProducts();
-  const updated = [newProduct, ...products.filter((p) => p.id !== newProduct.id)];
-  localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(updated));
-  return newProduct;
+  const savedProduct: Product = data.data || newProduct;
+
+  // Update local cache only after confirmed server persistence
+  try {
+    const products = await fetchProducts();
+    const updated = [savedProduct, ...products.filter((p) => p.id !== savedProduct.id)];
+    localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(updated));
+  } catch {
+    // non-fatal
+  }
+
+  return savedProduct;
 }
 
 export async function updateProduct(product: Partial<Product> & { id: string }): Promise<Product> {
   const baseUrl = getApiBaseUrl();
 
-  try {
-    const res = await fetch(`${baseUrl}/products`, {
-      method: "PUT",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(product),
-    });
+  const res = await fetch(`${baseUrl}/products`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(product),
+  });
 
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      if (data.data) {
-        // update local cache
-        const products = await fetchProducts();
-        const updated = products.map((p) => (p.id === product.id ? { ...p, ...data.data } : p));
-        localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(updated));
-        return data.data;
-      }
-    }
-  } catch (err) {
-    console.warn("[AdminApi] Server update error, applying to local cache:", err);
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || `Server responded with status ${res.status} while updating product.`);
   }
 
-  // Fallback update in local storage
-  const products = await fetchProducts();
-  const existing = products.find((p) => p.id === product.id);
-  const merged: Product = {
-    ...(existing || ({} as Product)),
-    ...product,
-    id: product.id,
-    name: product.name || existing?.name || "Product",
-    price: product.price !== undefined ? Number(product.price) : (existing?.price || 0),
-    unit: product.unit || existing?.unit || "1 Pack",
-    category: product.category || existing?.category || "keerai",
-    inStock: product.inStock !== undefined ? Boolean(product.inStock) : (existing?.inStock !== false),
-    updatedAt: new Date().toISOString(),
-  };
+  const savedProduct: Product = data.data || product;
 
-  const updated = products.map((p) => (p.id === product.id ? merged : p));
-  localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(updated));
-  return merged;
+  // Update local cache only after confirmed server persistence
+  try {
+    const products = await fetchProducts();
+    const updated = products.map((p) => (p.id === savedProduct.id ? { ...p, ...savedProduct } : p));
+    localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(updated));
+  } catch {
+    // non-fatal
+  }
+
+  return savedProduct;
 }
 
 export async function toggleProductStock(id: string, inStock: boolean): Promise<Product> {
@@ -273,24 +229,25 @@ export async function toggleProductStock(id: string, inStock: boolean): Promise<
 export async function deleteProduct(id: string): Promise<boolean> {
   const baseUrl = getApiBaseUrl();
 
-  try {
-    const res = await fetch(`${baseUrl}/products`, {
-      method: "DELETE",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ id }),
-    });
+  const res = await fetch(`${baseUrl}/products`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ id }),
+  });
 
-    if (res.ok) {
-      const products = await fetchProducts();
-      localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(products.filter((p) => p.id !== id)));
-      return true;
-    }
-  } catch (err) {
-    console.warn("[AdminApi] Server delete error, removing from local cache:", err);
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || `Server responded with status ${res.status} while deleting product.`);
   }
 
-  const products = await fetchProducts();
-  localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(products.filter((p) => p.id !== id)));
+  try {
+    const products = await fetchProducts();
+    localStorage.setItem(LOCAL_CATALOG_KEY, JSON.stringify(products.filter((p) => p.id !== id)));
+  } catch {
+    // non-fatal
+  }
+
   return true;
 }
 
@@ -299,12 +256,13 @@ export async function fetchCategories(): Promise<Category[]> {
   const baseUrl = getApiBaseUrl();
 
   try {
-    const res = await fetch(`${baseUrl}/categories`, {
-      headers: { Accept: "application/json" },
+    const res = await fetch(`${baseUrl}/categories?_ts=${Date.now()}`, {
+      headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+      cache: "no-store",
     });
 
     if (res.ok) {
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
       if (list.length > 0) {
         localStorage.setItem(LOCAL_CATEGORIES_KEY, JSON.stringify(list));
@@ -312,7 +270,7 @@ export async function fetchCategories(): Promise<Category[]> {
       }
     }
   } catch (err) {
-    console.info("[AdminApi] Categories API offline, reading from cache:", err);
+    console.warn("[AdminApi] Categories API unreachable, reading from cache:", err);
   }
 
   try {
@@ -353,25 +311,29 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
   };
 
   const baseUrl = getApiBaseUrl();
-  try {
-    const res = await fetch(`${baseUrl}/categories`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(newCat),
-    });
+  const res = await fetch(`${baseUrl}/categories`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(newCat),
+  });
 
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      if (data.data) return data.data;
-    }
-  } catch (err) {
-    console.warn("[AdminApi] Category save error:", err);
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || `Server responded with status ${res.status} while saving category.`);
   }
 
-  const existing = await fetchCategories();
-  const updated = [...existing.filter((c) => c.id !== newCat.id), newCat];
-  localStorage.setItem(LOCAL_CATEGORIES_KEY, JSON.stringify(updated));
-  return newCat;
+  const savedCat: Category = data.data || newCat;
+
+  try {
+    const existing = await fetchCategories();
+    const updated = [...existing.filter((c) => c.id !== savedCat.id), savedCat];
+    localStorage.setItem(LOCAL_CATEGORIES_KEY, JSON.stringify(updated));
+  } catch {
+    // non-fatal
+  }
+
+  return savedCat;
 }
 
 // ── Safe Image Upload & Verification
@@ -382,29 +344,20 @@ export async function uploadProductImage(
 ): Promise<{ imageUrl: string; verified: boolean }> {
   const baseUrl = getApiBaseUrl();
 
-  try {
-    const res = await fetch(`${baseUrl}/admin/upload-image`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ image: imagePayload, imageName, productId }),
-    });
+  const res = await fetch(`${baseUrl}/admin/upload-image`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ image: imagePayload, imageName, productId }),
+  });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.imageUrl) {
-        return {
-          imageUrl: data.imageUrl,
-          verified: Boolean(data.verified),
-        };
-      }
-    }
-  } catch (err) {
-    console.warn("[AdminApi] Image API unreachable, using direct verified image data:", err);
+  const data = await res.json().catch(() => ({}));
+
+  if (res.ok && data.success && data.imageUrl) {
+    return {
+      imageUrl: data.imageUrl,
+      verified: Boolean(data.verified),
+    };
   }
 
-  // If running standalone, the image URL / Base64 Data URI is verified locally
-  return {
-    imageUrl: imagePayload,
-    verified: true,
-  };
+  throw new Error(data.error || "Failed to upload and verify image on server.");
 }

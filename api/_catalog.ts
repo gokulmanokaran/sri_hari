@@ -1490,6 +1490,9 @@ let memoryProducts: Product[] = [...INITIAL_PRODUCTS];
 let memoryCategories: Category[] = [...INITIAL_CATEGORIES];
 let lastCatalogUpdate = new Date().toISOString();
 
+// Cached GitHub commit SHA for atomic updates
+let cachedGithubSha: string | null = null;
+
 export function getMemoryProducts(): Product[] {
   return memoryProducts;
 }
@@ -1505,124 +1508,456 @@ export function getMemoryCategories(): Category[] {
 
 export function setMemoryCategories(categories: Category[]): void {
   memoryCategories = categories;
+  lastCatalogUpdate = new Date().toISOString();
 }
 
 export function getLastCatalogUpdate(): string {
   return lastCatalogUpdate;
 }
 
-// ── Remote Cloud Storage Synchronizer (Upstash / Vercel KV / Cloud Object Store)
-export async function getCloudProducts(): Promise<Product[]> {
-  const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// ── Multi-Engine Cloud Persistent Storage Adapter ────────────────────────────
 
-  if (kvUrl && kvToken) {
-    try {
-      const res = await fetch(`${kvUrl}/get/srihari_products`, {
-        headers: { Authorization: `Bearer ${kvToken}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.result) {
-          const parsed = typeof json.result === "string" ? JSON.parse(json.result) : json.result;
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            memoryProducts = parsed;
-            return parsed;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[CloudCatalog] Error fetching from KV store, using memory fallback:", e);
-    }
-  }
-
-  return memoryProducts;
+export interface StorageStatus {
+  persistent: boolean;
+  provider: "github" | "kv" | "supabase" | "jsonbin" | "local_fs" | "memory";
+  message?: string;
 }
 
-export async function saveCloudProducts(products: Product[]): Promise<boolean> {
-  setMemoryProducts(products);
-
-  const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (kvUrl && kvToken) {
-    try {
-      const res = await fetch(`${kvUrl}/set/srihari_products`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${kvToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(JSON.stringify(products)),
-      });
-      return res.ok;
-    } catch (e) {
-      console.warn("[CloudCatalog] Error saving to KV store:", e);
-    }
-  }
-
-  return true;
+/**
+ * Fetch catalog (products and categories) from the active persistent cloud storage
+ */
+export async function getCloudProducts(): Promise<Product[]> {
+  const catalog = await fetchActiveCloudCatalog();
+  return catalog.products;
 }
 
 export async function getCloudCategories(): Promise<Category[]> {
+  const catalog = await fetchActiveCloudCatalog();
+  return catalog.categories;
+}
+
+/**
+ * Save products to the active persistent cloud storage
+ */
+export async function saveCloudProducts(products: Product[]): Promise<StorageStatus> {
+  const currentCategories = await getCloudCategories();
+  return saveActiveCloudCatalog(products, currentCategories);
+}
+
+/**
+ * Save categories to the active persistent cloud storage
+ */
+export async function saveCloudCategories(categories: Category[]): Promise<StorageStatus> {
+  const currentProducts = await getCloudProducts();
+  return saveActiveCloudCatalog(currentProducts, categories);
+}
+
+/**
+ * Central Cloud Catalog Fetcher
+ */
+async function fetchActiveCloudCatalog(): Promise<{ products: Product[]; categories: Category[] }> {
+  // 1. Check Upstash / Vercel KV REST
   const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-
   if (kvUrl && kvToken) {
     try {
-      const res = await fetch(`${kvUrl}/get/srihari_categories`, {
+      const res = await fetch(`${kvUrl}/get/srihari_catalog`, {
         headers: { Authorization: `Bearer ${kvToken}` },
+        cache: "no-store",
       });
       if (res.ok) {
         const json = await res.json();
         if (json.result) {
           const parsed = typeof json.result === "string" ? JSON.parse(json.result) : json.result;
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            memoryCategories = parsed;
-            return parsed;
+          if (parsed && Array.isArray(parsed.products) && parsed.products.length > 0) {
+            memoryProducts = parsed.products;
+            if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+              memoryCategories = parsed.categories;
+            }
+            if (parsed.updatedAt) lastCatalogUpdate = parsed.updatedAt;
+            return { products: memoryProducts, categories: memoryCategories };
           }
         }
       }
     } catch (e) {
-      console.warn("[CloudCatalog] Error fetching categories from KV store:", e);
+      console.warn("[CloudCatalog] Error fetching from KV:", e);
     }
   }
 
-  return memoryCategories;
+  // 2. Check GitHub Repository Contents API
+  const ghToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_PAT;
+  const ghRepo = process.env.GITHUB_REPO || process.env.VERCEL_GIT_REPO_OWNER && process.env.VERCEL_GIT_REPO_SLUG
+    ? `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`
+    : "gokulmanokaran/sri_hari";
+
+  if (ghToken) {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${ghRepo}/contents/data/catalog.json`, {
+        headers: {
+          Authorization: `Bearer ${ghToken}`,
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "Sri-Hari-Catalog-API",
+        },
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        cachedGithubSha = data.sha || null;
+        if (data.content) {
+          const buff = Buffer.from(data.content, "base64");
+          const parsed = JSON.parse(buff.toString("utf-8"));
+          if (parsed && Array.isArray(parsed.products) && parsed.products.length > 0) {
+            memoryProducts = parsed.products;
+            if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+              memoryCategories = parsed.categories;
+            }
+            if (parsed.updatedAt) lastCatalogUpdate = parsed.updatedAt;
+            return { products: memoryProducts, categories: memoryCategories };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[CloudCatalog] Error fetching from GitHub API:", e);
+    }
+  }
+
+  // 3. Check JSONBin.io
+  const jsonBinId = process.env.JSONBIN_BIN_ID;
+  const jsonBinKey = process.env.JSONBIN_API_KEY || process.env.JSONBIN_MASTER_KEY;
+  if (jsonBinId && jsonBinKey) {
+    try {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${jsonBinId}/latest`, {
+        headers: { "X-Master-Key": jsonBinKey },
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const record = data.record;
+        if (record && Array.isArray(record.products) && record.products.length > 0) {
+          memoryProducts = record.products;
+          if (Array.isArray(record.categories) && record.categories.length > 0) {
+            memoryCategories = record.categories;
+          }
+          if (record.updatedAt) lastCatalogUpdate = record.updatedAt;
+          return { products: memoryProducts, categories: memoryCategories };
+        }
+      }
+    } catch (e) {
+      console.warn("[CloudCatalog] Error fetching from JSONBin:", e);
+    }
+  }
+
+  // 4. Check Local Filesystem (for local development)
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const catalogPath = path.resolve(process.cwd(), "data/catalog.json");
+    if (fs.existsSync(catalogPath)) {
+      const raw = fs.readFileSync(catalogPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.products) && parsed.products.length > 0) {
+        memoryProducts = parsed.products;
+        if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+          memoryCategories = parsed.categories;
+        }
+        if (parsed.updatedAt) lastCatalogUpdate = parsed.updatedAt;
+        return { products: memoryProducts, categories: memoryCategories };
+      }
+    }
+  } catch {
+    // Local filesystem read failed or running in serverless container where file path is different
+  }
+
+  // 5. In-memory / Bundled Catalog
+  return { products: memoryProducts, categories: memoryCategories };
 }
 
-export async function saveCloudCategories(categories: Category[]): Promise<boolean> {
+/**
+ * Central Cloud Catalog Saver
+ */
+async function saveActiveCloudCatalog(
+  products: Product[],
+  categories: Category[]
+): Promise<StorageStatus> {
+  const timestamp = new Date().toISOString();
+  setMemoryProducts(products);
   setMemoryCategories(categories);
+  lastCatalogUpdate = timestamp;
 
+  const payload = {
+    products,
+    categories,
+    updatedAt: timestamp,
+  };
+
+  let savedAnywhere = false;
+  let activeProvider: "github" | "kv" | "supabase" | "jsonbin" | "local_fs" | "memory" = "memory";
+
+  // 1. Upstash / Vercel KV REST
   const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-
   if (kvUrl && kvToken) {
     try {
-      const res = await fetch(`${kvUrl}/set/srihari_categories`, {
+      const res = await fetch(`${kvUrl}/set/srihari_catalog`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${kvToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(JSON.stringify(categories)),
+        body: JSON.stringify(JSON.stringify(payload)),
       });
-      return res.ok;
+      if (res.ok) {
+        savedAnywhere = true;
+        activeProvider = "kv";
+      }
     } catch (e) {
-      console.warn("[CloudCatalog] Error saving categories to KV store:", e);
+      console.warn("[CloudCatalog] Error saving to KV:", e);
     }
   }
 
-  return true;
+  // 2. GitHub Contents API
+  const ghToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_PAT;
+  const ghRepo = process.env.GITHUB_REPO || (process.env.VERCEL_GIT_REPO_OWNER && process.env.VERCEL_GIT_REPO_SLUG
+    ? `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`
+    : "gokulmanokaran/sri_hari");
+
+  if (ghToken) {
+    try {
+      // Get current SHA if not cached
+      if (!cachedGithubSha) {
+        const getRes = await fetch(`https://api.github.com/repos/${ghRepo}/contents/data/catalog.json`, {
+          headers: {
+            Authorization: `Bearer ${ghToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "Sri-Hari-Catalog-API",
+          },
+        });
+        if (getRes.ok) {
+          const getJson = await getRes.json();
+          cachedGithubSha = getJson.sha;
+        }
+      }
+
+      const contentBase64 = Buffer.from(JSON.stringify(payload, null, 2)).toString("base64");
+      const putRes = await fetch(`https://api.github.com/repos/${ghRepo}/contents/data/catalog.json`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${ghToken}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+          "User-Agent": "Sri-Hari-Catalog-API",
+        },
+        body: JSON.stringify({
+          message: `chore: update catalog via admin panel [${timestamp}]`,
+          content: contentBase64,
+          sha: cachedGithubSha || undefined,
+        }),
+      });
+
+      if (putRes.ok) {
+        const putData = await putRes.json();
+        cachedGithubSha = putData.content?.sha || null;
+        savedAnywhere = true;
+        activeProvider = "github";
+      } else {
+        const errText = await putRes.text();
+        console.warn("[CloudCatalog] GitHub API error:", errText);
+      }
+    } catch (e) {
+      console.warn("[CloudCatalog] GitHub API save exception:", e);
+    }
+  }
+
+  // 3. JSONBin.io
+  const jsonBinId = process.env.JSONBIN_BIN_ID;
+  const jsonBinKey = process.env.JSONBIN_API_KEY || process.env.JSONBIN_MASTER_KEY;
+  if (jsonBinId && jsonBinKey) {
+    try {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${jsonBinId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Master-Key": jsonBinKey,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        savedAnywhere = true;
+        activeProvider = "jsonbin";
+      }
+    } catch (e) {
+      console.warn("[CloudCatalog] JSONBin save exception:", e);
+    }
+  }
+
+  // 4. Local Filesystem Write (if running on Node.js locally)
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const catalogPath = path.resolve(process.cwd(), "data/catalog.json");
+    const dir = path.dirname(catalogPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(catalogPath, JSON.stringify(payload, null, 2), "utf-8");
+    if (!savedAnywhere) {
+      savedAnywhere = true;
+      activeProvider = "local_fs";
+    }
+  } catch {
+    // Non-fatal if filesystem is read-only on serverless
+  }
+
+  if (savedAnywhere) {
+    return {
+      persistent: true,
+      provider: activeProvider,
+      message: `Catalog successfully saved to online persistent storage (${activeProvider}).`,
+    };
+  }
+
+  return {
+    persistent: false,
+    provider: "memory",
+    message:
+      "Catalog updated in serverless memory. For permanent cloud persistence across Vercel deployments, configure GITHUB_TOKEN or KV_REST_API_URL in Vercel project environment variables.",
+  };
+}
+
+// ── Universal API Request & Response Helpers ─────────────────────────────────
+
+export interface ParsedRequest {
+  method: string;
+  query: Record<string, string>;
+  body: any;
+  headers: Record<string, string>;
+  getHeader: (name: string) => string | undefined;
+}
+
+export async function parseApiRequest(req: any): Promise<ParsedRequest> {
+  const method = (req.method || "GET").toUpperCase();
+  const query: Record<string, string> = {};
+  const headers: Record<string, string> = {};
+
+  // Extract headers
+  if (req.headers) {
+    if (typeof req.headers.forEach === "function") {
+      req.headers.forEach((val: string, key: string) => {
+        headers[key.toLowerCase()] = val;
+      });
+    } else {
+      for (const key in req.headers) {
+        headers[key.toLowerCase()] = String(req.headers[key]);
+      }
+    }
+  }
+
+  const getHeader = (name: string): string | undefined => {
+    return headers[name.toLowerCase()];
+  };
+
+  // Extract query params
+  if (req.query && typeof req.query === "object") {
+    for (const key in req.query) {
+      query[key] = String(req.query[key]);
+    }
+  } else if (req.url) {
+    try {
+      const parsedUrl = new URL(req.url, "http://localhost");
+      parsedUrl.searchParams.forEach((val, key) => {
+        query[key] = val;
+      });
+    } catch {
+      // relative URL fallback
+      const qIndex = req.url.indexOf("?");
+      if (qIndex >= 0) {
+        const searchParams = new URLSearchParams(req.url.slice(qIndex));
+        searchParams.forEach((val, key) => {
+          query[key] = val;
+        });
+      }
+    }
+  }
+
+  // Extract body
+  let body: any = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      // keep string
+    }
+  } else if (!body && typeof req.json === "function") {
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+  } else if (!body && req.on && method !== "GET" && method !== "HEAD") {
+    body = await new Promise((resolve) => {
+      let data = "";
+      req.on("data", (chunk: any) => { data += chunk; });
+      req.on("end", () => {
+        try {
+          resolve(JSON.parse(data || "{}"));
+        } catch {
+          resolve(data ? { raw: data } : {});
+        }
+      });
+      req.on("error", () => resolve({}));
+    });
+  }
+
+  return { method, query, body: body || {}, headers, getHeader };
+}
+
+export function handleCors(req: any, res?: any): boolean {
+  if (res && typeof res.setHeader === "function") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Key");
+  }
+  const method = (req.method || "").toUpperCase();
+  if (method === "OPTIONS") {
+    if (res && typeof res.status === "function") {
+      res.status(200).end();
+    }
+    return true;
+  }
+  return false;
+}
+
+export function sendApiResponse(
+  res: any,
+  status: number,
+  data: any,
+  cacheControl?: string
+): any {
+  if (res && typeof res.status === "function" && typeof res.setHeader === "function") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", "application/json");
+    if (cacheControl) {
+      res.setHeader("Cache-Control", cacheControl);
+    }
+    return res.status(status).json(data);
+  }
+
+  // Edge / Web Response
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      ...(cacheControl ? { "Cache-Control": cacheControl } : {}),
+    },
+  });
 }
 
 // ── Security & Authentication Validator ─────────────────────────────────────
 export const DEFAULT_ADMIN_KEY = "shreehari_admin_secure_2026";
 
-export function validateAdminAuth(req: Request): boolean {
+export function validateAdminAuth(getHeader: (name: string) => string | undefined): boolean {
   const adminKey = process.env.ADMIN_API_KEY || process.env.ADMIN_SECRET || DEFAULT_ADMIN_KEY;
 
-  const authHeader = req.headers.get("authorization");
+  const authHeader = getHeader("authorization");
   if (authHeader) {
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
     if (token === adminKey || token.startsWith("shk_token_")) {
@@ -1630,7 +1965,7 @@ export function validateAdminAuth(req: Request): boolean {
     }
   }
 
-  const customKey = req.headers.get("x-admin-key");
+  const customKey = getHeader("x-admin-key");
   if (customKey && customKey.trim() === adminKey) {
     return true;
   }
@@ -1638,7 +1973,6 @@ export function validateAdminAuth(req: Request): boolean {
   return false;
 }
 
-// ── Standard CORS Headers ────────────────────────────────────────────────────
 export function corsHeaders(): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": "*",
@@ -1646,3 +1980,4 @@ export function corsHeaders(): Record<string, string> {
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Key",
   };
 }
+

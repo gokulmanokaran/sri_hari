@@ -5,68 +5,61 @@ import {
   getCloudCategories,
   saveCloudCategories,
   validateAdminAuth,
-  corsHeaders,
+  handleCors,
+  parseApiRequest,
+  sendApiResponse,
 } from "./_catalog";
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: any, res?: any): Promise<any> {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders(),
-    });
+  if (handleCors(req, res)) {
+    return;
   }
 
+  const { method, body, getHeader } = await parseApiRequest(req);
+
   // ── GET: Public Read Categories ───────────────────────────────────────────
-  if (req.method === "GET") {
+  if (method === "GET") {
     try {
       const categories = await getCloudCategories();
-      return new Response(
-        JSON.stringify({
+      return sendApiResponse(
+        res,
+        200,
+        {
           success: true,
           count: categories.length,
           data: categories,
-        }),
-        {
-          status: 200,
-          headers: {
-            ...corsHeaders(),
-            "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=86400",
-          },
-        }
+        },
+        "public, max-age=0, s-maxage=60, stale-while-revalidate=86400"
       );
     } catch (err) {
-      return new Response(
-        JSON.stringify({ success: false, error: err instanceof Error ? err.message : "Internal Error" }),
-        { status: 500, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      console.error("[API /categories GET Error]:", err);
+      return sendApiResponse(res, 500, {
+        success: false,
+        error: err instanceof Error ? err.message : "Internal Error fetching categories",
+      });
     }
   }
 
   // ── Protected Admin Write Methods (POST, PUT) ─────────────────────────────
-  if (!validateAdminAuth(req)) {
-    return new Response(
-      JSON.stringify({ success: false, error: "Unauthorized. Valid Admin credentials required." }),
-      { status: 401, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-    );
+  if (!validateAdminAuth(getHeader)) {
+    return sendApiResponse(res, 401, {
+      success: false,
+      error: "Unauthorized. Valid Admin credentials required.",
+    });
   }
 
-  if (req.method === "POST" || req.method === "PUT") {
+  if (method === "POST" || method === "PUT") {
     try {
-      const body = await req.json();
-
       if (Array.isArray(body)) {
-        await saveCloudCategories(body);
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: `Successfully synchronized ${body.length} categories.`,
-            count: body.length,
-            data: body,
-          }),
-          { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-        );
+        const saveResult = await saveCloudCategories(body);
+        return sendApiResponse(res, 200, {
+          success: true,
+          message: `Successfully synchronized ${body.length} categories.`,
+          count: body.length,
+          data: body,
+          storage: saveResult,
+        });
       }
 
       const newCat: Category = {
@@ -90,26 +83,22 @@ export default async function handler(req: Request): Promise<Response> {
         updatedList = [...existing, newCat];
       }
 
-      await saveCloudCategories(updatedList);
+      const saveResult = await saveCloudCategories(updatedList);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Category saved successfully.",
-          data: newCat,
-        }),
-        { status: 200, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      return sendApiResponse(res, 200, {
+        success: true,
+        message: "Category saved successfully.",
+        data: newCat,
+        storage: saveResult,
+      });
     } catch (err) {
-      return new Response(
-        JSON.stringify({ success: false, error: err instanceof Error ? err.message : "Error saving category" }),
-        { status: 400, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      );
+      console.error("[API /categories POST/PUT Error]:", err);
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: err instanceof Error ? err.message : "Error saving category",
+      });
     }
   }
 
-  return new Response(JSON.stringify({ error: "Method not allowed" }), {
-    status: 405,
-    headers: { ...corsHeaders(), "Content-Type": "application/json" },
-  });
+  return sendApiResponse(res, 405, { error: "Method not allowed" });
 }

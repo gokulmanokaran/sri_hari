@@ -74,12 +74,16 @@ export function cacheCategories(categories: Category[]): void {
  */
 export async function fetchLiveProducts(): Promise<Product[]> {
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}/products`;
+  const url = `${baseUrl}/products?_ts=${Date.now()}`;
 
   try {
     const res = await fetch(url, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
       cache: "no-store",
     });
 
@@ -115,12 +119,17 @@ export async function fetchLiveProducts(): Promise<Product[]> {
  */
 export async function fetchLiveCategories(): Promise<Category[]> {
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}/categories`;
+  const url = `${baseUrl}/categories?_ts=${Date.now()}`;
 
   try {
     const res = await fetch(url, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+      cache: "no-store",
     });
 
     if (res.ok) {
