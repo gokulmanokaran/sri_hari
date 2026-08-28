@@ -6,6 +6,24 @@ const { createClient } = require('@supabase/supabase-js');
 const catalogPath = path.join(__dirname, '../data/catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf-8'));
 
+// Auto load .env if available
+try {
+  const envPath = path.join(__dirname, '../.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    envContent.split('\n').forEach((line) => {
+      const match = line.trim().match(/^([^#=]+)=(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        const value = match[2].trim().replace(/^['"](.*)['"]$/, '$1');
+        if (!process.env[key]) process.env[key] = value;
+      }
+    });
+  }
+} catch {
+  // ignore
+}
+
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
