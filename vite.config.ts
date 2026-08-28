@@ -1,9 +1,9 @@
-import { defineConfig, Plugin } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
-import { createRequire } from "module";
+
 
 // ── Shared Local Dev API ─────────────────────────────────────────────────────
 // Serves /api/products and /api/categories from data/catalog.json
