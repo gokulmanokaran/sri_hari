@@ -5,14 +5,35 @@ const AUTH_TOKEN_KEY = "shk_admin_auth_token";
 const AUTH_SESSION_KEY = "shk_admin_session";
 const LOCAL_CATALOG_KEY = "shk_admin_local_products_v2";
 const LOCAL_CATEGORIES_KEY = "shk_admin_local_categories_v2";
+const CUSTOM_API_URL_KEY = "shk_custom_api_url";
 
 export function getApiBaseUrl(): string {
-  // If VITE_API_URL is set, use it; otherwise use relative /api
+  // 1. User configured custom API URL in localStorage
+  try {
+    const saved = localStorage.getItem(CUSTOM_API_URL_KEY);
+    if (saved && saved.trim()) {
+      return saved.trim().replace(/\/+$/, "");
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. VITE_API_URL environment variable
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.trim()) {
     return envUrl.trim().replace(/\/+$/, "");
   }
+
+  // 3. Same-origin /api
   return "/api";
+}
+
+export function setCustomApiUrl(url: string | null): void {
+  if (url && url.trim()) {
+    localStorage.setItem(CUSTOM_API_URL_KEY, url.trim().replace(/\/+$/, ""));
+  } else {
+    localStorage.removeItem(CUSTOM_API_URL_KEY);
+  }
 }
 
 export function getStoredToken(): string | null {
@@ -47,6 +68,20 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+async function parseJsonResponse(res: Response, fallbackError: string): Promise<any> {
+  const text = await res.text();
+  if (!text || text.trim().startsWith("<") || text.includes("<!DOCTYPE")) {
+    throw new Error(
+      `API endpoint returned HTML (Status ${res.status}). Ensure the server API is deployed and reachable.`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(fallbackError);
+  }
+}
+
 // ── Admin Authentication
 export async function authenticateAdmin(passwordOrPin: string): Promise<AdminSession> {
   const clean = (passwordOrPin || "").trim();
@@ -60,7 +95,7 @@ export async function authenticateAdmin(passwordOrPin: string): Promise<AdminSes
       body: JSON.stringify({ pin: clean, password: clean }),
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data = await parseJsonResponse(res, "Invalid response from authentication server.");
 
     if (res.ok && data.success) {
       const session: AdminSession = {
@@ -108,7 +143,7 @@ export async function fetchProducts(): Promise<Product[]> {
     });
 
     if (res.ok) {
-      const data = await res.json();
+      const data = await parseJsonResponse(res, "Invalid JSON from products API.");
       const list = Array.isArray(data.data)
         ? data.data
         : Array.isArray(data)
@@ -173,7 +208,7 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
     body: JSON.stringify(newProduct),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const data = await parseJsonResponse(res, `Server error (${res.status}) while saving product.`);
 
   if (!res.ok || !data.success) {
     throw new Error(data.error || `Server responded with status ${res.status} while saving product.`);
@@ -202,7 +237,7 @@ export async function updateProduct(product: Partial<Product> & { id: string }):
     body: JSON.stringify(product),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const data = await parseJsonResponse(res, `Server error (${res.status}) while updating product.`);
 
   if (!res.ok || !data.success) {
     throw new Error(data.error || `Server responded with status ${res.status} while updating product.`);
@@ -235,7 +270,7 @@ export async function deleteProduct(id: string): Promise<boolean> {
     body: JSON.stringify({ id }),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const data = await parseJsonResponse(res, `Server error (${res.status}) while deleting product.`);
 
   if (!res.ok || !data.success) {
     throw new Error(data.error || `Server responded with status ${res.status} while deleting product.`);
@@ -262,7 +297,7 @@ export async function fetchCategories(): Promise<Category[]> {
     });
 
     if (res.ok) {
-      const data = await res.json();
+      const data = await parseJsonResponse(res, "Invalid JSON from categories API.");
       const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
       if (list.length > 0) {
         localStorage.setItem(LOCAL_CATEGORIES_KEY, JSON.stringify(list));
@@ -317,7 +352,7 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
     body: JSON.stringify(newCat),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const data = await parseJsonResponse(res, `Server error (${res.status}) while saving category.`);
 
   if (!res.ok || !data.success) {
     throw new Error(data.error || `Server responded with status ${res.status} while saving category.`);
@@ -350,7 +385,7 @@ export async function uploadProductImage(
     body: JSON.stringify({ image: imagePayload, imageName, productId }),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const data = await parseJsonResponse(res, `Server error (${res.status}) during image upload.`);
 
   if (res.ok && data.success && data.imageUrl) {
     return {
