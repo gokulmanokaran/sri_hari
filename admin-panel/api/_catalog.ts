@@ -211,6 +211,96 @@ export async function saveCloudCategories(categories: Category[]): Promise<Stora
   return { persistent: false, provider: "memory", message: "Categories updated in memory." };
 }
 
+export async function deductCatalogStock(
+  items: Array<{ id: string; quantity: number }>
+): Promise<{ success: boolean; updated: any[] }> {
+  const supabase = getSupabaseServerClient();
+  const updatedItems: any[] = [];
+
+  if (supabase) {
+    try {
+      // 1. Try atomic RPC function first
+      const { data: rpcData, error: rpcError } = await supabase.rpc("deduct_product_stock", {
+        p_items: items,
+      });
+
+      if (!rpcError && rpcData && rpcData.success) {
+        await getCloudProducts();
+        return rpcData;
+      }
+      if (rpcError) {
+        console.warn("[CatalogEngine] Supabase RPC deduct_product_stock fallback:", rpcError.message);
+      }
+    } catch (err) {
+      console.warn("[CatalogEngine] Supabase RPC call exception:", err);
+    }
+
+    // 2. Direct Supabase row-level update fallback
+    try {
+      for (const item of items) {
+        const { data: prodData } = await supabase
+          .from("products")
+          .select("id, stock_quantity, in_stock")
+          .eq("id", item.id)
+          .single();
+
+        if (prodData && prodData.stock_quantity !== null && prodData.stock_quantity !== undefined) {
+          const currentStock = Number(prodData.stock_quantity);
+          const newStock = Math.max(0, currentStock - (item.quantity || 1));
+          const newInStock = newStock > 0;
+
+          await supabase
+            .from("products")
+            .update({
+              stock_quantity: newStock,
+              in_stock: newInStock,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", item.id);
+
+          updatedItems.push({
+            id: item.id,
+            previousStock: currentStock,
+            newStock,
+            inStock: newInStock,
+          });
+        }
+      }
+      await getCloudProducts();
+      return { success: true, updated: updatedItems };
+    } catch (err) {
+      console.warn("[CatalogEngine] Supabase direct deduction fallback exception:", err);
+    }
+  }
+
+  // 3. In-memory fallback
+  for (const item of items) {
+    const idx = _cachedProducts.findIndex((p) => p.id === item.id);
+    if (idx >= 0) {
+      const p = _cachedProducts[idx];
+      if (p.stockQuantity !== undefined) {
+        const prev = p.stockQuantity;
+        const newStock = Math.max(0, prev - (item.quantity || 1));
+        const newInStock = newStock > 0;
+        _cachedProducts[idx] = {
+          ...p,
+          stockQuantity: newStock,
+          inStock: newInStock,
+          updatedAt: new Date().toISOString(),
+        };
+        updatedItems.push({
+          id: item.id,
+          previousStock: prev,
+          newStock,
+          inStock: newInStock,
+        });
+      }
+    }
+  }
+
+  return { success: true, updated: updatedItems };
+}
+
 export function getLastCatalogUpdate(): string {
   return new Date().toISOString();
 }

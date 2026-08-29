@@ -115,6 +115,18 @@ export default async function handler(req: any, res?: any): Promise<any> {
       }
 
       // Single Product Creation
+      const parsedStock =
+        body.stockQuantity !== undefined && body.stockQuantity !== null && body.stockQuantity !== ""
+          ? Number(body.stockQuantity)
+          : undefined;
+
+      const autoInStock =
+        body.inStock !== undefined
+          ? Boolean(body.inStock)
+          : parsedStock !== undefined
+          ? parsedStock > 0
+          : true;
+
       const newProduct: Product = {
         ...body,
         id: body.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -125,7 +137,8 @@ export default async function handler(req: any, res?: any): Promise<any> {
         mrp: Number(body.mrp) || Number(body.price) || 0,
         unit: body.unit || "1 Pack",
         category: body.category || "keerai",
-        inStock: body.inStock !== false,
+        stockQuantity: parsedStock,
+        inStock: parsedStock !== undefined && parsedStock === 0 ? false : autoInStock,
         active: body.active !== false,
         updatedAt: new Date().toISOString(),
       };
@@ -183,6 +196,25 @@ export default async function handler(req: any, res?: any): Promise<any> {
       }
 
       const current = existingProducts[index];
+
+      const parsedStock =
+        updateData.stockQuantity !== undefined
+          ? updateData.stockQuantity === null || updateData.stockQuantity === ""
+            ? undefined
+            : Number(updateData.stockQuantity)
+          : current.stockQuantity;
+
+      let effectiveInStock =
+        updateData.inStock !== undefined ? Boolean(updateData.inStock) : current.inStock;
+
+      if (parsedStock !== undefined) {
+        if (parsedStock === 0) {
+          effectiveInStock = false;
+        } else if (parsedStock > 0 && updateData.inStock === undefined && !effectiveInStock) {
+          effectiveInStock = true;
+        }
+      }
+
       const updatedProduct: Product = {
         ...current,
         ...updateData,
@@ -200,7 +232,9 @@ export default async function handler(req: any, res?: any): Promise<any> {
             ? updateData.nameTamil
             : current.tamilName,
         price: updateData.price !== undefined ? Number(updateData.price) : current.price,
-        inStock: updateData.inStock !== undefined ? Boolean(updateData.inStock) : current.inStock,
+        mrp: updateData.mrp !== undefined ? Number(updateData.mrp) : current.mrp ?? current.price,
+        stockQuantity: parsedStock,
+        inStock: effectiveInStock,
         updatedAt: new Date().toISOString(),
       };
 

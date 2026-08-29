@@ -29,13 +29,22 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
 
   const qty = getItemQuantity(effectiveProduct.id);
 
+  const isOutOfStock =
+    !effectiveProduct.inStock ||
+    (effectiveProduct.stockQuantity !== undefined && effectiveProduct.stockQuantity <= 0);
+
+  const isMaxStockReached =
+    effectiveProduct.stockQuantity !== undefined && qty >= effectiveProduct.stockQuantity;
+
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isOutOfStock) return;
     addItem(effectiveProduct);
   };
 
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isMaxStockReached) return;
     incrementItem(effectiveProduct.id);
   };
 
@@ -71,7 +80,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             className="w-full rounded-none"
             priority={index < 4}
           />
-          {!effectiveProduct.inStock && (
+          {isOutOfStock ? (
             <div className="absolute top-2 right-2 z-10 pointer-events-none">
               <span
                 className="text-[10px] font-black tracking-wide uppercase px-2 py-1 rounded-md shadow-sm"
@@ -86,7 +95,13 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
                 Out of Stock
               </span>
             </div>
-          )}
+          ) : effectiveProduct.mrp && effectiveProduct.mrp > effectiveProduct.price ? (
+            <div className="absolute top-2 left-2 z-10 pointer-events-none">
+              <span className="text-[10px] font-black text-[#087A43] bg-[#EAF8F0] border border-[#CDEED9] px-1.5 py-0.5 rounded-md shadow-xs">
+                Save ₹{effectiveProduct.mrp - effectiveProduct.price}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {/* Info */}
@@ -176,10 +191,15 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
       {/* Price & Action Row */}
       <div className="px-2.5 pb-2.5 pt-0">
         <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-[#F5F5F5]">
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-baseline gap-1.5 min-w-0">
             <span className="text-sm font-black text-[#111111]">
               ₹{effectiveProduct.price}
             </span>
+            {effectiveProduct.mrp && effectiveProduct.mrp > effectiveProduct.price && (
+              <span className="text-[11px] text-[#888888] line-through font-medium truncate">
+                ₹{effectiveProduct.mrp}
+              </span>
+            )}
           </div>
 
           {/* Add / Qty control */}
@@ -191,9 +211,9 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.85, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 400, damping: 24 }}
-                disabled={!effectiveProduct.inStock}
+                disabled={isOutOfStock}
                 onClick={handleAdd}
-                className="h-7 px-3 bg-[#00A651] text-white text-xs font-bold rounded-full flex items-center gap-1 disabled:opacity-50 shrink-0 hover:bg-[#008f45] active:scale-95 transition-all cursor-pointer shadow-sm"
+                className="h-7 px-3 bg-[#00A651] text-white text-xs font-bold rounded-full flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 hover:bg-[#008f45] active:scale-95 transition-all cursor-pointer shadow-sm"
                 aria-label={`Add ${product.name} to cart`}
               >
                 <Plus size={11} strokeWidth={3} />
@@ -227,10 +247,12 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
                   {qty}
                 </motion.span>
                 <motion.button
-                  whileTap={{ scale: 0.85 }}
+                  whileTap={{ scale: isMaxStockReached ? 1 : 0.85 }}
                   onClick={handleIncrement}
-                  className="w-6 h-6 bg-[#00A651] text-white rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
+                  disabled={isMaxStockReached}
+                  className="w-6 h-6 bg-[#00A651] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
                   aria-label={`Add another ${product.name}`}
+                  title={isMaxStockReached ? "Maximum stock reached" : "Add one more"}
                 >
                   <Plus size={10} strokeWidth={3} />
                 </motion.button>

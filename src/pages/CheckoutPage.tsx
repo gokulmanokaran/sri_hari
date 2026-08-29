@@ -18,6 +18,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../store/CartContext";
 import { useDelivery } from "../store/DeliveryContext";
+import { useProductCatalog } from "../store/ProductContext";
 import { Button } from "../components/ui/Button";
 import { MapLocationPicker, type MapLocationResult } from "../components/features/MapLocationPicker";
 import {
@@ -97,6 +98,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const { items, subtotal, discount, discountedSubtotal, clearCart } = useCart();
   const { pincode, deliveryCharge, minimumOrder, setPincode } = useDelivery();
+  const { getProductById } = useProductCatalog();
 
   const charge = deliveryCharge ?? 0;
   const minOrder = minimumOrder ?? DEFAULT_MINIMUM_ORDER;
@@ -167,6 +169,23 @@ export default function CheckoutPage() {
     if (subtotal < minOrder) {
       navigate("/cart");
       return;
+    }
+
+    // 1. Live stock verification before proceeding
+    for (const item of items) {
+      const live = getProductById(item.product.id);
+      if (live) {
+        if (!live.inStock || (live.stockQuantity !== undefined && live.stockQuantity <= 0)) {
+          alert(`Sorry, "${live.name}" is currently out of stock. Please remove it from your cart.`);
+          navigate("/cart");
+          return;
+        }
+        if (live.stockQuantity !== undefined && item.quantity > live.stockQuantity) {
+          alert(`Sorry, only ${live.stockQuantity} unit(s) of "${live.name}" are available in stock.`);
+          navigate("/cart");
+          return;
+        }
+      }
     }
 
     const formData: CheckoutFormData = {
@@ -560,7 +579,7 @@ export default function CheckoutPage() {
             <div className="p-4">
               <div className="flex flex-col gap-2 mb-4">
                 {items.map((item) => (
-                  <div key={item.product.id} className="flex justify-between text-sm">
+                  <div key={item.product.id} className="flex justify-between items-start text-sm">
                     <div className="flex-1 min-w-0 mr-3">
                       <span className="text-[#666666] truncate block">
                         {item.product.name}
@@ -568,7 +587,14 @@ export default function CheckoutPage() {
                         {" "}× {item.quantity}
                       </span>
                     </div>
-                    <span className="font-semibold text-[#111111] flex-shrink-0">₹{item.product.price * item.quantity}</span>
+                    <div className="flex flex-col items-end flex-shrink-0">
+                      <span className="font-semibold text-[#111111]">₹{item.product.price * item.quantity}</span>
+                      {item.product.mrp && item.product.mrp > item.product.price ? (
+                        <span className="text-[10px] text-[#888888] line-through">
+                          ₹{item.product.mrp * item.quantity}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </div>

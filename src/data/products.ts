@@ -55,12 +55,17 @@ export function getProductDisplayName(product: Product): string {
 /** Helper to create an effective cart product from a parent product and a chosen variant */
 export function getVariantProduct(product: Product, variant: ProductVariant): Product {
   const isSugar = product.variantType === "sugar";
+  const parentInStock =
+    product.inStock !== false &&
+    (product.stockQuantity === undefined || product.stockQuantity > 0);
   return {
     ...product,
     id: variant.id,
     price: variant.price,
+    mrp: product.mrp,
     unit: isSugar ? `${product.unit} (${variant.unit})` : variant.unit,
-    inStock: variant.inStock !== false && product.inStock,
+    inStock: variant.inStock !== false && parentInStock,
+    stockQuantity: product.stockQuantity,
   };
 }
 

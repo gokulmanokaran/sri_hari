@@ -151,10 +151,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = useCallback(
     (product: Product) => {
+      // 1. Out of stock guard
+      if (
+        product.inStock === false ||
+        (product.stockQuantity !== undefined && product.stockQuantity <= 0)
+      ) {
+        triggerToast(`⚠️ Sorry, ${product.name} is out of stock`, "remove");
+        return;
+      }
+
+      // 2. Stock limit guard
+      const existing = state.items.find((i) => i.product.id === product.id);
+      const currentQty = existing ? existing.quantity : 0;
+      if (product.stockQuantity !== undefined && currentQty >= product.stockQuantity) {
+        triggerToast(
+          `⚠️ Only ${product.stockQuantity} unit${product.stockQuantity === 1 ? "" : "s"} available in stock`,
+          "remove"
+        );
+        return;
+      }
+
       dispatch({ type: "ADD", product });
       triggerToast(`✓ ${product.name} added to cart`, "add");
     },
-    [triggerToast]
+    [state.items, triggerToast]
   );
 
   const removeItem = useCallback(
@@ -171,6 +191,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     (productId: string) => {
       const item = state.items.find((i) => i.product.id === productId);
       if (item) {
+        // Stock limit guard
+        if (
+          item.product.stockQuantity !== undefined &&
+          item.quantity >= item.product.stockQuantity
+        ) {
+          triggerToast(
+            `⚠️ Maximum available stock reached (${item.product.stockQuantity} units)`,
+            "remove"
+          );
+          return;
+        }
+
         triggerToast(`✓ ${item.product.name} added to cart`, "add");
       }
       dispatch({ type: "INCREMENT", productId });

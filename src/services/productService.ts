@@ -16,6 +16,15 @@ const CACHE_TIMESTAMP_KEY = "shreehari_catalog_last_synced";
 
 /** Map Supabase DB Row to Frontend Product Interface */
 export function mapDbProductToProduct(row: any): Product {
+  const stockQty =
+    row.stock_quantity !== null && row.stock_quantity !== undefined
+      ? Number(row.stock_quantity)
+      : undefined;
+
+  const isExplicitlyInStock = row.in_stock !== false;
+  const inStock =
+    isExplicitlyInStock && (stockQty === undefined || isNaN(stockQty) || stockQty > 0);
+
   return {
     id: row.id,
     name: row.name,
@@ -30,8 +39,8 @@ export function mapDbProductToProduct(row: any): Product {
     description: row.description || "",
     shortDescription: row.short_description || "",
     note: row.note || "",
-    inStock: row.in_stock !== false,
-    stockQuantity: row.stock_quantity !== null && row.stock_quantity !== undefined ? Number(row.stock_quantity) : undefined,
+    inStock,
+    stockQuantity: stockQty !== undefined && !isNaN(stockQty) ? stockQty : undefined,
     featured: Boolean(row.featured),
     active: row.active !== false,
     sortOrder: row.sort_order !== undefined ? Number(row.sort_order) : 0,
@@ -213,12 +222,17 @@ export function findProductById(products: Product[], id: string): Product | unde
     const variant = parent.variants.find((v) => v.id === id);
     if (variant) {
       const isSugar = parent.variantType === "sugar";
+      const isParentInStock =
+        parent.inStock !== false &&
+        (parent.stockQuantity === undefined || parent.stockQuantity > 0);
       return {
         ...parent,
         id: variant.id,
         price: variant.price,
+        mrp: parent.mrp,
         unit: isSugar ? `${parent.unit} (${variant.unit})` : variant.unit,
-        inStock: variant.inStock !== false && parent.inStock,
+        inStock: variant.inStock !== false && isParentInStock,
+        stockQuantity: parent.stockQuantity,
       };
     }
   }
@@ -242,4 +256,71 @@ export function filterProductsByQuery(products: Product[], query: string): Produ
       (p.description && p.description.toLowerCase().includes(q)) ||
       p.variants?.some((v) => v.unit.toLowerCase().includes(q) || (v.name && v.name.toLowerCase().includes(q)))
   );
+}
+
+/**
+ * Deduct stock upon successful payment / order placement.
+ * Updates local cache instantly and syncs with Central API & Supabase database.
+ */
+export async function deductLiveProductStock(
+  orderItems: Array<{ id?: string; quantity?: number }>
+): Promise<void> {
+  const validItems = orderItems
+    .filter((item) => item && item.id)
+    .map((item) => ({
+      id: item.id as string,
+      quantity: Math.max(1, Number(item.quantity) || 1),
+    }));
+
+  if (!validItems.length) return;
+
+  // 1. Instantly update local cached catalog so Storefront reflects deductions right away
+  try {
+    const stored = getStoredProducts();
+    const updated = stored.map((prod) => {
+      // Direct product match or variant match
+      const deduction =
+        validItems.find((i) => i.id === prod.id) ||
+        validItems.find((i) => prod.variants?.some((v) => v.id === i.id));
+
+      if (deduction && prod.stockQuantity !== undefined) {
+        const newStock = Math.max(0, prod.stockQuantity - deduction.quantity);
+        return {
+          ...prod,
+          stockQuantity: newStock,
+          inStock: newStock > 0,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return prod;
+    });
+
+    cacheProducts(updated);
+  } catch (err) {
+    console.warn("[ProductService] Local stock cache decrement error:", err);
+  }
+
+  // 2. Call Central Serverless API
+  try {
+    const res = await fetch("/api/deduct-stock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: validItems }),
+    });
+    if (res.ok) {
+      console.info("[ProductService] Central API stock deduction confirmed.");
+    }
+  } catch (err) {
+    console.warn("[ProductService] Stock deduction API call warning:", err);
+  }
+
+  // 3. Directly call Supabase RPC if client is initialized
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await supabase.rpc("deduct_product_stock", { p_items: validItems });
+    } catch (err) {
+      console.warn("[ProductService] Supabase RPC direct call warning:", err);
+    }
+  }
 }

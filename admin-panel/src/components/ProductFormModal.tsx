@@ -261,12 +261,13 @@ export function ProductFormModal({
               <input
                 type="number"
                 value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
+                onChange={(e) => setPrice(Math.max(0, Number(e.target.value)))}
                 min="0"
                 step="1"
                 required
                 className="w-full h-11 px-3.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white font-mono text-base focus:outline-none focus:border-[#00A651]"
               />
+              <p className="text-[11px] text-slate-400 mt-1">Actual price charged to customer</p>
             </div>
 
             {/* MRP */}
@@ -276,12 +277,20 @@ export function ProductFormModal({
               </label>
               <input
                 type="number"
-                value={mrp}
-                onChange={(e) => setMrp(Number(e.target.value))}
+                value={mrp || ""}
+                onChange={(e) => setMrp(e.target.value ? Math.max(0, Number(e.target.value)) : 0)}
                 min="0"
                 step="1"
-                className="w-full h-11 px-3.5 bg-slate-800/80 border border-slate-700 rounded-xl text-slate-300 font-mono text-base focus:outline-none focus:border-[#00A651]"
+                placeholder="e.g. 60"
+                className="w-full h-11 px-3.5 bg-slate-800/80 border border-slate-700 rounded-xl text-slate-200 font-mono text-base focus:outline-none focus:border-[#00A651]"
               />
+              {mrp > price ? (
+                <p className="text-[11px] text-emerald-400 font-semibold mt-1">
+                  Save ₹{mrp - price} ({Math.round(((mrp - price) / mrp) * 100)}% OFF)
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-400 mt-1">Shown crossed out when &gt; Selling Price</p>
+              )}
             </div>
 
             {/* Unit */}
@@ -297,6 +306,7 @@ export function ProductFormModal({
                 placeholder="e.g. 250g Cleaned Pack"
                 className="w-full h-11 px-3.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#00A651]"
               />
+              <p className="text-[11px] text-slate-400 mt-1">e.g. 250g, 500g, 1 Bundle</p>
             </div>
           </div>
 
@@ -318,18 +328,38 @@ export function ProductFormModal({
 
             {/* Stock Quantity */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                Stock Quantity (Optional)
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span>Stock Quantity (Units)</span>
+                {stockQuantity !== undefined && (
+                  <span className={`text-[11px] font-mono font-bold ${stockQuantity > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {stockQuantity > 0 ? `${stockQuantity} in stock` : "0 (Out of stock)"}
+                  </span>
+                )}
               </label>
               <input
                 type="number"
                 value={stockQuantity ?? ""}
-                onChange={(e) =>
-                  setStockQuantity(e.target.value ? Number(e.target.value) : undefined)
-                }
-                placeholder="e.g. 50"
-                className="w-full h-11 px-3.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#00A651]"
+                onChange={(e) => {
+                  if (!e.target.value && e.target.value !== "0") {
+                    setStockQuantity(undefined);
+                  } else {
+                    const val = Math.max(0, Number(e.target.value));
+                    setStockQuantity(val);
+                    if (val === 0) {
+                      setInStock(false);
+                    } else if (val > 0) {
+                      setInStock(true);
+                    }
+                  }
+                }}
+                min="0"
+                step="1"
+                placeholder="e.g. 20"
+                className="w-full h-11 px-3.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-[#00A651]"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Auto-deducted after customer orders. When 0, marked Out of Stock.
+              </p>
             </div>
           </div>
 
@@ -340,10 +370,20 @@ export function ProductFormModal({
               <input
                 type="checkbox"
                 checked={inStock}
-                onChange={(e) => setInStock(e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setInStock(checked);
+                  if (!checked && stockQuantity && stockQuantity > 0) {
+                    setStockQuantity(0);
+                  } else if (checked && (stockQuantity === 0 || stockQuantity === undefined)) {
+                    setStockQuantity(20);
+                  }
+                }}
                 className="w-5 h-5 rounded text-[#00A651] focus:ring-0 focus:outline-none bg-slate-800 border-slate-700 cursor-pointer"
               />
-              <span className="text-xs font-bold text-slate-200">In Stock</span>
+              <span className="text-xs font-bold text-slate-200">
+                {inStock ? "✓ In Stock" : "✗ Out of Stock"}
+              </span>
             </label>
 
             {/* Featured */}

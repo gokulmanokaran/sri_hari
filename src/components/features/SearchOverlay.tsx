@@ -173,15 +173,22 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                       <p className="text-xs text-[#999999] font-medium">
                         {product.unit}
                       </p>
-                      {!product.inStock && (
+                      {!product.inStock || (product.stockQuantity !== undefined && product.stockQuantity <= 0) ? (
                         <p className="text-[10px] font-bold text-red-500 mt-0.5">
                           Out of Stock
                         </p>
-                      )}
+                      ) : null}
                     </div>
-                    <span className={`text-sm font-black flex-shrink-0 ${product.inStock ? "text-[#111111]" : "text-[#AAAAAA]"}`}>
-                      ₹{product.price}
-                    </span>
+                    <div className="flex flex-col items-end flex-shrink-0">
+                      <span className={`text-sm font-black ${product.inStock && (product.stockQuantity === undefined || product.stockQuantity > 0) ? "text-[#111111]" : "text-[#AAAAAA]"}`}>
+                        ₹{product.price}
+                      </span>
+                      {product.mrp && product.mrp > product.price ? (
+                        <span className="text-[10px] text-[#888888] line-through font-medium">
+                          ₹{product.mrp}
+                        </span>
+                      ) : null}
+                    </div>
                   </motion.button>
                 ))}
               </div>

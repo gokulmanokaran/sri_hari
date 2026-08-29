@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Tag } from "lucide-react";
+import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Tag, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../store/CartContext";
 import { useDelivery } from "../store/DeliveryContext";
+import { useProductCatalog } from "../store/ProductContext";
 import { ProductImage } from "../components/ui/ProductImage";
 import { Button } from "../components/ui/Button";
 import { DEFAULT_MINIMUM_ORDER } from "../data/deliveryZones";
@@ -21,13 +22,24 @@ export default function CartPage() {
     clearCart,
   } = useCart();
   const { deliveryCharge, minimumOrder } = useDelivery();
+  const { getProductById } = useProductCatalog();
 
   const charge = deliveryCharge ?? 0;
   // Use per-pincode minimum order (falls back to default if not available)
   const minOrder = minimumOrder ?? DEFAULT_MINIMUM_ORDER;
   const total = discountedSubtotal + charge;
   const shortfall = Math.max(0, minOrder - subtotal);
-  const canCheckout = subtotal >= minOrder;
+
+  // Check if any items are currently out of stock in live catalog
+  const hasOutOfStockItems = items.some((item) => {
+    const live = getProductById(item.product.id);
+    if (live) {
+      return !live.inStock || (live.stockQuantity !== undefined && live.stockQuantity <= 0);
+    }
+    return !item.product.inStock || (item.product.stockQuantity !== undefined && item.product.stockQuantity <= 0);
+  });
+
+  const canCheckout = subtotal >= minOrder && !hasOutOfStockItems;
 
   if (items.length === 0) {
     return (
@@ -36,7 +48,7 @@ export default function CartPage() {
         <div className="flex items-center gap-3 px-4 py-4 border-b border-[#EAEAEA] bg-white sticky top-0 z-10">
           <button
             onClick={() => navigate(-1)}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100"
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 cursor-pointer"
             aria-label="Go back"
           >
             <ArrowLeft size={20} />
@@ -80,7 +92,7 @@ export default function CartPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100"
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 cursor-pointer"
             aria-label="Go back"
           >
             <ArrowLeft size={20} />
@@ -100,8 +112,20 @@ export default function CartPage() {
 
       {/* Items */}
       <div className="flex-1 overflow-y-auto">
+        {/* Out of stock warning banner */}
+        {hasOutOfStockItems && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-[14px] px-4 py-3 flex items-center gap-2 text-red-700 text-xs font-bold"
+          >
+            <AlertTriangle size={16} className="text-red-600 shrink-0" />
+            <span>Some items in your cart are currently out of stock. Please remove them to proceed.</span>
+          </motion.div>
+        )}
+
         {/* Minimum order notice */}
-        {!canCheckout && (
+        {subtotal < minOrder && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -133,96 +157,140 @@ export default function CartPage() {
         {/* Cart items */}
         <div className="px-4 py-4 flex flex-col gap-3">
           <AnimatePresence initial={false}>
-            {items.map((item) => (
-              <motion.div
-                key={item.product.id}
-                layout
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="bg-white rounded-[16px] p-3 flex gap-3 border border-[#EAEAEA]"
-                style={{ boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}
-              >
-                {/* Image */}
-                <div className="w-16 h-16 rounded-[12px] overflow-hidden flex-shrink-0">
-                  <ProductImage
-                    src={item.product.image}
-                    alt={item.product.name}
-                    className="w-full h-full"
-                  />
-                </div>
+            {items.map((item) => {
+              const live = getProductById(item.product.id);
+              const liveInStock = live
+                ? live.inStock && (live.stockQuantity === undefined || live.stockQuantity > 0)
+                : item.product.inStock && (item.product.stockQuantity === undefined || item.product.stockQuantity > 0);
+              const availableStock = live?.stockQuantity ?? item.product.stockQuantity;
+              const isMaxStockReached =
+                availableStock !== undefined && item.quantity >= availableStock;
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-[#111111] truncate">
-                    {item.product.name}
-                  </h3>
-                  {item.product.nameTamil && (
-                    <p className="text-[11px] text-[#00A651] font-semibold truncate">
-                      {item.product.nameTamil}
-                    </p>
-                  )}
-                  <p className="text-xs text-[#999999] font-medium">
-                    {item.product.unit}
-                    {item.product.note ? ` · ${item.product.note}` : ""}
-                  </p>
-                  <p className="text-xs text-[#00A651] font-semibold mt-0.5">
-                    {item.product.inStock ? "In Stock" : "Unavailable"}
-                  </p>
+              return (
+                <motion.div
+                  key={item.product.id}
+                  layout
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  className={`bg-white rounded-[16px] p-3 flex gap-3 border ${
+                    !liveInStock ? "border-red-300 bg-red-50/20" : "border-[#EAEAEA]"
+                  }`}
+                  style={{ boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}
+                >
+                  {/* Image */}
+                  <div className="w-16 h-16 rounded-[12px] overflow-hidden flex-shrink-0 relative">
+                    <ProductImage
+                      src={item.product.image}
+                      alt={item.product.name}
+                      className="w-full h-full"
+                    />
+                    {!liveInStock && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <span className="text-[9px] font-black text-white uppercase text-center px-1">
+                          Out of Stock
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
-                  <div className="flex items-center justify-between mt-2">
-                    {/* Qty control */}
-                    <div className="flex items-center gap-2 bg-[#EAF8F0] rounded-full px-1.5 py-1">
-                      <motion.button
-                        whileTap={{ scale: 0.85 }}
-                        onClick={() => decrementItem(item.product.id)}
-                        className="w-6 h-6 bg-[#00A651] text-white rounded-full flex items-center justify-center cursor-pointer"
-                        aria-label={`Decrease ${item.product.name} quantity`}
-                      >
-                        <Minus size={10} strokeWidth={3} />
-                      </motion.button>
-                      <motion.span
-                        key={item.quantity}
-                        initial={{ scale: 0.7 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 500 }}
-                        className="text-sm font-black text-[#00A651] w-5 text-center"
-                      >
-                        {item.quantity}
-                      </motion.span>
-                      <motion.button
-                        whileTap={{ scale: 0.85 }}
-                        onClick={() => incrementItem(item.product.id)}
-                        className="w-6 h-6 bg-[#00A651] text-white rounded-full flex items-center justify-center cursor-pointer"
-                        aria-label={`Increase ${item.product.name} quantity`}
-                      >
-                        <Plus size={10} strokeWidth={3} />
-                      </motion.button>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-1">
+                      <div>
+                        <h3 className="text-sm font-bold text-[#111111] truncate">
+                          {item.product.name}
+                        </h3>
+                        {item.product.nameTamil && (
+                          <p className="text-[11px] text-[#00A651] font-semibold truncate">
+                            {item.product.nameTamil}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Price + remove */}
-                    <div className="flex items-center gap-2">
-                      <motion.span
-                        key={item.quantity * item.product.price}
-                        initial={{ opacity: 0.5 }}
-                        animate={{ opacity: 1 }}
-                        className="text-sm font-black text-[#111111]"
-                      >
-                        ₹{item.product.price * item.quantity}
-                      </motion.span>
-                      <button
-                        onClick={() => removeItem(item.product.id)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 transition-colors cursor-pointer"
-                        aria-label={`Remove ${item.product.name} from cart`}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                    <p className="text-xs text-[#999999] font-medium">
+                      {item.product.unit}
+                      {item.product.note ? ` · ${item.product.note}` : ""}
+                    </p>
+
+                    {/* Stock Status text */}
+                    {!liveInStock ? (
+                      <p className="text-xs font-bold text-red-600 mt-0.5">
+                        Out of Stock — Please remove
+                      </p>
+                    ) : availableStock !== undefined && availableStock <= 5 ? (
+                      <p className="text-xs font-semibold text-amber-600 mt-0.5">
+                        Only {availableStock} left in stock
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[#00A651] font-semibold mt-0.5">
+                        In Stock
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between mt-2">
+                      {/* Qty control */}
+                      <div className="flex items-center gap-2 bg-[#EAF8F0] rounded-full px-1.5 py-1">
+                        <motion.button
+                          whileTap={{ scale: 0.85 }}
+                          onClick={() => decrementItem(item.product.id)}
+                          className="w-6 h-6 bg-[#00A651] text-white rounded-full flex items-center justify-center cursor-pointer"
+                          aria-label={`Decrease ${item.product.name} quantity`}
+                        >
+                          <Minus size={10} strokeWidth={3} />
+                        </motion.button>
+                        <motion.span
+                          key={item.quantity}
+                          initial={{ scale: 0.7 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 500 }}
+                          className="text-sm font-black text-[#00A651] w-5 text-center"
+                        >
+                          {item.quantity}
+                        </motion.span>
+                        <motion.button
+                          whileTap={{ scale: isMaxStockReached ? 1 : 0.85 }}
+                          onClick={() => !isMaxStockReached && incrementItem(item.product.id)}
+                          disabled={isMaxStockReached || !liveInStock}
+                          className="w-6 h-6 bg-[#00A651] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center cursor-pointer"
+                          aria-label={`Increase ${item.product.name} quantity`}
+                        >
+                          <Plus size={10} strokeWidth={3} />
+                        </motion.button>
+                      </div>
+
+                      {/* Price + MRP + remove */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-end">
+                          <motion.span
+                            key={item.quantity * item.product.price}
+                            initial={{ opacity: 0.5 }}
+                            animate={{ opacity: 1 }}
+                            className="text-sm font-black text-[#111111]"
+                          >
+                            ₹{item.product.price * item.quantity}
+                          </motion.span>
+                          {item.product.mrp && item.product.mrp > item.product.price ? (
+                            <span className="text-[10px] text-[#888888] line-through font-medium">
+                              ₹{item.product.mrp * item.quantity}
+                            </span>
+                          ) : null}
+                        </div>
+                        <button
+                          onClick={() => removeItem(item.product.id)}
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 transition-colors cursor-pointer"
+                          aria-label={`Remove ${item.product.name} from cart`}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
 
@@ -265,7 +333,9 @@ export default function CartPage() {
             disabled={!canCheckout}
             onClick={() => navigate("/checkout")}
           >
-            {canCheckout
+            {hasOutOfStockItems
+              ? "Remove Out of Stock Items to Proceed"
+              : canCheckout
               ? `Proceed to Checkout · ₹${total}`
               : `Add ₹${shortfall} more to proceed`}
           </Button>

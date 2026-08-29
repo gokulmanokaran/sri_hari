@@ -324,7 +324,8 @@ export async function updateProduct(product: Partial<Product> & { id: string }):
 }
 
 export async function toggleProductStock(id: string, inStock: boolean): Promise<Product> {
-  return updateProduct({ id, inStock });
+  const stockQuantity = inStock ? 20 : 0;
+  return updateProduct({ id, inStock, stockQuantity });
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {

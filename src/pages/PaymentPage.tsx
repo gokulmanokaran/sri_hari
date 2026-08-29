@@ -21,9 +21,11 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../store/CartContext";
 import { useDelivery } from "../store/DeliveryContext";
+import { useProductCatalog } from "../store/ProductContext";
 import { Button } from "../components/ui/Button";
 import { processPayment } from "../services/paymentService";
 import { submitOrderNotification, type OrderNotificationPayload } from "../services/orderService";
+import { deductLiveProductStock } from "../services/productService";
 
 const PENDING_ORDER_KEY = "shreehari_pending_order";
 
@@ -32,6 +34,7 @@ export default function PaymentPage() {
   const location = useLocation();
   const { items, clearCart } = useCart();
   const { deliveryCharge } = useDelivery();
+  const { refreshProducts } = useProductCatalog();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -141,7 +144,11 @@ export default function PaymentPage() {
         razorpayPaymentId,
       };
 
-      // Persist completed order locally
+      // 1. Deduct stock automatically upon successful payment
+      await deductLiveProductStock(completedOrder.items);
+      refreshProducts().catch(() => {});
+
+      // 2. Persist completed order locally
       try {
         localStorage.setItem("shreehari_latest_order", JSON.stringify(completedOrder));
         const existingRaw = localStorage.getItem("shreehari_orders");
@@ -157,7 +164,7 @@ export default function PaymentPage() {
         /* ignore */
       }
 
-      // Send to Google Sheets & Email (non-blocking)
+      // 3. Send to Google Sheets & Email (non-blocking)
       submitOrderNotification(completedOrder)
         .then((res) => {
           if (res.success) {

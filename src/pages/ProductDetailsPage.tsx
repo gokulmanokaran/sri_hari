@@ -51,6 +51,13 @@ export default function ProductDetailsPage() {
 
   const qty = getItemQuantity(effectiveProduct.id);
 
+  const isOutOfStock =
+    !effectiveProduct.inStock ||
+    (effectiveProduct.stockQuantity !== undefined && effectiveProduct.stockQuantity <= 0);
+
+  const isMaxStockReached =
+    effectiveProduct.stockQuantity !== undefined && qty >= effectiveProduct.stockQuantity;
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 40 }}
@@ -64,7 +71,7 @@ export default function ProductDetailsPage() {
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center border border-[#EAEAEA]"
+          className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center border border-[#EAEAEA] cursor-pointer"
           aria-label="Go back"
         >
           <ArrowLeft size={18} className="text-[#111111]" />
@@ -86,7 +93,7 @@ export default function ProductDetailsPage() {
           aspectRatio="3/2"
           priority={true}
         />
-        {!effectiveProduct.inStock && (
+        {isOutOfStock ? (
           <div className="absolute top-3 right-3 z-10 pointer-events-none">
             <span
               className="text-[11px] font-black tracking-wide uppercase px-2.5 py-1.5 rounded-md shadow-md"
@@ -101,7 +108,13 @@ export default function ProductDetailsPage() {
               Out of Stock
             </span>
           </div>
-        )}
+        ) : effectiveProduct.mrp && effectiveProduct.mrp > effectiveProduct.price ? (
+          <div className="absolute top-3 right-3 z-10 pointer-events-none">
+            <span className="text-[11px] font-black text-[#087A43] bg-white/95 backdrop-blur-sm border border-[#CDEED9] px-2.5 py-1 rounded-md shadow-sm">
+              Save ₹{effectiveProduct.mrp - effectiveProduct.price}
+            </span>
+          </div>
+        ) : null}
       </motion.div>
 
       {/* Content */}
@@ -132,11 +145,27 @@ export default function ProductDetailsPage() {
             </p>
           )}
 
-          {/* Dynamic Price Display */}
-          <div className="flex items-baseline gap-2 mb-2">
+          {/* Dynamic Price Display with crossed-out MRP */}
+          <div className="flex items-baseline gap-2.5 mb-2 flex-wrap">
             <span className="text-3xl font-black text-[#00A651]">
               ₹{effectiveProduct.price}
             </span>
+            {effectiveProduct.mrp && effectiveProduct.mrp > effectiveProduct.price && (
+              <>
+                <span className="text-lg text-[#888888] line-through font-semibold">
+                  ₹{effectiveProduct.mrp}
+                </span>
+                <span className="text-xs font-bold text-[#087A43] bg-[#EAF8F0] border border-[#CDEED9] px-2.5 py-0.5 rounded-full">
+                  Save ₹{effectiveProduct.mrp - effectiveProduct.price} (
+                  {Math.round(
+                    ((effectiveProduct.mrp - effectiveProduct.price) /
+                      effectiveProduct.mrp) *
+                      100
+                  )}
+                  % OFF)
+                </span>
+              </>
+            )}
             <span className="text-sm text-[#888888] font-semibold">
               / {effectiveProduct.unit}
             </span>
@@ -190,7 +219,7 @@ export default function ProductDetailsPage() {
           </motion.div>
         )}
 
-        {/* Availability */}
+        {/* Availability Status */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -199,15 +228,19 @@ export default function ProductDetailsPage() {
         >
           <div
             className={`w-2 h-2 rounded-full ${
-              effectiveProduct.inStock ? "bg-[#00A651]" : "bg-gray-400"
+              !isOutOfStock ? "bg-[#00A651]" : "bg-red-500"
             }`}
           />
           <span
             className={`text-sm font-semibold ${
-              effectiveProduct.inStock ? "text-[#00A651]" : "text-gray-500"
+              !isOutOfStock ? "text-[#00A651]" : "text-red-500"
             }`}
           >
-            {effectiveProduct.inStock ? "In Stock" : "Currently Unavailable"}
+            {!isOutOfStock
+              ? effectiveProduct.stockQuantity !== undefined && effectiveProduct.stockQuantity <= 5
+                ? `In Stock (Only ${effectiveProduct.stockQuantity} left!)`
+                : "In Stock"
+              : "Out of Stock — Currently Unavailable"}
           </span>
         </motion.div>
 
@@ -260,10 +293,12 @@ export default function ProductDetailsPage() {
                   {qty}
                 </motion.span>
                 <motion.button
-                  whileTap={{ scale: 0.85 }}
-                  onClick={() => incrementItem(effectiveProduct.id)}
-                  className="w-8 h-8 bg-[#00A651] text-white rounded-full flex items-center justify-center cursor-pointer"
+                  whileTap={{ scale: isMaxStockReached ? 1 : 0.85 }}
+                  onClick={() => !isMaxStockReached && incrementItem(effectiveProduct.id)}
+                  disabled={isMaxStockReached}
+                  className="w-8 h-8 bg-[#00A651] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center cursor-pointer"
                   aria-label="Increase quantity"
+                  title={isMaxStockReached ? "Maximum stock reached" : "Increase quantity"}
                 >
                   <Plus size={14} strokeWidth={3} />
                 </motion.button>
@@ -286,12 +321,12 @@ export default function ProductDetailsPage() {
                   variant="primary"
                   size="xl"
                   fullWidth
-                  disabled={!effectiveProduct.inStock}
+                  disabled={isOutOfStock}
                   onClick={() => addItem(effectiveProduct)}
                   icon={<ShoppingBag size={18} />}
                   iconPosition="left"
                 >
-                  Add to Cart
+                  {isOutOfStock ? "Out of Stock" : "Add to Cart"}
                 </Button>
               </motion.div>
             ) : (

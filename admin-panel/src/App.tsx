@@ -91,10 +91,14 @@ export default function App() {
     try {
       const updated = await toggleProductStock(productId, !currentStock);
       setProducts((prev) =>
-        prev.map((p) => (p.id === productId ? { ...p, inStock: updated.inStock } : p))
+        prev.map((p) =>
+          p.id === productId
+            ? { ...p, inStock: updated.inStock, stockQuantity: updated.stockQuantity }
+            : p
+        )
       );
       showToast(
-        `✓ ${updated.name} marked ${updated.inStock ? "In Stock" : "Out of Stock"}.`
+        `✓ ${updated.name} marked ${updated.inStock ? `In Stock (${updated.stockQuantity || 20} units)` : "Out of Stock"}.`
       );
     } catch (err) {
       showToast("❌ Failed to update stock status.");

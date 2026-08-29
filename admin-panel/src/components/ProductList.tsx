@@ -225,11 +225,16 @@ export function ProductList({
                     {/* Price */}
                     <td className="py-3 px-4 text-right font-mono">
                       <span className="text-base font-black text-white">₹{product.price}</span>
-                      {product.mrp && product.mrp > product.price && (
-                        <div className="text-[11px] text-slate-500 line-through">
-                          MRP: ₹{product.mrp}
+                      {product.mrp && product.mrp > product.price ? (
+                        <div className="flex flex-col items-end gap-0.5 mt-0.5">
+                          <span className="text-[11px] text-slate-400 line-through">
+                            MRP: ₹{product.mrp}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded">
+                            Save ₹{product.mrp - product.price}
+                          </span>
                         </div>
-                      )}
+                      ) : null}
                     </td>
 
                     {/* Unit */}
@@ -242,32 +247,50 @@ export function ProductList({
                       )}
                     </td>
 
-                    {/* 1-Click Stock Toggle */}
+                    {/* Stock Status & Quantity */}
                     <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => onToggleStock(product.id, product.inStock)}
-                        disabled={isToggling}
-                        title={`Click to set ${product.inStock ? "Out of Stock" : "In Stock"}`}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                          product.inStock
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30"
-                        } disabled:opacity-50`}
-                      >
-                        {isToggling ? (
-                          <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                        ) : product.inStock ? (
-                          <>
-                            <CheckCircle2 size={13} />
-                            <span>In Stock</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle size={13} />
-                            <span>Out of Stock</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex flex-col items-center gap-1.5">
+                        {/* Quantity Badge */}
+                        {product.stockQuantity !== undefined ? (
+                          <span
+                            className={`inline-block font-mono text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                              product.inStock && product.stockQuantity > 0
+                                ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                                : "bg-rose-500/10 text-rose-300 border border-rose-500/20"
+                            }`}
+                          >
+                            {product.inStock && product.stockQuantity > 0
+                              ? `${product.stockQuantity} in stock`
+                              : "0 (Out of stock)"}
+                          </span>
+                        ) : null}
+
+                        {/* 1-Click Stock Toggle */}
+                        <button
+                          onClick={() => onToggleStock(product.id, product.inStock)}
+                          disabled={isToggling}
+                          title={`Click to set ${product.inStock ? "Out of Stock" : "In Stock"}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                            product.inStock
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30"
+                              : "bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30"
+                          } disabled:opacity-50`}
+                        >
+                          {isToggling ? (
+                            <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                          ) : product.inStock ? (
+                            <>
+                              <CheckCircle2 size={13} />
+                              <span>In Stock</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle size={13} />
+                              <span>Out of Stock</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </td>
 
                     {/* Actions */}
