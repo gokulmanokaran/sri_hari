@@ -3,6 +3,16 @@
  * ────────────────────────────────────────────────────
  * Handles opening Razorpay checkout modal, processing payments,
  * handling success/failure/dismissal callbacks, and backend verification.
+ *
+ * Android WebView UPI Intent Support
+ * ────────────────────────────────────
+ * When this page is loaded inside an Android WebView (detected via UA string),
+ * the Razorpay checkout is configured with:
+ *   • config.supports_upi_intent: 1   → signals intent-based UPI app launch
+ *   • webview_intent: true            → enables UPI app-to-app flow in WebView
+ * The Android host app must also implement WebViewClient.shouldOverrideUrlLoading()
+ * to intercept "upi://" and "intent://" scheme URLs and forward them to the OS
+ * via startActivity(Intent.parseUri(...)).  See ANDROID_API_INTEGRATION.md §8.
  */
 
 export interface PaymentPayload {
@@ -63,6 +73,24 @@ interface RazorpayOptions {
     escape?: boolean;
     backdropclose?: boolean;
   };
+  /**
+   * UPI Intent support for Android WebView.
+   * Setting webview_intent: true together with config.supports_upi_intent: 1
+   * tells Razorpay to render the UPI app picker (GPay, PhonePe, Paytm, etc.)
+   * and launch intent:// or upi:// deep links for app-to-app payment.
+   * The Android WebViewClient must intercept these URLs (see §8 of the
+   * ANDROID_API_INTEGRATION.md for the required shouldOverrideUrlLoading impl).
+   */
+  webview_intent?: boolean;
+  config?: {
+    display?: {
+      blocks?: Record<string, unknown>;
+      sequence?: string[];
+      preferences?: Record<string, unknown>;
+    };
+    /** 1 = support UPI intent-based app launch inside WebView */
+    supports_upi_intent?: 0 | 1;
+  };
 }
 
 interface RazorpayInstance {
@@ -83,6 +111,31 @@ export function getRazorpayKeyId(): string {
   return (
     (import.meta.env.VITE_RAZORPAY_KEY_ID as string) ||
     DEFAULT_RAZORPAY_KEY_ID
+  );
+}
+
+/**
+ * Detects whether the current page is running inside an Android WebView.
+ *
+ * Razorpay's UPI Intent flow (upi:// / intent:// scheme) requires explicit
+ * opt-in via `webview_intent: true` + `config.supports_upi_intent: 1` so
+ * that the SDK knows the host environment can handle deep-link interception.
+ *
+ * Detection heuristics (all must match for a reliable positive):
+ *  1. User-Agent contains "wv" token (Android System WebView marker)
+ *  2. User-Agent contains "Android" — rules out desktop Chrome "wv" false-positives
+ *  3. NOT a standard browser (no "Chrome/" without "wv", no "Firefox", no "Safari" alone)
+ *
+ * NOTE: This detection runs only on the client; SSR environments return false.
+ */
+export function isAndroidWebView(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  // Android WebView UA always contains both "Android" and the " wv" token
+  // e.g.: "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 ... wv) ..."
+  return (
+    ua.includes("Android") &&
+    /\bwv\b/.test(ua)
   );
 }
 
@@ -179,6 +232,13 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
   // Attempt backend order generation if available (non-blocking fallback)
   const backendOrderId = await createBackendRazorpayOrder(payload.amount, payload.orderId);
 
+  // ── Android WebView UPI Intent configuration ───────────────────────────
+  // When running inside an Android WebView we must explicitly enable UPI
+  // Intent support so that Razorpay renders the UPI app picker and
+  // launches GPay / PhonePe / Paytm via upi:// or intent:// deep links.
+  // The Android host app must handle these schemes in shouldOverrideUrlLoading.
+  const androidWebView = isAndroidWebView();
+
   return new Promise((resolve) => {
     let isHandled = false;
 
@@ -200,6 +260,19 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
       theme: {
         color: "#00A651",
       },
+      // ── UPI Intent: enabled only in Android WebView ──────────────────────
+      // webview_intent: true  → Razorpay renders UPI app picker in WebView
+      // config.supports_upi_intent: 1 → SDK uses intent:// / upi:// scheme
+      // These flags are safe to omit for browser (no-op) and are only
+      // injected when the Android WebView UA is positively detected.
+      ...(androidWebView
+        ? {
+            webview_intent: true,
+            config: {
+              supports_upi_intent: 1 as const,
+            },
+          }
+        : {}),
       handler: async (response: RazorpaySuccessResponse) => {
         if (isHandled) return;
         isHandled = true;

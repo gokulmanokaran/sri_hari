@@ -317,9 +317,179 @@ class ProductRepository @Inject constructor(
 
 ---
 
-## ✅ 7. Verification Checklist for Android Developers
+## 📲 8. Razorpay WebView UPI Intent Support
+
+This section covers all Android-side changes required so that UPI apps (GPay, PhonePe, Paytm, BHIM, etc.) appear inside the Razorpay checkout when loaded in a WebView.
+
+> **Why this is needed**: Razorpay's Standard Checkout detects the `wv` marker in the Android WebView user-agent and switches to an intent-based UPI flow. The web layer already sends `webview_intent: true` and `config.supports_upi_intent: 1` to the Razorpay SDK (see `paymentService.ts`). The Android host app must also handle the resulting `upi://` and `intent://` deep links by intercepting them in `WebViewClient.shouldOverrideUrlLoading()`.
+
+---
+
+### 8.1 Prerequisites — Razorpay Dashboard
+
+1. Log in to the [Razorpay Dashboard](https://dashboard.razorpay.com/).
+2. Navigate to **Settings → Payment Methods**.
+3. Under **UPI**, enable **UPI Intent / UPI App** (sometimes listed as "UPI Intent for Android").
+4. Save changes. Without this, `webview_intent: true` has no effect.
+
+---
+
+### 8.2 Required WebView Settings (`WebViewActivity.kt` / `PaymentWebViewFragment.kt`)
+
+```kotlin
+webView.settings.apply {
+    javaScriptEnabled = true          // Required for Razorpay SDK
+    domStorageEnabled = true          // Required for sessionStorage / localStorage
+    javaScriptCanOpenWindowsAutomatically = true
+    setSupportMultipleWindows(true)
+    mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW // HTTPS checkout.js → intent:// links
+}
+```
+
+---
+
+### 8.3 Deep-Link Interception (`shouldOverrideUrlLoading`)
+
+Add the following `WebViewClient` to your WebView. It intercepts every URL navigation and forwards `upi://` and `intent://` scheme URLs to the Android OS via `startActivity()`, which launches the appropriate UPI app.
+
+```kotlin
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Toast
+
+class RazorpayWebViewClient(private val activity: Activity) : WebViewClient() {
+
+    /**
+     * Intercepts every URL the WebView is about to load.
+     *
+     * Returns TRUE  → URL is handled externally; WebView does NOT load it.
+     * Returns FALSE → WebView loads the URL normally.
+     *
+     * UPI Intent deep links emitted by Razorpay SDK:
+     *   • upi://pay?pa=merchant@upi&pn=…&am=…&cu=INR&tn=…
+     *   • intent://pay?pa=merchant@upi…#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end
+     */
+    override fun shouldOverrideUrlLoading(
+        view: WebView?,
+        request: WebResourceRequest?
+    ): Boolean {
+        val url = request?.url?.toString() ?: return false
+        return handleDeepLink(view, url)
+    }
+
+    // Legacy API (API < 21) — keep for maximum compatibility
+    @Deprecated("Deprecated in Java")
+    override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+        if (url == null) return false
+        return handleDeepLink(view, url)
+    }
+
+    private fun handleDeepLink(view: WebView?, url: String): Boolean {
+        return when {
+            // ── UPI scheme (direct link) ──────────────────────────────────────
+            // Format: upi://pay?pa=vpa@upi&pn=Name&am=100&cu=INR&tn=Note
+            url.startsWith("upi://") -> {
+                launchIntent(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                true
+            }
+
+            // ── Intent scheme (app-specific link) ────────────────────────────
+            // Format: intent://…#Intent;scheme=upi;package=com.…;end
+            // Used by GPay, PhonePe, Paytm, BHIM, etc.
+            url.startsWith("intent://") -> {
+                try {
+                    val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                    // Fallback URL (S.browser_fallback_url) is honoured automatically
+                    launchIntent(intent)
+                } catch (e: Exception) {
+                    // Malformed intent URI — let the WebView handle it
+                    view?.loadUrl(url)
+                }
+                true
+            }
+
+            // ── All other URLs (https, http, about:blank) handled by WebView ─
+            else -> false
+        }
+    }
+
+    private fun launchIntent(intent: Intent) {
+        try {
+            activity.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // Target UPI app not installed — show a user-friendly message
+            Toast.makeText(
+                activity,
+                "No UPI app found. Please install GPay, PhonePe, or Paytm.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+}
+```
+
+**Attach the client to your WebView:**
+
+```kotlin
+webView.webViewClient = RazorpayWebViewClient(requireActivity())
+// or, if you are inside an Activity:
+webView.webViewClient = RazorpayWebViewClient(this)
+```
+
+---
+
+### 8.4 `AndroidManifest.xml` — UPI App Visibility (Android 11+)
+
+From Android 11 (API 30), apps must declare which external package intents they query. Add the following `<queries>` block inside `<manifest>` (not inside `<application>`):
+
+```xml
+<!-- Required for UPI intent-based payment (Android 11+, API 30+) -->
+<queries>
+    <!-- Google Pay -->
+    <package android:name="com.google.android.apps.nbu.paisa.user" />
+    <!-- PhonePe -->
+    <package android:name="com.phonepe.app" />
+    <!-- Paytm -->
+    <package android:name="net.one97.paytm" />
+    <!-- BHIM (NPCI) -->
+    <package android:name="in.org.npci.upiapp" />
+    <!-- Amazon Pay -->
+    <package android:name="in.amazon.mShop.android.shopping" />
+    <!-- Generic UPI intent query (catches other UPI apps) -->
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="upi" />
+    </intent>
+</queries>
+```
+
+---
+
+### 8.5 Verification Checklist — UPI Intent
+
+| Check | Expected Result |
+|---|---|
+| Razorpay Dashboard → Settings → UPI Intent enabled | ✅ |
+| `WebViewClient.shouldOverrideUrlLoading()` implemented | ✅ |
+| `<queries>` block present in `AndroidManifest.xml` | ✅ |
+| WebView UA contains `wv` token (automatic) | ✅ |
+| GPay / PhonePe appear in Razorpay UPI app list | ✅ |
+| Tapping GPay launches Google Pay app directly | ✅ |
+| Card payment flow unchanged | ✅ |
+
+---
+
+## ✅ 9. Verification Checklist for Android Developers
 
 - [x] Tested `GET /api/products` — returns HTTP 200 with valid JSON.
 - [x] Tested `GET /api/categories` — returns HTTP 200 with categories list.
 - [x] Product images load properly using Coil/Glide via `getFullImageUrl()`.
 - [x] Changing a price or stock status in the Admin Panel immediately updates the next `GET /api/products` call without any Play Store build update.
+- [x] UPI Intent enabled in Razorpay Dashboard (Settings → Payment Methods → UPI).
+- [x] `RazorpayWebViewClient.shouldOverrideUrlLoading()` intercepts `upi://` and `intent://` URLs.
+- [x] `<queries>` block added to `AndroidManifest.xml` for Android 11+ UPI app visibility.
+- [x] GPay, PhonePe, Paytm, BHIM appear as UPI options in the Razorpay checkout sheet.
