@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import {
   Routes,
   Route,
@@ -8,25 +8,34 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { useDelivery } from "./store/DeliveryContext";
 
-import PincodePage from "./pages/PincodePage";
 import HomePage from "./pages/HomePage";
-import ProductsPage from "./pages/ProductsPage";
-import ProductDetailsPage from "./pages/ProductDetailsPage";
-import CartPage from "./pages/CartPage";
-import CheckoutPage from "./pages/CheckoutPage";
-import PaymentPage from "./pages/PaymentPage";
-import OrderSuccessPage from "./pages/OrderSuccessPage";
 
-import SearchPage from "./pages/SearchPage";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
-import TermsPage from "./pages/TermsPage";
-import RefundPolicyPage from "./pages/RefundPolicyPage";
+// Lazy-loaded routes for performance & fast mobile initial load
+const ProductsPage = lazy(() => import("./pages/ProductsPage"));
+const ProductDetailsPage = lazy(() => import("./pages/ProductDetailsPage"));
+const CartPage = lazy(() => import("./pages/CartPage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
+const PaymentPage = lazy(() => import("./pages/PaymentPage"));
+const OrderSuccessPage = lazy(() => import("./pages/OrderSuccessPage"));
+const SearchPage = lazy(() => import("./pages/SearchPage"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
+const RefundPolicyPage = lazy(() => import("./pages/RefundPolicyPage"));
 
 import { TopSnackbar } from "./components/ui/TopSnackbar";
 import { FloatingCartButton } from "./components/features/FloatingCartButton";
 import { DailyNotification } from "./components/features/DailyNotification";
 import { PermissionPromptModal } from "./components/features/PermissionPromptModal";
 import { retryPendingOrderNotifications } from "./services/orderService";
+
+function PageFallback() {
+  return (
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
+      <div className="w-10 h-10 rounded-full border-3 border-[#EAF8F0] border-t-[#00A651] animate-spin mb-2" />
+      <span className="text-[11px] font-bold text-[#087A43] tracking-widest uppercase">Shree Hari</span>
+    </div>
+  );
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -53,6 +62,7 @@ function PincodeGuard({ children }: { children: React.ReactNode }) {
   );
 }
 
+
 export default function App() {
   const location = useLocation();
 
@@ -78,89 +88,92 @@ export default function App() {
           transition={{ duration: 0.18, ease: "easeInOut" }}
           className="w-full min-h-dvh"
         >
-          <Routes location={location}>
-            {/* Redirect legacy /pincode to Home */}
-            <Route path="/pincode" element={<Navigate to="/" replace />} />
+          <Suspense fallback={<PageFallback />}>
+            <Routes location={location}>
+              {/* Redirect legacy /pincode to Home */}
+              <Route path="/pincode" element={<Navigate to="/" replace />} />
 
-            {/* Protected Store Routes */}
-            <Route
-              path="/"
-              element={
-                <PincodeGuard>
-                  <HomePage />
-                </PincodeGuard>
-              }
-            />
-            <Route
-              path="/products"
-              element={
-                <PincodeGuard>
-                  <ProductsPage />
-                </PincodeGuard>
-              }
-            />
-            <Route
-              path="/products/:id"
-              element={
-                <PincodeGuard>
-                  <ProductDetailsPage />
-                </PincodeGuard>
-              }
-            />
-            <Route
-              path="/cart"
-              element={
-                <PincodeGuard>
-                  <CartPage />
-                </PincodeGuard>
-              }
-            />
-            <Route
-              path="/checkout"
-              element={
-                <PincodeGuard>
-                  <CheckoutPage />
-                </PincodeGuard>
-              }
-            />
-            <Route
-              path="/payment"
-              element={
-                <PincodeGuard>
-                  <PaymentPage />
-                </PincodeGuard>
-              }
-            />
-            <Route
-              path="/order-success"
-              element={
-                <PincodeGuard>
-                  <OrderSuccessPage />
-                </PincodeGuard>
-              }
-            />
+              {/* Protected Store Routes */}
+              <Route
+                path="/"
+                element={
+                  <PincodeGuard>
+                    <HomePage />
+                  </PincodeGuard>
+                }
+              />
+              <Route
+                path="/products"
+                element={
+                  <PincodeGuard>
+                    <ProductsPage />
+                  </PincodeGuard>
+                }
+              />
+              <Route
+                path="/products/:id"
+                element={
+                  <PincodeGuard>
+                    <ProductDetailsPage />
+                  </PincodeGuard>
+                }
+              />
+              <Route
+                path="/cart"
+                element={
+                  <PincodeGuard>
+                    <CartPage />
+                  </PincodeGuard>
+                }
+              />
+              <Route
+                path="/checkout"
+                element={
+                  <PincodeGuard>
+                    <CheckoutPage />
+                  </PincodeGuard>
+                }
+              />
+              <Route
+                path="/payment"
+                element={
+                  <PincodeGuard>
+                    <PaymentPage />
+                  </PincodeGuard>
+                }
+              />
+              <Route
+                path="/order-success"
+                element={
+                  <PincodeGuard>
+                    <OrderSuccessPage />
+                  </PincodeGuard>
+                }
+              />
 
-            <Route
-              path="/search"
-              element={
-                <PincodeGuard>
-                  <SearchPage />
-                </PincodeGuard>
-              }
-            />
+              <Route
+                path="/search"
+                element={
+                  <PincodeGuard>
+                    <SearchPage />
+                  </PincodeGuard>
+                }
+              />
 
-            {/* Legal & Compliance Policy Routes */}
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/terms-and-conditions" element={<TermsPage />} />
-            <Route path="/refund-policy" element={<RefundPolicyPage />} />
-            <Route path="/cancellation-refund-policy" element={<RefundPolicyPage />} />
+              {/* Legal & Compliance Policy Routes */}
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/terms-and-conditions" element={<TermsPage />} />
+              <Route path="/refund-policy" element={<RefundPolicyPage />} />
+              <Route path="/cancellation-refund-policy" element={<RefundPolicyPage />} />
 
-            {/* Fallback to Home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              {/* Fallback to Home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </motion.div>
       </AnimatePresence>
+
     </div>
   );
 }
