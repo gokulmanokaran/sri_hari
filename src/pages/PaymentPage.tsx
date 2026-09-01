@@ -37,9 +37,11 @@ export default function PaymentPage() {
   const { refreshProducts } = useProductCatalog();
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showItems, setShowItems] = useState(false);
   const isNavigatingRef = useRef(false);
+
 
   // Retrieve pending order from navigation state or localStorage fallback
   const pendingOrder = useMemo<OrderNotificationPayload | null>(() => {
@@ -136,19 +138,26 @@ export default function PaymentPage() {
       isNavigatingRef.current = true;
       const razorpayPaymentId = paymentResult.razorpayPaymentId || "";
       const razorpayOrderId = paymentResult.razorpayOrderId || "";
+      const razorpaySignature = paymentResult.razorpaySignature || "";
 
       const completedOrder: OrderNotificationPayload = {
         ...pendingOrder,
         paymentStatus: `Paid (Razorpay)${razorpayPaymentId ? ` · ${razorpayPaymentId}` : ""}`,
         paymentId: razorpayPaymentId,
         razorpayPaymentId,
+        razorpayOrderId,
+        razorpaySignature,
       };
 
-      // 1. Deduct stock automatically upon successful payment
-      await deductLiveProductStock(completedOrder.items);
+      // 1. Show saving state — backend is persisting to Supabase + Google Sheets
+      setIsProcessing(false);
+      setIsSaving(true);
+
+      // 2. Deduct stock automatically upon successful payment (non-blocking)
+      deductLiveProductStock(completedOrder.items).catch(() => {});
       refreshProducts().catch(() => {});
 
-      // 2. Persist completed order locally
+      // 3. Persist completed order locally (for OrderSuccessPage fallback)
       try {
         localStorage.setItem("shreehari_latest_order", JSON.stringify(completedOrder));
         const existingRaw = localStorage.getItem("shreehari_orders");
@@ -157,31 +166,40 @@ export default function PaymentPage() {
           "shreehari_orders",
           JSON.stringify([completedOrder, ...existing])
         );
-        // Clear pending order keys
         sessionStorage.removeItem(PENDING_ORDER_KEY);
         localStorage.removeItem(PENDING_ORDER_KEY);
       } catch {
         /* ignore */
       }
 
-      // 3. Send to Google Sheets & Email (non-blocking)
-      submitOrderNotification(completedOrder)
-        .then((res) => {
-          if (res.success) {
-            console.info(`[PaymentPage] ✅ Order #${orderId} notified successfully.`);
-          } else {
-            console.warn(`[PaymentPage] ⚠️ Order #${orderId} queued for background sync.`);
-          }
-        })
-        .catch((err) => {
-          console.warn("[PaymentPage] Background sync notification error:", err);
-        });
+      // 4. Send to backend (Supabase + Google Sheets + Email) — AWAITED with timeout
+      // The backend persists to Supabase first (durable), then calls GAS.
+      // We give it up to 12 seconds. If it times out, the Razorpay webhook
+      // will handle it server-to-server as a safety net.
+      const notificationPromise = submitOrderNotification(completedOrder);
+      const timeoutPromise = new Promise<OrderNotificationPayload>((resolve) =>
+        setTimeout(() => resolve(completedOrder), 12_000)
+      );
 
+      const notifResult = await Promise.race([notificationPromise, timeoutPromise]);
+
+      if (typeof notifResult === "object" && "success" in notifResult) {
+        if (notifResult.success) {
+          console.info(`[PaymentPage] ✅ Order #${orderId} fully persisted and notified (path: ${notifResult.path}).`);
+        } else {
+          console.warn(`[PaymentPage] ⚠️ Order #${orderId} queued for background retry (path: ${notifResult.path}). Razorpay webhook will also attempt.`);
+        }
+      } else {
+        console.info(`[PaymentPage] ⏱️ Order #${orderId} notification timed out on client — backend/webhook will handle.`);
+      }
+
+      // 5. Clear cart and navigate to success page
       clearCart();
       navigate("/order-success", { replace: true, state: completedOrder });
     } catch (err) {
       clearTimeout(safetyTimeout);
       setIsProcessing(false);
+      setIsSaving(false);
       setErrorMessage(
         err instanceof Error
           ? err.message
@@ -189,6 +207,7 @@ export default function PaymentPage() {
       );
     }
   };
+
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -476,11 +495,18 @@ export default function PaymentPage() {
             type="button"
             size="lg"
             onClick={handlePayWithRazorpay}
-            loading={isProcessing}
+            loading={isProcessing || isSaving}
             className="flex-1 h-13 text-base font-extrabold rounded-[16px] shadow-lg shadow-[#00A651]/25 hover:shadow-xl transition-all cursor-pointer"
           >
-            <span>{isProcessing ? "Opening Gateway…" : `Pay ₹${total} Securely`}</span>
+            <span>
+              {isSaving
+                ? "Saving order…"
+                : isProcessing
+                ? "Opening Gateway…"
+                : `Pay ₹${total} Securely`}
+            </span>
           </Button>
+
         </div>
       </div>
     </div>

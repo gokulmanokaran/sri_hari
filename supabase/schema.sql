@@ -180,3 +180,96 @@ BEGIN
 END;
 $$;
 
+
+-- ==============================================================================
+-- 10. Orders Table — Durable Order Persistence & Notification Tracking
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.orders (
+    -- Primary identifier: our internal storefront order ID (e.g. "SHK-1725187800000")
+    id TEXT PRIMARY KEY,
+
+    -- Razorpay identifiers (unique index prevents duplicate webhook processing)
+    razorpay_payment_id TEXT,
+    razorpay_order_id   TEXT,
+    razorpay_signature  TEXT,
+
+    -- Customer details
+    full_name   TEXT NOT NULL DEFAULT '',
+    mobile      TEXT NOT NULL DEFAULT '',
+    email       TEXT DEFAULT '',
+    address     TEXT DEFAULT '',
+    city        TEXT DEFAULT '',
+    state       TEXT DEFAULT '',
+    pincode     TEXT DEFAULT '',
+    lat         DOUBLE PRECISION,
+    lng         DOUBLE PRECISION,
+    maps_link   TEXT DEFAULT '',
+
+    -- Order financials
+    subtotal        NUMERIC NOT NULL DEFAULT 0,
+    delivery_charge NUMERIC NOT NULL DEFAULT 0,
+    discount        NUMERIC NOT NULL DEFAULT 0,
+    total           NUMERIC NOT NULL DEFAULT 0,
+
+    -- Full items payload (JSONB array of {id, name, nameTamil, quantity, price, unit})
+    items JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+    -- Payment status text (e.g. "Paid (Razorpay) · pay_XXXXX")
+    payment_status TEXT NOT NULL DEFAULT 'Paid (Razorpay)',
+
+    -- Downstream notification status
+    sheets_synced  BOOLEAN NOT NULL DEFAULT false,
+    email_sent     BOOLEAN NOT NULL DEFAULT false,
+
+    -- Retry observability
+    retry_count     INTEGER NOT NULL DEFAULT 0,
+    last_error      TEXT DEFAULT NULL,
+    last_attempt_at TIMESTAMPTZ DEFAULT NULL,
+
+    -- Source metadata
+    source TEXT DEFAULT 'storefront',
+
+    -- Timestamps
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- Unique index so duplicate Razorpay payment IDs are rejected at DB level
+CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_razorpay_payment_id
+    ON public.orders(razorpay_payment_id)
+    WHERE razorpay_payment_id IS NOT NULL AND razorpay_payment_id <> '';
+
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_orders_created_at      ON public.orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_sheets_synced   ON public.orders(sheets_synced) WHERE sheets_synced = false;
+CREATE INDEX IF NOT EXISTS idx_orders_email_sent      ON public.orders(email_sent)    WHERE email_sent = false;
+
+-- Enable RLS
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+
+-- Service role has full access (used by our Vercel API functions)
+DROP POLICY IF EXISTS "Service role full access on orders" ON public.orders;
+CREATE POLICY "Service role full access on orders"
+ON public.orders FOR ALL
+USING (auth.role() = 'service_role')
+WITH CHECK (auth.role() = 'service_role');
+
+-- Auto-update updated_at trigger
+DROP TRIGGER IF EXISTS set_orders_updated_at ON public.orders;
+CREATE TRIGGER set_orders_updated_at
+BEFORE UPDATE ON public.orders
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Enable realtime for orders table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'orders'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+    END IF;
+END $$;
