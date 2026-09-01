@@ -112,19 +112,53 @@ export default async function handler(req: any, res?: any): Promise<any> {
     // ── Forward to Google Apps Script with retry ──────────────────────────
     const result = await forwardWithRetry(targetWebhookUrl, orderData, 3);
 
-    // ── Update Supabase notification status ───────────────────────────────
+    // ── Persist or update order in Supabase ───────────────────────────────
     if (supabase) {
+      const mapsLink =
+        orderData.mapsLink ||
+        (orderData.lat && orderData.lng ? `https://www.google.com/maps?q=${orderData.lat},${orderData.lng}` : "");
+
+      const formattedDate =
+        orderData.formattedDate ||
+        new Date(orderData.createdAt || Date.now()).toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+
+      const orderRow = {
+        id: orderId,
+        razorpay_payment_id: paymentId !== "N/A" ? paymentId : null,
+        razorpay_order_id: orderData.razorpayOrderId || null,
+        razorpay_signature: orderData.razorpaySignature || null,
+        full_name: orderData.fullName || "",
+        mobile: orderData.mobile || "",
+        email: orderData.email || "",
+        address: orderData.address || "",
+        city: orderData.city || "",
+        state: orderData.state || "",
+        pincode: orderData.pincode || "",
+        lat: orderData.lat ?? null,
+        lng: orderData.lng ?? null,
+        maps_link: mapsLink,
+        subtotal: Number(orderData.subtotal || 0),
+        delivery_charge: Number(orderData.deliveryCharge || 0),
+        discount: Number(orderData.discount || 0),
+        total: Number(orderData.total || 0),
+        items: orderData.items || [],
+        payment_status: orderData.paymentStatus || `Paid (Razorpay)${paymentId !== "N/A" ? ` · ${paymentId}` : ""}`,
+        sheets_synced: result.success,
+        email_sent: result.success,
+        retry_count: result.attempts,
+        last_error: result.success ? null : (result.lastError ?? null),
+        last_attempt_at: new Date().toISOString(),
+        source: orderData.source || "storefront",
+      };
+
       await supabase
         .from("orders")
-        .update({
-          sheets_synced: result.success,
-          email_sent: result.success,
-          retry_count: result.attempts,
-          last_error: result.success ? null : (result.lastError ?? null),
-          last_attempt_at: new Date().toISOString(),
-        })
-        .eq("id", orderId)
-        .catch((err) => console.warn("[order-webhook] Supabase status update error:", err));
+        .upsert(orderRow, { onConflict: "id" })
+        .catch((err) => console.warn("[order-webhook] Supabase order upsert error:", err));
     }
 
     if (result.success) {

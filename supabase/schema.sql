@@ -248,12 +248,37 @@ CREATE INDEX IF NOT EXISTS idx_orders_email_sent      ON public.orders(email_sen
 -- Enable RLS
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
--- Service role has full access (used by our Vercel API functions)
+-- Clean up old policies
 DROP POLICY IF EXISTS "Service role full access on orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow public insert on orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow public select on orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow public update on orders" ON public.orders;
+
+-- Allow Storefront Customers (anon & authenticated) to insert orders
+CREATE POLICY "Allow public insert on orders"
+ON public.orders FOR INSERT
+TO anon, authenticated, service_role
+WITH CHECK (true);
+
+-- Allow Reading orders
+CREATE POLICY "Allow public select on orders"
+ON public.orders FOR SELECT
+TO anon, authenticated, service_role
+USING (true);
+
+-- Allow Updating orders (e.g. syncing flags)
+CREATE POLICY "Allow public update on orders"
+ON public.orders FOR UPDATE
+TO anon, authenticated, service_role
+USING (true)
+WITH CHECK (true);
+
+-- Full access for Service Role
 CREATE POLICY "Service role full access on orders"
 ON public.orders FOR ALL
-USING (auth.role() = 'service_role')
-WITH CHECK (auth.role() = 'service_role');
+TO service_role
+USING (true)
+WITH CHECK (true);
 
 -- Auto-update updated_at trigger
 DROP TRIGGER IF EXISTS set_orders_updated_at ON public.orders;

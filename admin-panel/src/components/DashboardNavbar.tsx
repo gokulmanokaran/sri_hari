@@ -1,4 +1,4 @@
-import { LogOut, ExternalLink, RefreshCw, Layers, Code, Plus } from "lucide-react";
+import { LogOut, ExternalLink, RefreshCw, Layers, Code, Plus, ShoppingBag } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 interface DashboardNavbarProps {
@@ -7,6 +7,7 @@ interface DashboardNavbarProps {
   onOpenCategories: () => void;
   onOpenApiInspector: () => void;
   onAddNewProduct: () => void;
+  onOpenOrders: () => void;
 }
 
 export function DashboardNavbar({
@@ -15,6 +16,7 @@ export function DashboardNavbar({
   onOpenCategories,
   onOpenApiInspector,
   onAddNewProduct,
+  onOpenOrders,
 }: DashboardNavbarProps) {
   const { logout } = useAuth();
 
@@ -43,6 +45,16 @@ export function DashboardNavbar({
 
         {/* Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Orders Button */}
+          <button
+            onClick={onOpenOrders}
+            title="View Live Customer Orders"
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold px-3 py-2 rounded-xl shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+          >
+            <ShoppingBag size={15} />
+            <span className="hidden xs:inline">Orders</span>
+          </button>
+
           {/* Add Product Button */}
           <button
             onClick={onAddNewProduct}

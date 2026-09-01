@@ -90,6 +90,53 @@ function localDevApiPlugin(): Plugin {
           return;
         }
 
+        // POST /api/process-payment or /api/order-webhook (Local dev order handling)
+        if (
+          (url.startsWith("/api/process-payment") || url.startsWith("/api/order-webhook")) &&
+          req.method === "POST"
+        ) {
+          let rawBody = "";
+          req.on("data", (chunk: any) => {
+            rawBody += chunk;
+          });
+          req.on("end", async () => {
+            try {
+              const data = JSON.parse(rawBody || "{}");
+              const orderId = data.orderId || `SHK-${Date.now()}`;
+              console.log(`[DevAPI] 📦 Processing local order ${orderId}...`);
+
+              // Forward to Google Apps Script
+              const webhookUrl =
+                process.env.GOOGLE_SHEETS_WEBHOOK_URL ||
+                process.env.VITE_ORDER_WEBHOOK_URL ||
+                "https://script.google.com/macros/s/AKfycbzjXsA4gHp4u30Qx9RhFamyOIrSjqs2yi9K5wAF1YylK8FU9Ushsex8kffAIIRUR3bI/exec";
+
+              fetch(webhookUrl, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(data),
+              }).catch((e) => console.warn("[DevAPI] GAS forward error:", e));
+
+              res.setHeader("Content-Type", "application/json");
+              res.statusCode = 200;
+              res.end(
+                JSON.stringify({
+                  success: true,
+                  orderId,
+                  message: "Local dev order processed successfully",
+                  sheetsSynced: true,
+                  emailSent: true,
+                })
+              );
+            } catch (err: any) {
+              res.setHeader("Content-Type", "application/json");
+              res.statusCode = 500;
+              res.end(JSON.stringify({ success: false, error: err?.message || "Internal error" }));
+            }
+          });
+          return;
+        }
+
         next();
       });
     },

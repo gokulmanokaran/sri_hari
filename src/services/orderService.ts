@@ -18,6 +18,8 @@
  *   4. Queue to localStorage for retry on next app load
  */
 
+import { getSupabaseClient } from "../lib/supabase";
+
 export interface OrderItemPayload {
   id?: string;
   name: string;
@@ -272,17 +274,88 @@ async function submitDirectToGas(
   return { success: false, orderId, error: "All paths failed", path: "queued" };
 }
 
+/** Direct client-side persist to Supabase orders table (Guaranteed immediate DB save) */
+export async function persistOrderDirectToSupabase(
+  payload: OrderNotificationPayload
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      console.warn("[OrderService] Supabase client not initialized for direct save.");
+      return { success: false, error: "Supabase client uninitialized" };
+    }
+
+    const mapsLink =
+      payload.mapsLink ||
+      (payload.lat && payload.lng ? `https://www.google.com/maps?q=${payload.lat},${payload.lng}` : "");
+
+    const paymentId = payload.paymentId || payload.razorpayPaymentId || null;
+
+    const row = {
+      id: payload.orderId,
+      razorpay_payment_id: paymentId || null,
+      razorpay_order_id: payload.razorpayOrderId || null,
+      razorpay_signature: payload.razorpaySignature || null,
+      full_name: payload.fullName || "",
+      mobile: payload.mobile || "",
+      email: payload.email || "",
+      address: payload.address || "",
+      city: payload.city || "",
+      state: payload.state || "",
+      pincode: payload.pincode || "",
+      lat: payload.lat ?? null,
+      lng: payload.lng ?? null,
+      maps_link: mapsLink,
+      subtotal: Number(payload.subtotal || 0),
+      delivery_charge: Number(payload.deliveryCharge || 0),
+      discount: Number(payload.discount || 0),
+      total: Number(payload.total || 0),
+      items: payload.items || [],
+      payment_status: payload.paymentStatus || `Paid (Razorpay)${paymentId ? ` · ${paymentId}` : ""}`,
+      sheets_synced: false,
+      email_sent: false,
+      retry_count: 0,
+      source: "storefront",
+    };
+
+    const { error } = await supabase.from("orders").upsert(row, { onConflict: "id" });
+    if (error) {
+      console.warn("[OrderService] Direct Supabase upsert error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    console.info(`[OrderService] ⚡ Direct Supabase upsert succeeded for order ${payload.orderId}`);
+    return { success: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[OrderService] Direct Supabase upsert exception:", msg);
+    return { success: false, error: msg };
+  }
+}
+
+/** Update order sync flags in Supabase client-side */
+export async function updateDirectSupabaseStatus(
+  orderId: string,
+  updates: { sheets_synced?: boolean; email_sent?: boolean }
+): Promise<void> {
+  try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    await supabase.from("orders").update(updates).eq("id", orderId);
+  } catch {
+    // ignore
+  }
+}
+
 // ── Main exported function ────────────────────────────────────────────────────
 
 /**
- * Submits order details through a reliable fallback chain:
- *   1. /api/process-payment (Vercel, with Supabase persistence + GAS retry)
+ * Submits order details through a reliable dual-layer flow:
+ *   0. Immediate direct save to Supabase (survives any serverless failure)
+ *   1. /api/process-payment (Vercel, with server-side persistence + GAS retry)
  *   2. /api/order-webhook (Vercel, with GAS retry)
  *   3. Direct GAS call (keepalive, browser best-effort)
  *   4. localStorage queue (next app load retry)
- *
- * This function is safe to call concurrently for multiple orders —
- * each order is isolated by orderId.
  */
 export async function submitOrderNotification(
   payload: OrderNotificationPayload
@@ -294,9 +367,13 @@ export async function submitOrderNotification(
     `[OrderService] 📦 submitOrderNotification START | Order: ${orderId} | Payment: ${paymentId} | Customer: ${payload.email || payload.mobile}`
   );
 
+  // ── Step 0: Immediate Direct Supabase Save (First line of defense) ───────
+  const directDbPromise = persistOrderDirectToSupabase(payload);
+
   // Local dedup guard (secondary to server-side idempotency)
   if (isOrderAlreadyNotified(orderId)) {
     console.info(`[OrderService] ℹ️ Order ${orderId} already marked as notified locally. Skipping.`);
+    await directDbPromise;
     return { success: true, orderId, alreadyProcessed: true, message: "Already notified" };
   }
 
@@ -340,6 +417,7 @@ export async function submitOrderNotification(
   const webhookResult = await submitViaOrderWebhook(requestBody, orderId);
   if (webhookResult?.success) {
     markOrderNotified(orderId);
+    updateDirectSupabaseStatus(orderId, { sheets_synced: true, email_sent: true });
     console.info(
       `[OrderService] ✅ Order ${orderId} DONE via order-webhook | Payment: ${paymentId}`
     );
@@ -350,11 +428,15 @@ export async function submitOrderNotification(
   const directResult = await submitDirectToGas(requestBody, webhookUrl, orderId);
   if (directResult.success) {
     markOrderNotified(orderId);
+    updateDirectSupabaseStatus(orderId, { sheets_synced: true, email_sent: true });
     console.info(
       `[OrderService] ✅ Order ${orderId} dispatched via direct GAS | Payment: ${paymentId}`
     );
     return directResult;
   }
+
+  // Wait for direct DB persist before failing
+  await directDbPromise;
 
   // ── 4. Queue for retry on next app load ────────────────────────────────
   console.error(

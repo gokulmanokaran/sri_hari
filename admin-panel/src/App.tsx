@@ -8,6 +8,7 @@ import { ProductFormModal } from "./components/ProductFormModal";
 import { SafeImageModal } from "./components/SafeImageModal";
 import { CategoryModal } from "./components/CategoryModal";
 import { ApiInspectorModal } from "./components/ApiInspectorModal";
+import { OrdersModal } from "./components/OrdersModal";
 import {
   fetchProducts,
   fetchCategories,
@@ -51,6 +52,7 @@ export default function App() {
   const [replacingImageProduct, setReplacingImageProduct] = useState<Product | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isApiInspectorOpen, setIsApiInspectorOpen] = useState(false);
+  const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
 
   // Quick stock updating ID
   const [isUpdatingStockId, setIsUpdatingStockId] = useState<string | null>(null);
@@ -154,6 +156,7 @@ export default function App() {
         isRefreshing={isRefreshing}
         onOpenCategories={() => setIsCategoryModalOpen(true)}
         onOpenApiInspector={() => setIsApiInspectorOpen(true)}
+        onOpenOrders={() => setIsOrdersModalOpen(true)}
         onAddNewProduct={() => {
           setEditingProduct(null);
           setIsFormOpen(true);
@@ -201,6 +204,12 @@ export default function App() {
           <span>{toastMsg}</span>
         </div>
       )}
+
+      {/* Live Orders Modal */}
+      <OrdersModal
+        isOpen={isOrdersModalOpen}
+        onClose={() => setIsOrdersModalOpen(false)}
+      />
 
       {/* Edit / Create Product Modal */}
       <ProductFormModal
