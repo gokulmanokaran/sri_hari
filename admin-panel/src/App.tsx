@@ -16,6 +16,7 @@ import {
   updateProduct,
   deleteProduct,
   toggleProductStock,
+  toggleProductActive,
 } from "./services/api";
 import { Product, Category } from "./types";
 
@@ -132,7 +133,7 @@ export default function App() {
   // Handle Delete Product
   const handleDeleteProduct = async (product: Product) => {
     const ok = window.confirm(
-      `Are you sure you want to delete "${product.name}" (#${product.id})?\n\nThis will remove it from the Central API, Website, and future Android app.`
+      `Are you sure you want to delete "${product.name}" (#${product.id})?\n\nThis will permanently remove it from the database.`
     );
     if (!ok) return;
 
@@ -142,6 +143,22 @@ export default function App() {
       showToast(`✓ Product "${product.name}" deleted.`);
     } catch (err) {
       showToast("❌ Error deleting product.");
+    }
+  };
+
+  // Handle Toggle Active/Inactive
+  const handleToggleActive = async (product: Product) => {
+    const newActive = !product.active;
+    try {
+      const updated = await toggleProductActive(product.id, newActive);
+      setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      showToast(
+        newActive
+          ? `✓ "${product.name}" is now Active (visible on website).`
+          : `✓ "${product.name}" is now Inactive (hidden from website).`
+      );
+    } catch {
+      showToast("❌ Failed to update product status.");
     }
   };
 
@@ -191,6 +208,7 @@ export default function App() {
             onReplaceImage={(p) => setReplacingImageProduct(p)}
             onToggleStock={handleToggleStock}
             onDeleteProduct={handleDeleteProduct}
+            onToggleActive={handleToggleActive}
             onAddNewProduct={() => {
               setEditingProduct(null);
               setIsFormOpen(true);

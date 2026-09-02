@@ -123,7 +123,6 @@ export async function fetchProducts(): Promise<Product[]> {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("active", true)
         .order("sort_order", { ascending: true });
 
       if (!error && Array.isArray(data) && data.length > 0) {
@@ -327,6 +326,10 @@ export async function updateProduct(product: Partial<Product> & { id: string }):
 export async function toggleProductStock(id: string, inStock: boolean): Promise<Product> {
   const stockQuantity = inStock ? 20 : 0;
   return updateProduct({ id, inStock, stockQuantity });
+}
+
+export async function toggleProductActive(id: string, active: boolean): Promise<Product> {
+  return updateProduct({ id, active });
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {
