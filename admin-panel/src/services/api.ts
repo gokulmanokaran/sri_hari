@@ -123,6 +123,7 @@ export async function fetchProducts(): Promise<Product[]> {
       const { data, error } = await supabase
         .from("products")
         .select("*")
+        .eq("active", true)
         .order("sort_order", { ascending: true });
 
       if (!error && Array.isArray(data) && data.length > 0) {
@@ -332,16 +333,14 @@ export async function deleteProduct(id: string): Promise<boolean> {
   const supabase = getAdminSupabaseClient();
 
   if (supabase) {
-    // Soft delete by marking active = false
+    // Hard delete — permanently removes the row from the database
     const { error } = await supabase
       .from("products")
-      .update({ active: false, in_stock: false, updated_at: new Date().toISOString() })
+      .delete()
       .eq("id", id);
 
     if (error) {
-      // Try hard delete if soft delete fails
-      const { error: hardError } = await supabase.from("products").delete().eq("id", id);
-      if (hardError) throw new Error(`Supabase delete failed: ${hardError.message}`);
+      throw new Error(`Supabase delete failed: ${error.message}`);
     }
 
     return true;

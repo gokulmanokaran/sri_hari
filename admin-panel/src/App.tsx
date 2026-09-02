@@ -25,18 +25,20 @@ export default function App() {
   // Clear stale localStorage product cache so the shared catalog.json is always preferred
   useEffect(() => {
     try {
-      // If localStorage has fewer products than what we expect, clear it
-      const cached = localStorage.getItem("shk_admin_local_products_v2");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        // Clear if stale (less than 50 products — clearly incomplete)
+      // Clear both v2 and v3 stale local caches so the DB is always the source of truth
+      const v2 = localStorage.getItem("shk_admin_local_products_v2");
+      if (v2) localStorage.removeItem("shk_admin_local_products_v2");
+
+      const v3 = localStorage.getItem("shk_admin_local_products_v3");
+      if (v3) {
+        const parsed = JSON.parse(v3);
         if (!Array.isArray(parsed) || parsed.length < 50) {
-          localStorage.removeItem("shk_admin_local_products_v2");
-          console.log("[Admin] Cleared stale product cache. Will reload from catalog.json.");
+          localStorage.removeItem("shk_admin_local_products_v3");
         }
       }
     } catch {
       localStorage.removeItem("shk_admin_local_products_v2");
+      localStorage.removeItem("shk_admin_local_products_v3");
     }
   }, []);
 
