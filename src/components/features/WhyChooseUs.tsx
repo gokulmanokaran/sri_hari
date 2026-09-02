@@ -34,15 +34,15 @@ const WHY_CARDS = [
 
 export function WhyChooseUs() {
   return (
-    <section className="px-4 py-6">
-      <div className="max-w-lg mx-auto">
-        <div className="mb-5 px-1">
-          <h2 className="text-lg font-black text-[#111111]">Why Shree Hari?</h2>
-          <p className="text-sm text-[#666666] mt-1">
+    <section className="px-0 py-4">
+      <div className="w-full">
+        <div className="mb-4 px-1">
+          <h2 className="text-base sm:text-lg font-black text-[#111111]">Why Shree Hari?</h2>
+          <p className="text-xs sm:text-sm text-[#666666] mt-0.5">
             We bring the best of nature to your doorstep.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {WHY_CARDS.map((card, i) => {
             const Icon = card.icon;
             return (

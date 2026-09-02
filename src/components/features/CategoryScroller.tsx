@@ -28,7 +28,7 @@ export function CategoryScroller({
   if (mode === "filter") {
     // Compact pill filter for products page
     return (
-      <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 py-2">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 -mx-0.5 px-0.5">
         <motion.button
           whileTap={{ scale: 0.93 }}
           onClick={() => onSelect?.("all")}
@@ -58,32 +58,47 @@ export function CategoryScroller({
     );
   }
 
-  // Home mode: full cards
+  // Home mode: 3-per-row big size clean UI category grid with original icons
   return (
-    <section aria-label="Shop by category">
-      <div className="px-5 mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-black text-[#111111]">Shop by Category</h2>
+    <section aria-label="Shop by category" className="py-2">
+      <div className="px-1 mb-3.5 flex items-center justify-between">
+        <div>
+          <h2 className="text-base sm:text-lg font-black text-[#111111] tracking-tight">
+            Shop by Category
+          </h2>
+          <p className="text-xs text-[#777777] font-medium mt-0.5">
+            Tap a category to explore fresh products
+          </p>
+        </div>
+        <span className="text-[11px] font-bold text-[#087A43] bg-[#EAF8F0] border border-[#00A651]/20 px-2.5 py-0.5 rounded-full flex-shrink-0">
+          {categories.length} Categories
+        </span>
       </div>
-      <div className="flex gap-3 overflow-x-auto no-scrollbar px-5 pb-1">
+
+      {/* 3-Column Grid on Mobile, 4-6 on Desktop */}
+      <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3.5 px-0.5">
         {categories.map((cat, i) => (
           <motion.button
             key={cat.id}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.05, type: "spring", stiffness: 300, damping: 28 }}
-            whileTap={{ scale: 0.93 }}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.02, type: "spring", stiffness: 350, damping: 25 }}
+            whileHover={{ y: -3, scale: 1.02 }}
+            whileTap={{ scale: 0.94 }}
             onClick={() => handleClick(cat.id)}
-            className="flex-shrink-0 flex flex-col items-center gap-2 w-[76px]"
-            aria-label={cat.name}
+            className="flex flex-col items-center justify-between p-2.5 sm:p-3.5 rounded-[20px] bg-white hover:bg-[#F8FCF9] border border-[#EAEAEA] hover:border-[#00A651]/35 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all cursor-pointer group select-none text-center aspect-[1/1.12]"
+            aria-label={`Shop ${cat.name}`}
           >
-            {/* Icon card */}
+            {/* Big Icon / Emoji Badge */}
             <div
-              className="w-14 h-14 rounded-[18px] flex items-center justify-center text-2xl shadow-sm border border-white"
+              className="w-13 h-13 sm:w-15 sm:h-15 rounded-[16px] sm:rounded-[18px] flex items-center justify-center text-2xl sm:text-3xl shadow-2xs border border-white transition-transform duration-200 group-hover:scale-110"
               style={{ background: cat.color }}
             >
               {cat.emoji}
             </div>
-            <span className="text-[11px] font-semibold text-[#333333] text-center leading-tight">
+
+            {/* Category Name */}
+            <span className="text-[11.5px] sm:text-xs font-bold text-[#1E293B] group-hover:text-[#00A651] text-center leading-tight line-clamp-2 transition-colors px-0.5 mt-1">
               {cat.name}
             </span>
           </motion.button>

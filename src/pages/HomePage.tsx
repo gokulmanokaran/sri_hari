@@ -3,81 +3,42 @@ import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
 import { PromoCarousel } from "../components/features/PromoCarousel";
 import { CategoryScroller } from "../components/features/CategoryScroller";
-import { ProductGrid } from "../components/features/ProductGrid";
 import { WhyChooseUs } from "../components/features/WhyChooseUs";
 import { WhatsAppCTA } from "../components/features/WhatsAppCTA";
 import { SearchOverlay } from "../components/features/SearchOverlay";
-import { useProductCatalog } from "../store/ProductContext";
 
 export default function HomePage() {
   const [searchOpen, setSearchOpen] = useState(false);
-  const { products } = useProductCatalog();
-
-  // Featured curated picks
-  const featuredProducts = products.filter((p) =>
-    ["dwarf-copper-leaves", "small-onion", "onion-peeled", "almond", "black-dates"].includes(p.id) || p.featured
-  );
-
-  // Fresh & Cleaned Products
-  const freshProducts = products.filter((p) =>
-    ["keerai", "microgreens", "vegetables"].includes(p.category)
-  );
-
-  // Microgreens category
-  const microgreensProducts = products.filter((p) => p.category === "microgreens");
-
-  // Premium Quality Products (Dry Fruits, Seeds, Healthy Choices, Nuts & Seeds)
-  const premiumProducts = products.filter((p) =>
-    ["dry-fruits", "seeds", "healthy-choices", "nuts-seeds", "premium-products"].includes(p.category)
-  );
 
   return (
     <>
-      {/* 1. Header with search, call, profile, and Delivery Location pill (INTACT) */}
+      {/* 1. Header with search, call, and Delivery Location pill (INTACT) */}
       <Header onSearchOpen={() => setSearchOpen(true)} />
       <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
-      <main className="pb-24">
-        {/* 2. Promotional / Pre-Order Banner Carousel */}
+      <main className="pb-24 max-w-6xl mx-auto px-3 sm:px-4">
+        {/* 2. Promotional / Pre-Order Banner Carousel (1st Banner & 2nd Weekend Notice INTACT) */}
         <PromoCarousel />
 
-        {/* 3. Shop by Category */}
-        <div className="mt-4">
-          <CategoryScroller />
+        {/* 3. Shop by Category (Original UI Icons + Category Names) */}
+        <div className="mt-4 sm:mt-5">
+          <CategoryScroller mode="home" />
         </div>
 
-        {/* 4. Featured Products */}
-        <div className="mt-6">
-          <ProductGrid products={featuredProducts} title="Featured Products" />
-        </div>
-
-        {/* 5. Fresh Microgreens Section */}
-        <div className="mt-6">
-          <ProductGrid products={microgreensProducts} title="Fresh Microgreens (40g Pack)" />
-        </div>
-
-        {/* 6. Fresh & Cleaned Products */}
-        <div className="mt-6">
-          <ProductGrid products={freshProducts} title="Fresh Products" />
-        </div>
-
-        {/* 7. Premium Quality Products */}
-        <div className="mt-6">
-          <ProductGrid products={premiumProducts} title="Premium Quality Products" />
-        </div>
-
-        {/* 7. Why Choose Us */}
-        <div className="mt-6">
+        {/* 4. Why Choose Us */}
+        <div className="mt-8">
           <WhyChooseUs />
         </div>
 
-        {/* 8. Contact / WhatsApp */}
+        {/* 5. Contact / WhatsApp */}
         <div className="mt-4">
           <WhatsAppCTA />
         </div>
 
-        {/* 9. Footer */}
-        <Footer />
+        {/* 6. Footer */}
+        <div className="mt-10">
+          <Footer />
+        </div>
       </main>
     </>
   );

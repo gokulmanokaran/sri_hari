@@ -1,28 +1,28 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CalendarDays } from "lucide-react";
 
 const BANNERS = [
   {
     id: "pre-order",
-    tag: "PRE ORDER NOW",
+    tag: "WEEKDAY DELIVERY NOTICE",
     title: "Freshness Delivered Daily",
-    subtitle: "Today Order – Tomorrow Evening Delivery Guaranteed",
-    chips: ["⭐ Farm Fresh", "🚚 Distance Delivery", "🏷️ Auto Discounts", "🚀 Next-Day Drop"],
+    subtitle: "Order Today – Delivered Tomorrow Evening",
+    chips: [],
     gradient: "from-[#00A651] via-[#087A43] to-[#065A31]",
     accent: "rgba(255,255,255,0.12)",
     targetCategory: "all",
   },
   {
-    id: "clean-ready",
-    tag: "READY TO COOK",
-    title: "100% Peeled & Washed",
-    subtitle: "Small Onion, Garlic & Fresh Greens cleaned",
-    chips: ["🧅 Small Onion", "🧄 Garlic Peeled", "🌿 Dwarf Copper", "🌱 Amaranthus"],
-    gradient: "from-[#087A43] via-[#0BAF5B] to-[#00A651]",
-    accent: "rgba(255,255,255,0.12)",
-    targetCategory: "vegetables",
+    id: "weekend-delivery",
+    tag: "WEEKEND DELIVERY NOTICE",
+    title: "Orders placed on Saturday & Sunday",
+    subtitle: "will be delivered on Monday.",
+    chips: [],
+    gradient: "from-[#033E20] via-[#065A31] to-[#087A43]",
+    accent: "rgba(255,255,255,0.14)",
+    targetCategory: "all",
   },
   {
     id: "premium-dry-fruits",
@@ -61,13 +61,13 @@ export function PromoCarousel() {
 
   return (
     <div
-      className="px-4 pt-2.5 pb-1 max-w-lg mx-auto"
+      className="w-full pt-1 pb-1"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={() => setIsPaused(true)}
       onTouchEnd={() => setTimeout(() => setIsPaused(false), 2000)}
     >
-      <div className="relative overflow-hidden rounded-[18px] select-none shadow-sm">
+      <div className="relative overflow-hidden rounded-[18px] select-none shadow-sm h-[112px] sm:h-[116px]">
         <AnimatePresence mode="wait">
           <motion.div
             key={active}
@@ -93,7 +93,7 @@ export function PromoCarousel() {
                   : `/products?category=${BANNERS[active].targetCategory}`
               )
             }
-            className={`bg-gradient-to-br ${BANNERS[active].gradient} rounded-[18px] px-4 py-3 text-white relative overflow-hidden cursor-pointer`}
+            className={`bg-gradient-to-br ${BANNERS[active].gradient} rounded-[18px] px-4 py-2.5 sm:py-3 text-white relative overflow-hidden cursor-pointer h-full w-full flex flex-col justify-between`}
           >
             {/* Subtle background circle */}
             <div
@@ -102,10 +102,13 @@ export function PromoCarousel() {
               aria-hidden="true"
             />
 
-            <div className="relative z-10 flex flex-col gap-1.5">
+            <div className="relative z-10 flex flex-col justify-between h-full">
               {/* Row 1: Tag & Action */}
               <div className="flex items-center justify-between">
-                <span className="inline-block bg-white/20 backdrop-blur-sm text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full tracking-wider border border-white/10 uppercase">
+                <span className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-sm text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full tracking-wider border border-white/10 uppercase">
+                  {(BANNERS[active].id === "weekend-delivery" || BANNERS[active].id === "pre-order") && (
+                    <CalendarDays size={10} className="text-white" />
+                  )}
                   {BANNERS[active].tag}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white/90 bg-black/15 px-2 py-0.5 rounded-full">
@@ -115,26 +118,64 @@ export function PromoCarousel() {
               </div>
 
               {/* Row 2: Title & Subtitle */}
-              <div>
-                <h2 className="text-white text-[15px] font-black tracking-tight leading-tight">
-                  {BANNERS[active].title}
-                </h2>
-                <p className="text-[11px] text-white/80 font-medium truncate mt-0.5">
-                  {BANNERS[active].subtitle}
-                </p>
-              </div>
+              {BANNERS[active].id === "weekend-delivery" ? (
+                <div>
+                  <h2 className="text-white text-[13px] sm:text-[14.5px] font-bold tracking-tight leading-tight">
+                    Orders placed on{" "}
+                    <span className="text-amber-300 font-black">
+                      Saturday & Sunday
+                    </span>{" "}
+                    will be delivered on{" "}
+                    <span className="text-white font-black underline decoration-2 decoration-white/60 underline-offset-2">
+                      Monday
+                    </span>
+                    .
+                  </h2>
+                  <p className="text-[10.5px] sm:text-[11px] text-white/85 font-medium truncate mt-0.5">
+                    🌿 Fresh weekend harvests dispatched directly on Monday evening
+                  </p>
+                </div>
+              ) : BANNERS[active].id === "pre-order" ? (
+                <div>
+                  <h2 className="text-white text-[13px] sm:text-[14.5px] font-bold tracking-tight leading-tight">
+                    Order on{" "}
+                    <span className="text-amber-300 font-black">
+                      Mon – Fri
+                    </span>
+                    {" "}and receive your delivery by{" "}
+                    <span className="text-white font-black underline decoration-2 decoration-white/60 underline-offset-2">
+                      Next-Day Evening
+                    </span>
+                    .
+                  </h2>
+                  <p className="text-[10.5px] sm:text-[11px] text-white/85 font-medium truncate mt-0.5">
+                    🚚 Same-day order cut-off · Fresh farm harvests · Doorstep delivery
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <h2 className="text-white text-[15px] font-black tracking-tight leading-tight">
+                    {BANNERS[active].title}
+                  </h2>
+                  <p className="text-[11px] text-white/80 font-medium truncate mt-0.5">
+                    {BANNERS[active].subtitle}
+                  </p>
+                </div>
+              )}
 
-              {/* Row 3: Compact Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
-                {BANNERS[active].chips.map((chip) => (
-                  <span
-                    key={chip}
-                    className="flex-shrink-0 text-[10px] font-bold bg-white/15 backdrop-blur-sm text-white px-2 py-0.5 rounded-[8px] border border-white/10"
-                  >
-                    {chip}
-                  </span>
-                ))}
-              </div>
+              {/* Row 3: Compact Chips (only rendered if chips exist) */}
+              {BANNERS[active].chips.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                  {BANNERS[active].chips.map((chip) => (
+                    <span
+                      key={chip}
+                      className="flex-shrink-0 text-[10px] font-bold bg-white/15 backdrop-blur-sm text-white px-2 py-0.5 rounded-[8px] border border-white/10"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         </AnimatePresence>

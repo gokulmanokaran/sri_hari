@@ -6,7 +6,7 @@ import logoImg from "../../assets/logo.png";
 export function Footer() {
   return (
     <footer className="bg-[#111111] text-white pt-10 pb-36">
-      <div className="max-w-lg mx-auto px-5">
+      <div className="max-w-6xl mx-auto px-5">
         {/* Brand */}
         <div className="mb-8">
           <div className="mb-3 bg-white/95 p-2 rounded-[14px] inline-block shadow-sm">
@@ -90,8 +90,14 @@ export function Footer() {
           <p className="text-xs text-gray-500">
             © {new Date().getFullYear()} Shree Hari — Keerai. All rights reserved.
           </p>
-          <p className="text-xs text-gray-400 font-medium">
-            Design and Developed by <span className="text-[#00A651] font-bold">DIC</span>
+          <p className="text-xs text-gray-400 font-medium flex items-center justify-center gap-2 flex-wrap">
+            Design and Developed by{" "}
+            <img
+              src="https://res.cloudinary.com/yrkokpqe/image/upload/f_auto,q_auto/DIC"
+              alt="DIC"
+              className="h-[28px] w-auto object-contain inline-block"
+              loading="lazy"
+            />
           </p>
         </div>
       </div>

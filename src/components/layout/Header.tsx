@@ -65,7 +65,7 @@ export function Header({ onSearchOpen }: HeaderProps) {
         style={{ height: headerHeight, boxShadow: headerShadow }}
         className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md"
       >
-        <div className="max-w-lg mx-auto px-4 h-full flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 h-full flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center select-none py-1 flex-shrink-0" aria-label="Shree Hari Keerai Home">
             <img

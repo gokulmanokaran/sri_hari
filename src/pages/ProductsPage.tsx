@@ -33,33 +33,39 @@ export default function ProductsPage() {
       <Header onSearchOpen={() => setSearchOpen(true)} />
       <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
-      <main className="pb-24">
+      <main className="pb-24 max-w-6xl mx-auto">
         {/* Page Title */}
-        <div className="px-5 pt-4 pb-2">
+        <div className="px-3 sm:px-4 pt-4 pb-2">
           <motion.h1
-            initial={{ opacity: 0, y: 10 }}
+            key={activeCategory}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18 }}
             className="text-xl font-black text-[#111111] capitalize"
           >
             {categoryLabel}
           </motion.h1>
-          <p className="text-sm text-[#999999] font-medium">{filtered.length} products</p>
+          <p className="text-sm text-[#888888] font-medium mt-0.5">{filtered.length} products available</p>
         </div>
 
-        {/* Category filter */}
-        <CategoryScroller
-          mode="filter"
-          activeCategory={activeCategory}
-          onSelect={setActiveCategory}
-        />
+        {/* Category filter pills */}
+        <div className="px-3 sm:px-4">
+          <CategoryScroller
+            mode="filter"
+            activeCategory={activeCategory}
+            onSelect={setActiveCategory}
+          />
+        </div>
 
-        <div className="h-4" />
+        <div className="h-3" />
 
-        {/* Products */}
-        <ProductGrid
-          products={filtered}
-          emptyMessage="No products in this category"
-        />
+        {/* Product grid — same side padding as title */}
+        <div className="px-3 sm:px-4">
+          <ProductGrid
+            products={filtered}
+            emptyMessage="No products in this category"
+          />
+        </div>
       </main>
     </>
   );

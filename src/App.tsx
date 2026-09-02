@@ -24,8 +24,7 @@ const RefundPolicyPage = lazy(() => import("./pages/RefundPolicyPage"));
 
 import { TopSnackbar } from "./components/ui/TopSnackbar";
 import { FloatingCartButton } from "./components/features/FloatingCartButton";
-import { DailyNotification } from "./components/features/DailyNotification";
-import { PermissionPromptModal } from "./components/features/PermissionPromptModal";
+import { WeekendDeliveryBanner } from "./components/features/WeekendDeliveryBanner";
 import { retryPendingOrderNotifications } from "./services/orderService";
 
 function PageFallback() {
@@ -51,15 +50,8 @@ function ScrollToTop() {
   return null;
 }
 
-// App wrapper with daily notification support
 function PincodeGuard({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      {/* Schedule daily 9AM notification for users in the app */}
-      <DailyNotification />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }
 
 
@@ -76,8 +68,8 @@ export default function App() {
       {/* Global Floating Cart Button at bottom-right */}
       <FloatingCartButton />
 
-      {/* User-friendly Centered Permission Prompt Modal for Notifications & Location */}
-      <PermissionPromptModal />
+      {/* Informational Weekend Delivery Schedule Banner */}
+      <WeekendDeliveryBanner />
 
       <AnimatePresence mode="wait">
         <motion.div

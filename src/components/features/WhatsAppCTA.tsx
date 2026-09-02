@@ -4,8 +4,8 @@ import { BUSINESS_PHONE } from "../../data/deliveryZones";
 
 export function WhatsAppCTA() {
   return (
-    <section className="px-4 py-4">
-      <div className="max-w-lg mx-auto">
+    <section className="px-0 py-2">
+      <div className="w-full">
         <div
           className="rounded-[20px] p-5 flex flex-col gap-4"
           style={{
