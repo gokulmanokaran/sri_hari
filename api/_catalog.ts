@@ -23,6 +23,7 @@ export interface Product {
   unit: string;
   quantity?: string;
   category: string;
+  secondaryCategory?: string;
   description?: string;
   shortDescription?: string;
   note?: string;
@@ -43,6 +44,7 @@ export interface Category {
   emoji: string;
   description: string;
   color: string;
+  image?: string;
   sortOrder?: number;
   active?: boolean;
 }
@@ -59,6 +61,7 @@ function mapDbProduct(row: any): Product {
     unit: row.unit || "1 Pack",
     quantity: row.quantity || row.unit || "1 Pack",
     category: row.category,
+    secondaryCategory: row.secondary_category || row.secondaryCategory || undefined,
     image: row.image || row.image_url || "",
     description: row.description || "",
     shortDescription: row.short_description || "",
@@ -81,6 +84,7 @@ function mapDbCategory(row: any): Category {
     emoji: row.emoji || "🌿",
     description: row.description || "",
     color: row.color || "#EAF8F0",
+    image: row.image || row.image_url || "",
     sortOrder: row.sort_order !== undefined ? Number(row.sort_order) : 0,
     active: row.active !== false,
   };
@@ -155,6 +159,7 @@ export async function saveCloudProducts(products: Product[]): Promise<StorageSta
         unit: p.unit || "1 Pack",
         quantity: p.quantity || p.unit || "1 Pack",
         category: p.category || "keerai",
+        secondary_category: p.secondaryCategory || "",
         image: p.image || "",
         image_url: p.image || "",
         description: p.description || "",
@@ -194,6 +199,7 @@ export async function saveCloudCategories(categories: Category[]): Promise<Stora
         emoji: c.emoji || "🌿",
         description: c.description || "",
         color: c.color || "#EAF8F0",
+        image: c.image || "",
         sort_order: Number(c.sortOrder || 0),
         active: c.active !== false,
         updated_at: new Date().toISOString(),

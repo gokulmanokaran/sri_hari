@@ -59,14 +59,25 @@ export function CategorySidebar({ activeCategory, onSelect }: CategorySidebarPro
               }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                {/* Emoji container */}
+                {/* Emoji / Image container */}
                 <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-[15px] flex-shrink-0 transition-transform group-hover:scale-110 ${
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-[15px] flex-shrink-0 transition-transform group-hover:scale-110 overflow-hidden ${
                     isActive ? "bg-white/20 border border-white/20" : "border border-black/5"
                   }`}
                   style={{ background: isActive ? undefined : cat.color }}
                 >
-                  {cat.emoji}
+                  {cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-full h-full object-cover p-0.5"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    cat.emoji
+                  )}
                 </div>
 
                 {/* Category name & sub-info */}

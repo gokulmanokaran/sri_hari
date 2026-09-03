@@ -13,7 +13,7 @@ export function CategoryProductHub() {
   const filteredProducts: Product[] =
     selectedCategory === "all"
       ? products
-      : products.filter((p) => p.category === selectedCategory);
+      : products.filter((p) => p.category === selectedCategory || p.secondaryCategory === selectedCategory);
 
   const activeCategoryObj = categories.find((c) => c.id === selectedCategory);
   const activeTitle = selectedCategory === "all" ? "All Products" : activeCategoryObj?.name || "Products";
@@ -71,14 +71,26 @@ export function CategoryProductHub() {
                 aria-label={`Category ${cat.name}`}
               >
                 <div
-                  className={`w-10 h-10 sm:w-11 sm:h-11 rounded-[12px] flex items-center justify-center text-lg sm:text-xl flex-shrink-0 transition-transform ${
+                  className={`w-10 h-10 sm:w-11 sm:h-11 rounded-[12px] flex items-center justify-center text-lg sm:text-xl flex-shrink-0 transition-transform overflow-hidden relative ${
                     isSelected
                       ? "ring-2 ring-[#00A651]/50 scale-105 shadow-xs"
                       : "border border-black/5"
                   }`}
                   style={{ background: cat.color }}
                 >
-                  {cat.emoji}
+                  <span className="absolute inset-0 flex items-center justify-center select-none text-base sm:text-lg">
+                    {cat.emoji}
+                  </span>
+                  {cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-full h-full object-cover relative z-1"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  ) : null}
                 </div>
                 <div className="min-w-0 mt-1 md:mt-0">
                   <span
@@ -102,8 +114,16 @@ export function CategoryProductHub() {
       <section className="flex-1 min-w-0">
         {/* Header with Active Category Name & Item Count */}
         <div className="flex items-center justify-between px-1 mb-2.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-base sm:text-lg">{activeEmoji}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {activeCategoryObj?.image ? (
+              <img
+                src={activeCategoryObj.image}
+                alt={activeTitle}
+                className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg object-cover flex-shrink-0"
+              />
+            ) : (
+              <span className="text-base sm:text-lg">{activeEmoji}</span>
+            )}
             <h2 className="text-sm sm:text-base md:text-lg font-black text-[#111111] truncate">
               {activeTitle}
             </h2>

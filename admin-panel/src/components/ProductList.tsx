@@ -35,7 +35,7 @@ export function ProductList({
 
   const filteredActive = useMemo(() => {
     return activeProducts.filter((p) => {
-      if (selectedCat !== "all" && p.category !== selectedCat) return false;
+      if (selectedCat !== "all" && p.category !== selectedCat && p.secondaryCategory !== selectedCat) return false;
       if (stockFilter === "in_stock" && !p.inStock) return false;
       if (stockFilter === "out_of_stock" && p.inStock) return false;
       if (search.trim()) {
@@ -53,7 +53,7 @@ export function ProductList({
 
   const filteredInactive = useMemo(() => {
     return inactiveProducts.filter((p) => {
-      if (selectedCat !== "all" && p.category !== selectedCat) return false;
+      if (selectedCat !== "all" && p.category !== selectedCat && p.secondaryCategory !== selectedCat) return false;
       if (search.trim()) {
         const q = search.toLowerCase().trim();
         if (
@@ -126,9 +126,16 @@ export function ProductList({
 
         {/* Category */}
         <td className="py-3 px-4">
-          <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-            {getCategoryName(product.category)}
-          </span>
+          <div className="flex flex-col gap-1 items-start">
+            <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300">
+              {getCategoryName(product.category)}
+            </span>
+            {product.secondaryCategory ? (
+              <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                + {getCategoryName(product.secondaryCategory)}
+              </span>
+            ) : null}
+          </div>
         </td>
 
         {/* Price */}

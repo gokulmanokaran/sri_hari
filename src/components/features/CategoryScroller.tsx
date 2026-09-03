@@ -45,13 +45,25 @@ export function CategoryScroller({
             key={cat.id}
             whileTap={{ scale: 0.93 }}
             onClick={() => handleClick(cat.id)}
-            className={`flex-shrink-0 px-4 h-9 rounded-full text-sm font-semibold transition-colors whitespace-nowrap ${
+            className={`flex-shrink-0 px-3.5 h-9 rounded-full text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
               activeCategory === cat.id
-                ? "bg-[#00A651] text-white"
+                ? "bg-[#00A651] text-white shadow-xs"
                 : "bg-[#F5F5F5] text-[#666666] hover:bg-[#EAF8F0] hover:text-[#00A651]"
             }`}
           >
-            {cat.name}
+            {cat.image ? (
+              <img
+                src={cat.image}
+                alt={cat.name}
+                className="w-4 h-4 rounded-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
+              />
+            ) : (
+              <span className="text-xs">{cat.emoji}</span>
+            )}
+            <span>{cat.name}</span>
           </motion.button>
         ))}
       </div>
@@ -89,12 +101,31 @@ export function CategoryScroller({
             className="flex flex-col items-center justify-between p-2.5 sm:p-3.5 rounded-[20px] bg-white hover:bg-[#F8FCF9] border border-[#EAEAEA] hover:border-[#00A651]/35 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all cursor-pointer group select-none text-center aspect-[1/1.12]"
             aria-label={`Shop ${cat.name}`}
           >
-            {/* Big Icon / Emoji Badge */}
+            {/* Big Icon / Image Badge with Clean Fallback */}
             <div
-              className="w-13 h-13 sm:w-15 sm:h-15 rounded-[16px] sm:rounded-[18px] flex items-center justify-center text-2xl sm:text-3xl shadow-2xs border border-white transition-transform duration-200 group-hover:scale-110"
+              className="w-13 h-13 sm:w-15 sm:h-15 rounded-[16px] sm:rounded-[18px] flex items-center justify-center text-2xl sm:text-3xl shadow-2xs border border-white transition-transform duration-200 group-hover:scale-110 overflow-hidden"
               style={{ background: cat.color }}
             >
-              {cat.emoji}
+              {cat.image ? (
+                <img
+                  src={cat.image}
+                  alt={cat.name}
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const fallback = target.parentElement?.querySelector(".cat-emoji-fallback") as HTMLElement;
+                    if (fallback) fallback.style.display = "flex";
+                  }}
+                />
+              ) : null}
+              <span
+                className="cat-emoji-fallback w-full h-full flex items-center justify-center select-none"
+                style={{ display: cat.image ? "none" : "flex" }}
+              >
+                {cat.emoji}
+              </span>
             </div>
 
             {/* Category Name */}

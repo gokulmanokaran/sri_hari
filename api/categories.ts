@@ -68,6 +68,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
         emoji: body.emoji || "📦",
         description: body.description || "",
         color: body.color || "#F5F5F5",
+        image: body.image || "",
         sortOrder: body.sortOrder || 99,
         active: body.active !== false,
       };

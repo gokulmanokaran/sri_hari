@@ -16,6 +16,7 @@ export interface Product {
   unit: string;
   quantity?: string;
   category: string;
+  secondaryCategory?: string;
   description?: string;
   shortDescription?: string;
   note?: string;
@@ -36,6 +37,7 @@ export interface Category {
   emoji: string;
   description: string;
   color: string;
+  image?: string;
   sortOrder?: number;
   active?: boolean;
 }

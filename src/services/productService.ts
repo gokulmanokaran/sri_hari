@@ -10,8 +10,8 @@ import { Product, PRODUCTS } from "../data/products";
 import { Category, CATEGORIES } from "../data/categories";
 import { getSupabaseClient } from "../lib/supabase";
 
-const CACHED_PRODUCTS_KEY = "shreehari_cached_products_v3";
-const CACHED_CATEGORIES_KEY = "shreehari_cached_categories_v3";
+const CACHED_PRODUCTS_KEY = "shreehari_cached_products_v4";
+const CACHED_CATEGORIES_KEY = "shreehari_cached_categories_v4";
 const CACHE_TIMESTAMP_KEY = "shreehari_catalog_last_synced";
 
 /** Map Supabase DB Row to Frontend Product Interface */
@@ -35,6 +35,7 @@ export function mapDbProductToProduct(row: any): Product {
     unit: row.unit || "1 Pack",
     quantity: row.quantity || row.unit || "1 Pack",
     category: row.category,
+    secondaryCategory: row.secondary_category || row.secondaryCategory || undefined,
     image: row.image || row.image_url || "",
     description: row.description || "",
     shortDescription: row.short_description || "",
@@ -58,6 +59,7 @@ export function mapDbCategoryToCategory(row: any): Category {
     emoji: row.emoji || "🌿",
     description: row.description || "",
     color: row.color || "#EAF8F0",
+    image: row.image || row.image_url || "",
     sortOrder: row.sort_order !== undefined ? Number(row.sort_order) : 0,
     active: row.active !== false,
   };

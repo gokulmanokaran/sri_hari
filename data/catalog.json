@@ -1,6 +1,42 @@
 {
   "products": [
     {
+      "id": "prod_mtkupkpw",
+      "name": "Nuts & Seeds  Laddu",
+      "nameTamil": "சத்து மாவு லட்டு",
+      "tamilName": "சத்து மாவு லட்டு",
+      "price": 149,
+      "mrp": 149,
+      "unit": "100g Box",
+      "quantity": "250g",
+      "category": "healthy-snacks",
+      "secondaryCategory": "new-arrivals",
+      "image": "https://res.cloudinary.com/kil3rfap/image/upload/f_auto,q_auto/ChatGPT_Image_Sep_3_2026_07_17_58_AM",
+      "description": "Wholesome goodness in every bite. Our Nuts & Seeds Laddu is a delicious, naturally satisfying sweet made with a nourishing blend of premium nuts and nutrient-rich seeds. Packed with the goodness of almonds, cashews, sesame, sunflower seeds, pumpkin seeds, and other wholesome ingredients, each laddu offers a delightful combination of crunch, richness, and natural sweetness.",
+      "shortDescription": "",
+      "note": "",
+      "inStock": true,
+      "stockQuantity": 25,
+      "featured": false,
+      "active": true,
+      "sortOrder": 0,
+      "variantType": "weight",
+      "variants": [
+        {
+          "id": "prod_mtkupkpw_1788400752322",
+          "unit": "100g",
+          "price": 149,
+          "inStock": true
+        },
+        {
+          "id": "prod_mtkupkpw_1788400821250",
+          "unit": "250g",
+          "price": 369,
+          "inStock": true
+        }
+      ]
+    },
+    {
       "id": "ponnangani-keerai",
       "name": "Ponnangani Keerai",
       "nameTamil": "பொன்னாங்கண்ணி கீரை",
@@ -1944,6 +1980,16 @@
     }
   ],
   "categories": [
+    {
+      "id": "new-arrivals",
+      "name": "New Arrivals",
+      "emoji": "✨",
+      "description": "Freshly added new arrivals",
+      "color": "#FEF3C7",
+      "sortOrder": 0,
+      "active": true,
+      "image": "https://res.cloudinary.com/kil3rfap/image/upload/v1788403323/ChatGPT_Image_Sep_3_2026_08_11_20_AM.png"
+    },
     {
       "id": "keerai",
       "name": "Greens (Keerai)",

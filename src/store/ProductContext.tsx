@@ -64,6 +64,18 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Purge old stale caches so new categories and secondaryCategory load fresh
+  useEffect(() => {
+    try {
+      localStorage.removeItem("shreehari_cached_products_v2");
+      localStorage.removeItem("shreehari_cached_categories_v2");
+      localStorage.removeItem("shreehari_cached_products_v3");
+      localStorage.removeItem("shreehari_cached_categories_v3");
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Fetch on mount
   useEffect(() => {
     syncCatalog(true);
@@ -131,7 +143,7 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
   const getProductsByCategoryCallback = useCallback(
     (cat: string | "all") => {
       if (!cat || cat === "all") return products;
-      return products.filter((p) => p.category === cat);
+      return products.filter((p) => p.category === cat || p.secondaryCategory === cat);
     },
     [products]
   );
@@ -185,7 +197,7 @@ export function useProductCatalog(): ProductContextValue {
       refreshProducts: async () => {},
       getProductById: (id: string) => findProductById(PRODUCTS, id),
       getProductsByCategory: (cat: string | "all") =>
-        cat === "all" ? PRODUCTS : PRODUCTS.filter((p) => p.category === cat),
+        cat === "all" ? PRODUCTS : PRODUCTS.filter((p) => p.category === cat || p.secondaryCategory === cat),
       searchProducts: (q: string) => filterProductsByQuery(PRODUCTS, q),
     };
   }

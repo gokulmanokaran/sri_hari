@@ -42,6 +42,7 @@ function mapRowToProduct(row: any): Product {
     unit: row.unit || "1 Pack",
     quantity: row.quantity || row.unit || "1 Pack",
     category: row.category || "keerai",
+    secondaryCategory: row.secondary_category || row.secondaryCategory || "",
     image: row.image || row.image_url || "",
     description: row.description || "",
     shortDescription: row.short_description || "",
@@ -65,6 +66,7 @@ function mapRowToCategory(row: any): Category {
     emoji: row.emoji || "🌿",
     description: row.description || "",
     color: row.color || "#EAF8F0",
+    image: row.image || "",
     sortOrder: row.sort_order !== undefined ? Number(row.sort_order) : 0,
     active: row.active !== false,
   };
@@ -182,6 +184,7 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
     unit: product.unit || "1 Pack",
     quantity: product.quantity || product.unit || "1 Pack",
     category: product.category || "keerai",
+    secondaryCategory: product.secondaryCategory || "",
     image: product.image || "",
     inStock: product.inStock !== false,
     stockQuantity: product.stockQuantity,
@@ -207,6 +210,7 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
       unit: newProduct.unit,
       quantity: newProduct.quantity,
       category: newProduct.category,
+      secondary_category: newProduct.secondaryCategory || "",
       image: newProduct.image,
       image_url: newProduct.image,
       description: newProduct.description,
@@ -276,6 +280,7 @@ export async function updateProduct(product: Partial<Product> & { id: string }):
     if (product.unit !== undefined) dbPayload.unit = product.unit;
     if (product.quantity !== undefined) dbPayload.quantity = product.quantity;
     if (product.category !== undefined) dbPayload.category = product.category;
+    if (product.secondaryCategory !== undefined) dbPayload.secondary_category = product.secondaryCategory;
     if (product.image !== undefined) {
       dbPayload.image = product.image;
       dbPayload.image_url = product.image;
@@ -405,6 +410,7 @@ export async function fetchCategories(): Promise<Category[]> {
   }
 
   return [
+    { id: "new-arrivals", name: "New Arrivals", emoji: "✨", description: "Freshly added new arrivals", color: "#FEF3C7", sortOrder: 0, active: true },
     { id: "keerai", name: "Greens (Keerai)", emoji: "🌿", description: "Fresh leafy greens", color: "#EAF8F0", sortOrder: 1, active: true },
     { id: "microgreens", name: "Microgreens", emoji: "🌱", description: "Nutrient-packed microgreens (40g Pack)", color: "#E8F5E9", sortOrder: 2, active: true },
     { id: "vegetables", name: "Cut Vegetables", emoji: "🧅", description: "Ready-to-use cut vegetables", color: "#FFF8E7", sortOrder: 3, active: true },
@@ -427,6 +433,7 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
     emoji: category.emoji || "📦",
     description: category.description || "",
     color: category.color || "#EAF8F0",
+    image: category.image || "",
     sortOrder: category.sortOrder || 99,
     active: category.active !== false,
   };
@@ -441,6 +448,7 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
         emoji: newCat.emoji,
         description: newCat.description,
         color: newCat.color,
+        image: newCat.image || "",
         sort_order: newCat.sortOrder,
         active: newCat.active,
         updated_at: new Date().toISOString(),
@@ -472,6 +480,40 @@ export async function saveCategory(category: Partial<Category>): Promise<Categor
 
   const json = await res.json();
   return json.data || newCat;
+}
+
+export async function deleteCategory(id: string): Promise<boolean> {
+  const supabase = getAdminSupabaseClient();
+
+  if (supabase) {
+    const { error } = await supabase
+      .from("categories")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      throw new Error(`Supabase delete category failed: ${error.message}`);
+    }
+
+    return true;
+  }
+
+  // REST API Fallback
+  const res2 = await fetch("/api/categories", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getStoredToken() || "shreehari_admin_secure_2026"}`,
+      "x-admin-key": "shreehari_admin_secure_2026",
+    },
+    body: JSON.stringify({ id }),
+  });
+
+  if (!res2.ok) {
+    throw new Error(`Server responded with status ${res2.status} while deleting category.`);
+  }
+
+  return true;
 }
 
 // ── Safe Image Upload & Verification

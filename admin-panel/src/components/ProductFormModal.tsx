@@ -27,6 +27,7 @@ export function ProductFormModal({
   const [unit, setUnit] = useState("250g");
   const [quantity, setQuantity] = useState("250g");
   const [category, setCategory] = useState("keerai");
+  const [secondaryCategory, setSecondaryCategory] = useState("");
   const [image, setImage] = useState("");
   const [inStock, setInStock] = useState(true);
   const [stockQuantity, setStockQuantity] = useState<number | undefined>(undefined);
@@ -51,6 +52,7 @@ export function ProductFormModal({
       setUnit(product.unit || "250g");
       setQuantity(product.quantity || product.unit || "250g");
       setCategory(product.category || "keerai");
+      setSecondaryCategory(product.secondaryCategory || "");
       setImage(product.image || "");
       setInStock(product.inStock !== false);
       setStockQuantity(product.stockQuantity);
@@ -71,6 +73,7 @@ export function ProductFormModal({
       setUnit("250g Cleaned Pack");
       setQuantity("250g");
       setCategory(categories[0]?.id || "keerai");
+      setSecondaryCategory("");
       setImage("");
       setInStock(true);
       setStockQuantity(25);
@@ -134,6 +137,7 @@ export function ProductFormModal({
         unit: unit.trim(),
         quantity: quantity.trim() || unit.trim(),
         category,
+        secondaryCategory: secondaryCategory.trim() || undefined,
         image: image.trim(),
         inStock,
         stockQuantity: stockQuantity !== undefined ? Number(stockQuantity) : undefined,
@@ -203,22 +207,45 @@ export function ProductFormModal({
               />
             </div>
 
-            {/* Category */}
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#00A651]"
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.emoji} {c.name}
-                  </option>
-                ))}
-              </select>
+            {/* Categories (Primary & Secondary) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Primary Category *
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full h-11 px-3 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#00A651]"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.emoji} {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Secondary Category (2nd பிரிவு)</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Optional</span>
+                </label>
+                <select
+                  value={secondaryCategory}
+                  onChange={(e) => setSecondaryCategory(e.target.value)}
+                  className="w-full h-11 px-3 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#00A651]"
+                >
+                  <option value="">-- None (எதுவுமில்லை) --</option>
+                  {categories
+                    .filter((c) => c.id !== category)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.emoji} {c.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
             </div>
 
             {/* Name (English) */}

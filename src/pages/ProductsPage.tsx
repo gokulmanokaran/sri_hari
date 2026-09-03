@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Header } from "../components/layout/Header";
 import { CategoryScroller } from "../components/features/CategoryScroller";
@@ -10,18 +10,33 @@ import { useProductCatalog } from "../store/ProductContext";
 
 export default function ProductsPage() {
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { products, categories } = useProductCatalog();
 
-  const initialCategory = searchParams.get("category") as ProductCategory | "all" | null;
+  const categoryParam = searchParams.get("category") as ProductCategory | "all" | null;
   const [activeCategory, setActiveCategory] = useState<ProductCategory | "all">(
-    initialCategory || "all"
+    categoryParam || "all"
   );
+
+  // Sync state whenever URL search param changes
+  useEffect(() => {
+    const cat = searchParams.get("category") as ProductCategory | "all" | null;
+    setActiveCategory(cat || "all");
+  }, [searchParams]);
+
+  const handleSelectCategory = (cat: ProductCategory | "all") => {
+    setActiveCategory(cat);
+    if (cat === "all") {
+      setSearchParams({});
+    } else {
+      setSearchParams({ category: cat });
+    }
+  };
 
   const filtered =
     activeCategory === "all"
       ? products
-      : products.filter((p) => p.category === activeCategory);
+      : products.filter((p) => p.category === activeCategory || p.secondaryCategory === activeCategory);
 
   const categoryLabel =
     activeCategory === "all"
@@ -53,7 +68,7 @@ export default function ProductsPage() {
           <CategoryScroller
             mode="filter"
             activeCategory={activeCategory}
-            onSelect={setActiveCategory}
+            onSelect={handleSelectCategory}
           />
         </div>
 

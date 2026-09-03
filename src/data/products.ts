@@ -1,4 +1,5 @@
 export type ProductCategory =
+  | "new-arrivals"
   | "keerai"
   | "microgreens"
   | "vegetables"
@@ -30,6 +31,7 @@ export interface Product {
   unit: string;          // Default/starting unit
   quantity?: string;     // Quantity descriptor
   category: ProductCategory | string;
+  secondaryCategory?: ProductCategory | string;
   description?: string;
   shortDescription?: string;
   note?: string;
@@ -70,6 +72,40 @@ export function getVariantProduct(product: Product, variant: ProductVariant): Pr
 }
 
 export const PRODUCTS: Product[] = [
+  {
+    id: "prod_mtkupkpw",
+    name: "Nuts & Seeds  Laddu",
+    nameTamil: "சத்து மாவு லட்டு",
+    tamilName: "சத்து மாவு லட்டு",
+    price: 149,
+    mrp: 149,
+    unit: "100g Box",
+    quantity: "250g",
+    category: "healthy-snacks",
+    secondaryCategory: "new-arrivals",
+    image: "https://res.cloudinary.com/kil3rfap/image/upload/f_auto,q_auto/ChatGPT_Image_Sep_3_2026_07_17_58_AM",
+    description: "Wholesome goodness in every bite. Our Nuts & Seeds Laddu is a delicious, naturally satisfying sweet made with a nourishing blend of premium nuts and nutrient-rich seeds. Packed with the goodness of almonds, cashews, sesame, sunflower seeds, pumpkin seeds, and other wholesome ingredients, each laddu offers a delightful combination of crunch, richness, and natural sweetness.",
+    inStock: true,
+    stockQuantity: 25,
+    featured: false,
+    active: true,
+    sortOrder: 0,
+    variantType: "weight",
+    variants: [
+      {
+        id: "prod_mtkupkpw_1788400752322",
+        unit: "100g",
+        price: 149,
+        inStock: true,
+      },
+      {
+        id: "prod_mtkupkpw_1788400821250",
+        unit: "250g",
+        price: 369,
+        inStock: true,
+      },
+    ],
+  },
   // ── Greens / Keerai (Fresh Cleaned Packs) ───────────────────────────────
   {
     id: "ponnangani-keerai",
@@ -80,7 +116,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh cleaned Ponnangani Keerai (Sessile Joyweed). Rich in iron and vitamins. Ready to cook straight from the pack.",
-    image: "/product-images/ponnangani-keerai.jpg",
+    image: "/product-images/ponnangani-keerai.webp",
     inStock: true,
   },
   {
@@ -92,7 +128,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Freshly cleaned Palak (Spinach) leaves. Naturally rich in iron, calcium and vitamins. Ready to cook.",
-    image: "/product-images/palak-leaves.jpg",
+    image: "/product-images/palak-leaves.webp",
     inStock: true,
   },
   {
@@ -104,7 +140,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Tender Araikeerai (Amaranthus dubius) leaves, carefully cleaned and packed fresh. Great for kootu and poriyal.",
-    image: "/product-images/araikeerai.jpg",
+    image: "/product-images/araikeerai.webp",
     inStock: true,
   },
   {
@@ -116,7 +152,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh Thandukeerai with juicy stems and bright green leaves. Packed with nutrients and perfect for South Indian recipes.",
-    image: "/product-images/thandukeerai.jpg",
+    image: "/product-images/thandukeerai.webp",
     inStock: true,
   },
   {
@@ -128,7 +164,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Vibrant Senkeerai (Red Amaranth) with distinctive red-purple veins. Highly nutritious and full of natural colour.",
-    image: "/product-images/senkeerai.jpg",
+    image: "/product-images/senkeerai.webp",
     inStock: true,
   },
   {
@@ -140,7 +176,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Premium Murungaikeerai (Moringa / Drumstick Leaves). A superfood packed with protein, vitamins and minerals.",
-    image: "/product-images/murungaikeerai.jpg",
+    image: "/product-images/murungaikeerai.webp",
     inStock: true,
   },
   {
@@ -152,7 +188,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh Manathakkaali (Black Nightshade) leaves. Traditionally used for its cooling properties and digestive benefits.",
-    image: "/product-images/manathakkaali-keerai.jpg",
+    image: "/product-images/manathakkaali-keerai.webp",
     inStock: true,
   },
   {
@@ -164,7 +200,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Tender Paruppukeerai (Tropical Amaranth) with delicate pale green leaves. Excellent for dal-based dishes.",
-    image: "/product-images/paruppukeerai.jpg",
+    image: "/product-images/paruppukeerai.webp",
     inStock: true,
   },
   {
@@ -176,7 +212,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh Sirukeerai (Tropical Amaranth / Slender Amaranth) leaves. Mild in taste and rich in nutrients.",
-    image: "/product-images/sirukeerai.jpg",
+    image: "/product-images/sirukeerai.webp",
     inStock: true,
   },
   {
@@ -188,7 +224,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh Venthayakeerai (Fenugreek Leaves / Methi). Distinctively aromatic with a slight bitterness. Excellent for health.",
-    image: "/product-images/venthayakeerai.jpg",
+    image: "/product-images/venthayakeerai.webp",
     inStock: true,
   },
   {
@@ -200,7 +236,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh Puthina (Mint Leaves). Aromatic and refreshing. Perfect for chutneys, biriyani, juices and teas.",
-    image: "/product-images/puthina.jpg",
+    image: "/product-images/puthina.webp",
     inStock: true,
   },
   {
@@ -212,7 +248,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh Karuveppillai (Curry Leaves). An essential ingredient in South Indian cooking — aromatic and flavourful.",
-    image: "/product-images/karuveppillai.jpg",
+    image: "/product-images/karuveppillai.webp",
     inStock: true,
   },
   {
@@ -224,7 +260,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh Coriander (Kothamalli) Leaves. Fragrant and versatile — perfect for garnishing, chutneys and cooking.",
-    image: "/product-images/coriander-leaves.jpg",
+    image: "/product-images/coriander-leaves.webp",
     inStock: true,
   },
   {
@@ -236,7 +272,7 @@ export const PRODUCTS: Product[] = [
     category: "keerai",
     description:
       "Fresh cleaned Dwarf Copper Leaves (Sivappu Ponnanganni Keerai). Deep copper-red leaves rich in antioxidants and iron. Ready to cook.",
-    image: "/product-images/dwarf-copper-leaves.jpg",
+    image: "/product-images/dwarf-copper-leaves.webp",
     inStock: true,
   },
 
@@ -250,7 +286,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Fresh tender Methi (Fenugreek) microgreens packed in a 40g container. Loaded with vital enzymes, minerals, and rich aroma.",
-    image: "/product-images/methi-microgreens.jpg",
+    image: "/product-images/methi-microgreens.webp",
     inStock: true,
   },
   {
@@ -262,7 +298,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Nutrient-rich delicate Alfalfa microgreens. Crisp, nutty, and exceptionally rich in vitamins A, C, E, and K.",
-    image: "/product-images/alfalfa-microgreens.jpg",
+    image: "/product-images/alfalfa-microgreens.webp",
     inStock: true,
   },
   {
@@ -274,7 +310,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Fresh zesty Mustard microgreens with a pleasant peppery kick. Excellent for salads, sandwiches, and garnishing.",
-    image: "/product-images/mustard-microgreens.jpg",
+    image: "/product-images/mustard-microgreens.webp",
     inStock: true,
   },
   {
@@ -286,7 +322,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Vibrant China Rose Radish microgreens with stunning pink stems and spicy radish punch. High in vitamin C and antioxidants.",
-    image: "/product-images/radish-china-rose-microgreens.jpg",
+    image: "/product-images/radish-china-rose-microgreens.webp",
     inStock: true,
   },
   {
@@ -298,7 +334,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Crisp white Radish microgreens with tender green leaves. Refreshing peppery crunch with digestive enzymes and zinc.",
-    image: "/product-images/radish-white-microgreens.jpg",
+    image: "/product-images/radish-white-microgreens.webp",
     inStock: true,
   },
   {
@@ -310,7 +346,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Nutty, crunchy Sunflower microgreens with thick, juicy cotyledons. A complete plant protein powerhouse.",
-    image: "/product-images/sunflower-microgreens.jpg",
+    image: "/product-images/sunflower-microgreens.webp",
     inStock: true,
   },
   {
@@ -322,7 +358,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Fresh tender Spinach microgreens packed with iron, folate, and vital vitamins. Mild, sweet taste perfect for smoothies, salads, and garnishing.",
-    image: "/product-images/Spinach.png",
+    image: "/product-images/Spinach.webp",
     inStock: true,
   },
   {
@@ -334,7 +370,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Stunning magenta-pink Amaranthus microgreens. Adds vibrant color, subtle earthy sweetness, and high concentrations of betalains.",
-    image: "/product-images/amaranthus-pink-microgreens.jpg",
+    image: "/product-images/amaranthus-pink-microgreens.webp",
     inStock: true,
   },
   {
@@ -346,7 +382,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Gorgeous ruby-stemmed Beetroot microgreens with deep purple-green leaves. Sweet, earthy flavor rich in dietary nitrates and iron.",
-    image: "/product-images/beetroot-microgreens.jpg",
+    image: "/product-images/beetroot-microgreens.webp",
     inStock: true,
   },
   {
@@ -358,7 +394,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Powerhouse Broccoli microgreens celebrated for immense sulforaphane content. Mild, fresh cabbage-like flavor.",
-    image: "/product-images/broccoli-microgreens.jpg",
+    image: "/product-images/broccoli-microgreens.webp",
     inStock: true,
   },
   {
@@ -370,7 +406,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Tender purple and green Kohlrabi microgreens with a sweet, mild turnip-like crunch. Rich in vitamin C and glucosinolates.",
-    image: "/product-images/khol-rabi-microgreens.jpg",
+    image: "/product-images/khol-rabi-microgreens.webp",
     inStock: true,
   },
   {
@@ -382,7 +418,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Juicy, tender Pak Choi (Bok Choy) microgreens with mild brassica sweetness. High in vitamins A, C, and dietary minerals.",
-    image: "/product-images/pak-choi-microgreens.jpg",
+    image: "/product-images/pak-choi-microgreens.webp",
     inStock: true,
   },
   {
@@ -394,7 +430,7 @@ export const PRODUCTS: Product[] = [
     category: "microgreens",
     description:
       "Intense deep purple Radish Sango microgreens. Striking visual appeal with a crisp, spicy radish punch and anthocyanins.",
-    image: "/product-images/radish-purple-sango-microgreens.jpg",
+    image: "/product-images/radish-purple-sango-microgreens.webp",
     inStock: true,
   },
 
@@ -406,7 +442,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Onion (Peeled).png",
+    image: "/product-images/Onion (Peeled).webp",
     variantType: "weight",
     variants: [
       { id: "small-onion-peeled-250g", unit: "250g", price: 49 },
@@ -423,7 +459,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Garlic (Peeled).png",
+    image: "/product-images/Garlic (Peeled).webp",
     variantType: "weight",
     variants: [
       { id: "garlic-peeled-250g", unit: "250g", price: 119 },
@@ -440,7 +476,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Green Peas (Peeled).png",
+    image: "/product-images/Green Peas (Peeled).webp",
     variantType: "weight",
     variants: [
       { id: "green-peas-peeled-250g", unit: "250g", price: 119 },
@@ -457,7 +493,7 @@ export const PRODUCTS: Product[] = [
     price: 79,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Sweet Corn (Peeled).png",
+    image: "/product-images/Sweet Corn (Peeled).webp",
     variantType: "weight",
     variants: [
       { id: "sweet-corn-peeled-250g", unit: "250g", price: 79 },
@@ -474,7 +510,7 @@ export const PRODUCTS: Product[] = [
     price: 69,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Avaraikkai (Sliced).png",
+    image: "/product-images/Avaraikkai (Sliced).webp",
     variantType: "weight",
     variants: [
       { id: "avaraikkai-sliced-250g", unit: "250g", price: 69 },
@@ -491,7 +527,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Coconut (Grated).png",
+    image: "/product-images/Coconut (Grated).webp",
     variantType: "weight",
     variants: [
       { id: "coconut-grated-250g", unit: "250g", price: 119 },
@@ -508,7 +544,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Cauliflower (Sliced).png",
+    image: "/product-images/Cauliflower (Sliced).webp",
     variantType: "weight",
     variants: [
       { id: "cauliflower-sliced-250g", unit: "250g", price: 119 },
@@ -525,7 +561,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Carrot (Sliced).png",
+    image: "/product-images/Carrot (Sliced).webp",
     variantType: "weight",
     variants: [
       { id: "carrot-sliced-250g", unit: "250g", price: 49 },
@@ -542,7 +578,7 @@ export const PRODUCTS: Product[] = [
     price: 59,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Beans (Sliced).png",
+    image: "/product-images/Beans (Sliced).webp",
     variantType: "weight",
     variants: [
       { id: "beans-sliced-250g", unit: "250g", price: 59 },
@@ -559,7 +595,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Beetroot (Sliced).png",
+    image: "/product-images/Beetroot (Sliced).webp",
     variantType: "weight",
     variants: [
       { id: "beetroot-sliced-250g", unit: "250g", price: 49 },
@@ -576,7 +612,7 @@ export const PRODUCTS: Product[] = [
     price: 39,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Cabbage (Sliced).png",
+    image: "/product-images/Cabbage (Sliced).webp",
     variantType: "weight",
     variants: [
       { id: "cabbage-sliced-250g", unit: "250g", price: 39 },
@@ -593,7 +629,7 @@ export const PRODUCTS: Product[] = [
     price: 39,
     unit: "250g",
     category: "vegetables",
-    image: "/product-images/Drumstick (Sliced).png",
+    image: "/product-images/Drumstick (Sliced).webp",
     variantType: "weight",
     variants: [
       { id: "drumstick-sliced-250g", unit: "250g", price: 39 },
@@ -612,7 +648,7 @@ export const PRODUCTS: Product[] = [
     price: 99,
     unit: "250g",
     category: "cut-fruits",
-    image: "/product-images/Pomegranate (Peeled).png",
+    image: "/product-images/Pomegranate (Peeled).webp",
     variantType: "weight",
     variants: [
       { id: "pomegranate-peeled-250g", unit: "250g", price: 99 },
@@ -629,7 +665,7 @@ export const PRODUCTS: Product[] = [
     price: 59,
     unit: "250g",
     category: "cut-fruits",
-    image: "/product-images/Papaya (Cut).png",
+    image: "/product-images/Papaya (Cut).webp",
     variantType: "weight",
     variants: [
       { id: "papaya-cut-250g", unit: "250g", price: 59 },
@@ -646,7 +682,7 @@ export const PRODUCTS: Product[] = [
     price: 69,
     unit: "250g",
     category: "cut-fruits",
-    image: "/product-images/Fruits Mix Salad.png",
+    image: "/product-images/Fruits Mix Salad.webp",
     description:
       "A colourful medley of fresh seasonal fruits, cut and ready to enjoy. Perfect for a healthy snack.",
     inStock: true,
@@ -660,7 +696,7 @@ export const PRODUCTS: Product[] = [
     price: 29,
     unit: "100g",
     category: "sprouts",
-    image: "/product-images/Pachai Payaru.png",
+    image: "/product-images/Pachai Payaru.webp",
     description:
       "Fresh green moong sprouts. Light, crisp and packed with protein and enzymes. Ready to eat.",
     inStock: true,
@@ -672,7 +708,7 @@ export const PRODUCTS: Product[] = [
     price: 29,
     unit: "100g",
     category: "sprouts",
-    image: "/product-images/Brown Chana.png",
+    image: "/product-images/Brown Chana.webp",
     description:
       "Freshly sprouted brown chana. Rich in fibre and protein. Great for salads or a healthy snack.",
     inStock: true,
@@ -684,7 +720,7 @@ export const PRODUCTS: Product[] = [
     price: 29,
     unit: "100g",
     category: "sprouts",
-    image: "/product-images/Mixed Sprouts.png",
+    image: "/product-images/Mixed Sprouts.webp",
     description:
       "A nourishing mix of sprouted legumes and seeds. Full of vitamins, minerals and plant protein.",
     inStock: true,
@@ -698,7 +734,7 @@ export const PRODUCTS: Product[] = [
     price: 29,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/lemon.png",
+    image: "/product-images/lemon.webp",
     variantType: "sugar",
     variants: [
       { id: "lemon-juice-with-sugar", unit: "With Sugar", price: 29 },
@@ -715,7 +751,7 @@ export const PRODUCTS: Product[] = [
     price: 139,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/apple.png",
+    image: "/product-images/apple.webp",
     variantType: "sugar",
     variants: [
       { id: "apple-juice-with-sugar", unit: "With Sugar", price: 139 },
@@ -732,7 +768,7 @@ export const PRODUCTS: Product[] = [
     price: 89,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Muskmelon Juice.png",
+    image: "/product-images/Muskmelon Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "muskmelon-juice-with-sugar", unit: "With Sugar", price: 89 },
@@ -749,7 +785,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Watermelon Juice.png",
+    image: "/product-images/Watermelon Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "watermelon-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -766,7 +802,7 @@ export const PRODUCTS: Product[] = [
     price: 109,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Pomegranate Juice.png",
+    image: "/product-images/Pomegranate Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "pomegranate-juice-with-sugar", unit: "With Sugar", price: 109 },
@@ -783,7 +819,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Sathukudi Juice.png",
+    image: "/product-images/Sathukudi Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "sathukudi-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -800,7 +836,7 @@ export const PRODUCTS: Product[] = [
     price: 79,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Amla Juice.png",
+    image: "/product-images/Amla Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "amla-juice-with-sugar", unit: "With Sugar", price: 79 },
@@ -817,7 +853,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Beetroot Juice.png",
+    image: "/product-images/Beetroot Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "beetroot-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -834,7 +870,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Grape Juice.png",
+    image: "/product-images/Grape Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "grape-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -851,7 +887,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Carrot Juice.png",
+    image: "/product-images/Carrot Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "carrot-juice-with-sugar", unit: "With Sugar", price: 49 },
@@ -868,7 +904,7 @@ export const PRODUCTS: Product[] = [
     price: 89,
     unit: "250 ml",
     category: "fresh-juices",
-    image: "/product-images/Orange Juice.png",
+    image: "/product-images/Orange Juice.webp",
     variantType: "sugar",
     variants: [
       { id: "orange-juice-with-sugar", unit: "With Sugar", price: 89 },
@@ -886,7 +922,7 @@ export const PRODUCTS: Product[] = [
     unit: "250 ml",
     category: "fresh-juices",
     note: "Apple, Beetroot & Carrot",
-    image: "/product-images/ABC juice.png",
+    image: "/product-images/ABC juice.webp",
     variantType: "sugar",
     variants: [
       { id: "abc-juice-with-sugar", unit: "With Sugar", price: 119 },
@@ -905,7 +941,7 @@ export const PRODUCTS: Product[] = [
     price: 200,
     unit: "500g",
     category: "nuts-seeds",
-    image: "/product-images/Black Dates.png",
+    image: "/product-images/Black Dates.webp",
     description:
       "Naturally sweet and rich black dates. A wholesome snack or natural sweetener for your recipes.",
     inStock: true,
@@ -917,7 +953,7 @@ export const PRODUCTS: Product[] = [
     price: 275,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Almond.png",
+    image: "/product-images/Almond.webp",
     description:
       "Premium quality almonds, carefully selected. Crunchy, nutritious and perfect for snacking.",
     inStock: true,
@@ -929,7 +965,7 @@ export const PRODUCTS: Product[] = [
     price: 830,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Pista unsalted.png",
+    image: "/product-images/Pista unsalted.webp",
     description:
       "Premium unsalted pistachios. Rich, buttery flavour with no added salt — pure natural goodness.",
     inStock: true,
@@ -941,7 +977,7 @@ export const PRODUCTS: Product[] = [
     price: 420,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Walnut.png",
+    image: "/product-images/Walnut.webp",
     description:
       "Whole walnuts with a rich, earthy taste. Versatile for snacking, baking or adding to salads.",
     inStock: true,
@@ -953,7 +989,7 @@ export const PRODUCTS: Product[] = [
     price: 300,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Fig.png",
+    image: "/product-images/Fig.webp",
     description:
       "Soft, naturally sweet dried figs. A wholesome treat packed with natural flavour.",
     inStock: true,
@@ -965,7 +1001,7 @@ export const PRODUCTS: Product[] = [
     price: 160,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Yellow raisins.png",
+    image: "/product-images/Yellow raisins.webp",
     description:
       "Golden yellow raisins, naturally sweet and tender. Great for snacking, cooking or baking.",
     inStock: true,
@@ -977,7 +1013,7 @@ export const PRODUCTS: Product[] = [
     price: 185,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Black Raisins.png",
+    image: "/product-images/Black Raisins.webp",
     description:
       "Rich black raisins with intense natural sweetness. A classic nutritious addition to any meal.",
     inStock: true,
@@ -989,7 +1025,7 @@ export const PRODUCTS: Product[] = [
     price: 265,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Cashew.png",
+    image: "/product-images/Cashew.webp",
     description:
       "Creamy, premium whole cashews. Perfect for snacking or cooking rich, flavourful dishes.",
     inStock: true,
@@ -1001,7 +1037,7 @@ export const PRODUCTS: Product[] = [
     price: 115,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Chia seeds.png",
+    image: "/product-images/Chia seeds.webp",
     description:
       "Tiny but mighty chia seeds. Mix into drinks, smoothies, puddings or sprinkle on meals.",
     inStock: true,
@@ -1013,7 +1049,7 @@ export const PRODUCTS: Product[] = [
     price: 175,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Pumpkin seeds.png",
+    image: "/product-images/Pumpkin seeds.webp",
     description:
       "Crunchy pumpkin seeds, naturally nutritious. Great for snacking or adding texture to dishes.",
     inStock: true,
@@ -1025,7 +1061,7 @@ export const PRODUCTS: Product[] = [
     price: 100,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Sabja seeds.png",
+    image: "/product-images/Sabja seeds.webp",
     description:
       "Sabja (basil) seeds that bloom beautifully in water. A refreshing addition to drinks and desserts.",
     inStock: true,
@@ -1037,7 +1073,7 @@ export const PRODUCTS: Product[] = [
     price: 80,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Flax seeds.png",
+    image: "/product-images/Flax seeds.webp",
     description:
       "Earthy flax seeds packed with natural goodness. Sprinkle on yogurt, salads or add to smoothies.",
     inStock: true,
@@ -1049,7 +1085,7 @@ export const PRODUCTS: Product[] = [
     price: 95,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Sunflower seeds.png",
+    image: "/product-images/Sunflower seeds.webp",
     description:
       "Light and crunchy sunflower seeds. A satisfying natural snack or salad topping.",
     inStock: true,
@@ -1061,7 +1097,7 @@ export const PRODUCTS: Product[] = [
     price: 230,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Melon seeds.png",
+    image: "/product-images/Melon seeds.webp",
     description:
       "Delicate melon seeds with a mild, nutty taste. Versatile for snacking or adding to recipes.",
     inStock: true,
@@ -1073,7 +1109,7 @@ export const PRODUCTS: Product[] = [
     price: 160,
     unit: "250g",
     category: "nuts-seeds",
-    image: "/product-images/Badam Gum.png",
+    image: "/product-images/Badam Gum.webp",
     description:
       "Natural badam gum (Badam Pisin), traditionally used in refreshing drinks, desserts and cooling health tonics.",
     inStock: true,
@@ -1085,7 +1121,7 @@ export const PRODUCTS: Product[] = [
     price: 200,
     unit: "100g",
     category: "nuts-seeds",
-    image: "/product-images/Makhanna.png",
+    image: "/product-images/Makhanna.webp",
     description:
       "Premium crunchy Fox Nuts (Makhanna / Lotus Seeds). A light, protein-rich, low-calorie wholesome snack.",
     inStock: true,
@@ -1099,7 +1135,7 @@ export const PRODUCTS: Product[] = [
     price: 99,
     unit: "100g",
     category: "premium-products",
-    image: "/product-images/Amla Powder.png",
+    image: "/product-images/Amla Powder.webp",
     description:
       "Pure organic Amla (Indian Gooseberry) powder. Rich in vitamin C and powerful antioxidants.",
     inStock: true,
@@ -1111,7 +1147,7 @@ export const PRODUCTS: Product[] = [
     price: 99,
     unit: "100g",
     category: "premium-products",
-    image: "/product-images/Curry Leaves Powder.png",
+    image: "/product-images/Curry Leaves Powder.webp",
     description:
       "Naturally dehydrated and ground curry leaves powder. Excellent for hair health and digestion.",
     inStock: true,
@@ -1123,7 +1159,7 @@ export const PRODUCTS: Product[] = [
     price: 149,
     unit: "100g",
     category: "premium-products",
-    image: "/product-images/Onion Powder.png",
+    image: "/product-images/Onion Powder.webp",
     description:
       "Dehydrated pure onion powder. Perfect seasoning for gravies, curries and snacks without peeling.",
     inStock: true,
@@ -1135,7 +1171,7 @@ export const PRODUCTS: Product[] = [
     price: 149,
     unit: "100g",
     category: "premium-products",
-    image: "/product-images/Garlic Powder.png",
+    image: "/product-images/Garlic Powder.webp",
     description:
       "Aromatic pure garlic powder. Adds rich flavour to culinary dishes and supports heart health.",
     inStock: true,
@@ -1147,7 +1183,7 @@ export const PRODUCTS: Product[] = [
     price: 49,
     unit: "100g",
     category: "premium-products",
-    image: "/product-images/Coconut Powder.png",
+    image: "/product-images/Coconut Powder.webp",
     description:
       "Finely grated and dried coconut powder. Convenient for instant chutneys, sweets and baking.",
     inStock: true,
@@ -1159,7 +1195,7 @@ export const PRODUCTS: Product[] = [
     price: 199,
     unit: "100g",
     category: "premium-products",
-    image: "/product-images/Health Mix Powder.png",
+    image: "/product-images/Health Mix Powder.webp",
     variantType: "weight",
     variants: [
       { id: "health-mix-powder-100g", unit: "100g", price: 199 },
@@ -1178,7 +1214,7 @@ export const PRODUCTS: Product[] = [
     price: 99,
     unit: "1 Pack",
     category: "seasonal-exotic-fruits",
-    image: "/product-images/Dragon Fruit.png",
+    image: "/product-images/Dragon Fruit.webp",
     description:
       "Fresh exotic dragon fruit with striking pink skin and nutrient-dense, subtly sweet flesh.",
     inStock: true,
@@ -1190,7 +1226,7 @@ export const PRODUCTS: Product[] = [
     price: 139,
     unit: "1 Pack",
     category: "seasonal-exotic-fruits",
-    image: "/product-images/Rambutan.png",
+    image: "/product-images/Rambutan.webp",
     description:
       "Juicy, sweet and floral tropical rambutan fruits. Packed fresh and full of natural goodness.",
     inStock: true,
@@ -1202,7 +1238,7 @@ export const PRODUCTS: Product[] = [
     price: 139,
     unit: "1 Pack",
     category: "seasonal-exotic-fruits",
-    image: "/product-images/Avocado.png",
+    image: "/product-images/Avocado.webp",
     description:
       "Creamy, nutrient-rich fresh avocados. Loaded with healthy monounsaturated fats and vitamins.",
     inStock: true,
@@ -1214,7 +1250,7 @@ export const PRODUCTS: Product[] = [
     price: 179,
     unit: "1 Pack",
     category: "seasonal-exotic-fruits",
-    image: "/product-images/Custard Apple.png",
+    image: "/product-images/Custard Apple.webp",
     description:
       "Sweet, creamy and fragrant seasonal custard apples (Seethapazham). Rich in vitamin C and magnesium.",
     inStock: true,
@@ -1226,7 +1262,7 @@ export const PRODUCTS: Product[] = [
     price: 99,
     unit: "1 Pack",
     category: "seasonal-exotic-fruits",
-    image: "/product-images/Pears.png",
+    image: "/product-images/Pears.webp",
     description:
       "Crisp and juicy fresh pears. Naturally sweet, high in dietary fibre and deeply refreshing.",
     inStock: true,
@@ -1238,7 +1274,7 @@ export const PRODUCTS: Product[] = [
     price: 119,
     unit: "1 Pack",
     category: "seasonal-exotic-fruits",
-    image: "/product-images/Kiwi.png",
+    image: "/product-images/Kiwi.webp",
     description:
       "Zesty and sweet fresh kiwi fruits. Packed with immune-boosting vitamin C and digestive enzymes.",
     inStock: true,
@@ -1253,7 +1289,7 @@ export const PRODUCTS: Product[] = [
     unit: "250g",
     note: "Made with Coconut Oil",
     category: "healthy-snacks",
-    image: "/product-images/Thattai Murukku.png",
+    image: "/product-images/Thattai Murukku.webp",
     variantType: "weight",
     variants: [
       { id: "thattai-murukku-250g", unit: "250g", price: 179 },
@@ -1271,7 +1307,7 @@ export const PRODUCTS: Product[] = [
     unit: "250g",
     note: "Made with Brown Sugar",
     category: "healthy-snacks",
-    image: "/product-images/Ellu Vadai.png",
+    image: "/product-images/Ellu Vadai.webp",
     variantType: "weight",
     variants: [
       { id: "ellu-vadai-250g", unit: "250g", price: 199 },
@@ -1290,7 +1326,7 @@ export const PRODUCTS: Product[] = [
     price: 59,
     unit: "200g",
     category: "mushrooms",
-    image: "/product-images/Button Mushroom.png",
+    image: "/product-images/Button Mushroom.webp",
     description:
       "Plump, fresh white button mushrooms. Tender, versatile and rich in vitamin D and minerals.",
     inStock: true,
@@ -1302,7 +1338,7 @@ export const PRODUCTS: Product[] = [
     price: 59,
     unit: "200g",
     category: "mushrooms",
-    image: "/product-images/Oyster Mushroom.png",
+    image: "/product-images/Oyster Mushroom.webp",
     description:
       "Delicate and velvety fresh oyster mushrooms. High in protein, fibre and savoury umami flavour.",
     inStock: true,
@@ -1316,7 +1352,7 @@ export const PRODUCTS: Product[] = [
     price: 189,
     unit: "500ml",
     category: "cold-pressed-oil",
-    image: "/product-images/Coconut Oil.png",
+    image: "/product-images/Coconut Oil.webp",
     variantType: "weight",
     variants: [
       { id: "cold-pressed-coconut-oil-500ml", unit: "500ml", price: 189 },
@@ -1333,7 +1369,7 @@ export const PRODUCTS: Product[] = [
     price: 229,
     unit: "500ml",
     category: "cold-pressed-oil",
-    image: "/product-images/Sesame Oil.png",
+    image: "/product-images/Sesame Oil.webp",
     variantType: "weight",
     variants: [
       { id: "cold-pressed-sesame-oil-500ml", unit: "500ml", price: 229 },
@@ -1350,7 +1386,7 @@ export const PRODUCTS: Product[] = [
     price: 139,
     unit: "500ml",
     category: "cold-pressed-oil",
-    image: "/product-images/Groundnut Oil.png",
+    image: "/product-images/Groundnut Oil.webp",
     variantType: "weight",
     variants: [
       { id: "cold-pressed-groundnut-oil-500ml", unit: "500ml", price: 139 },
@@ -1362,8 +1398,8 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-export function getProductsByCategory(category: ProductCategory): Product[] {
-  return PRODUCTS.filter((p) => p.category === category);
+export function getProductsByCategory(category: ProductCategory | string): Product[] {
+  return PRODUCTS.filter((p) => p.category === category || p.secondaryCategory === category);
 }
 
 export function getProductById(id: string): Product | undefined {

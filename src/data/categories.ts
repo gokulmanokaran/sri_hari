@@ -13,6 +13,16 @@ export interface Category {
 
 export const CATEGORIES: Category[] = [
   {
+    id: "new-arrivals",
+    name: "New Arrivals",
+    emoji: "✨",
+    description: "Freshly added new products & seasonal arrivals",
+    color: "#FEF3C7",
+    image: "https://res.cloudinary.com/kil3rfap/image/upload/v1788403323/ChatGPT_Image_Sep_3_2026_08_11_20_AM.png",
+    sortOrder: 0,
+    active: true,
+  },
+  {
     id: "vegetables",
     name: "Vegetables",
     emoji: "🧅",

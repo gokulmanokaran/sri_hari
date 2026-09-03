@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
     emoji TEXT NOT NULL DEFAULT '🌿',
     description TEXT DEFAULT '',
     color TEXT NOT NULL DEFAULT '#EAF8F0',
+    image TEXT DEFAULT '',
     sort_order INTEGER DEFAULT 0,
     active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
@@ -27,6 +28,7 @@ CREATE TABLE IF NOT EXISTS public.products (
     unit TEXT NOT NULL DEFAULT '1 Pack',
     quantity TEXT DEFAULT '1 Pack',
     category TEXT NOT NULL REFERENCES public.categories(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    secondary_category TEXT DEFAULT '',
     image TEXT DEFAULT '',
     image_url TEXT DEFAULT '',
     description TEXT DEFAULT '',
@@ -52,9 +54,14 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS variant_type TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS variants JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS short_description TEXT DEFAULT '';
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '';
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS secondary_category TEXT DEFAULT '';
+
+-- 2.2 Add image column to categories (Idempotent)
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS image TEXT DEFAULT '';
 
 -- 3. Performance Indexes
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
+CREATE INDEX IF NOT EXISTS idx_products_secondary_category ON public.products(secondary_category);
 CREATE INDEX IF NOT EXISTS idx_products_in_stock ON public.products(in_stock);
 CREATE INDEX IF NOT EXISTS idx_products_active ON public.products(active);
 CREATE INDEX IF NOT EXISTS idx_products_featured ON public.products(featured);

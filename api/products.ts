@@ -50,7 +50,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
 
       // Filter by Category
       if (category && category !== "all") {
-        products = products.filter((p) => p.category === category);
+        products = products.filter((p) => p.category === category || p.secondaryCategory === category);
       }
 
       // Filter by Stock Status
@@ -137,6 +137,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
         mrp: Number(body.mrp) || Number(body.price) || 0,
         unit: body.unit || "1 Pack",
         category: body.category || "keerai",
+        secondaryCategory: body.secondaryCategory || body.secondary_category || undefined,
         stockQuantity: parsedStock,
         inStock: parsedStock !== undefined && parsedStock === 0 ? false : autoInStock,
         active: body.active !== false,

@@ -12,7 +12,7 @@ export function useProducts(initialCategory?: ProductCategory | "all") {
   const products = useMemo(() => {
     let list: Product[] = allProducts;
     if (selectedCategory && selectedCategory !== "all") {
-      list = allProducts.filter((p) => p.category === selectedCategory);
+      list = allProducts.filter((p) => p.category === selectedCategory || p.secondaryCategory === selectedCategory);
     }
     if (searchQuery.trim()) {
       list = searchProducts(searchQuery);
