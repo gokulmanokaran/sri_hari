@@ -48,6 +48,43 @@ function loadSavedGuest() {
   return { fullName: "", mobile: "", alternateMobile: "", email: "" };
 }
 
+function loadSavedDelivery(defaultPincode: string): DeliveryLocation {
+  try {
+    const raw = localStorage.getItem("shreehari_pending_order") || sessionStorage.getItem("shreehari_pending_order");
+    if (raw) {
+      const order = JSON.parse(raw);
+      if (order.lat && order.lng) {
+        return {
+          lat: order.lat,
+          lng: order.lng,
+          formattedAddress: order.address || "",
+          street: order.street || "",
+          area: order.area || "",
+          city: order.city || "Coimbatore",
+          district: order.district || "Coimbatore",
+          state: order.state || "Tamil Nadu",
+          pincode: order.pincode || defaultPincode,
+          houseNo: order.houseNo || "",
+          landmark: order.landmark || "",
+        };
+      }
+    }
+  } catch { /* ignore */ }
+  return {
+    lat: null,
+    lng: null,
+    formattedAddress: "",
+    street: "",
+    area: "",
+    city: "",
+    district: "",
+    state: "",
+    pincode: defaultPincode,
+    houseNo: "",
+    landmark: "",
+  };
+}
+
 // ─── Reusable Input Field ─────────────────────────────────────────────────────
 function InputField({
   id, label, icon, type = "text", inputMode, maxLength,
@@ -111,19 +148,7 @@ export default function CheckoutPage() {
   const [alternateMobile, setAlternateMobile] = useState(saved.alternateMobile || "");
   const [email, setEmail] = useState(saved.email || "");
 
-  const [delivery, setDelivery] = useState<DeliveryLocation>({
-    lat: null,
-    lng: null,
-    formattedAddress: "",
-    street: "",
-    area: "",
-    city: "",
-    district: "",
-    state: "",
-    pincode,
-    houseNo: "",
-    landmark: "",
-  });
+  const [delivery, setDelivery] = useState<DeliveryLocation>(() => loadSavedDelivery(pincode));
 
   const [errors, setErrors] = useState<CheckoutErrors>({});
   const [placing, setPlacing] = useState(false);
@@ -360,38 +385,6 @@ export default function CheckoutPage() {
             </div>
             <div className="p-4 flex flex-col gap-3">
 
-              {/* House / Flat No. & Landmark — Always visible at top */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="houseno-top" className="text-xs font-bold text-[#555555] flex items-center gap-1.5">
-                    <span className="text-[#00A651]"><Home size={13} /></span>
-                    House / Flat No.
-                  </label>
-                  <input
-                    id="houseno-top"
-                    type="text"
-                    value={delivery.houseNo}
-                    onChange={(e) => setDelivery((p) => ({ ...p, houseNo: e.target.value }))}
-                    placeholder="e.g. 12A, Flat 304"
-                    className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="landmark-top" className="text-xs font-bold text-[#555555] flex items-center gap-1.5">
-                    <span className="text-[#00A651]"><Landmark size={13} /></span>
-                    Landmark
-                  </label>
-                  <input
-                    id="landmark-top"
-                    type="text"
-                    value={delivery.landmark}
-                    onChange={(e) => setDelivery((p) => ({ ...p, landmark: e.target.value }))}
-                    placeholder="e.g. Near bus stand"
-                    className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                  />
-                </div>
-              </div>
-
               {/* Map Selector Button */}
               <button
                 onClick={() => setShowMap(true)}
@@ -450,100 +443,120 @@ export default function CheckoutPage() {
                 </motion.p>
               )}
 
-              {/* Editable Address Details Panel */}
+              {/* Address Details Panel (immediately below Location pinned card) */}
               {delivery.lat !== null && (
-                <div>
-                  <button
-                    onClick={() => setShowAddressEdit((v) => !v)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-[#00A651] mb-2 cursor-pointer"
-                  >
-                    <Pencil size={12} />
-                    {showAddressEdit ? "Hide address details" : "Edit / Add address details"}
-                  </button>
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="overflow-hidden flex flex-col gap-3 pt-1"
+                >
+                  {/* House / Flat No. & Landmark */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="houseno" className="text-xs font-bold text-[#555555] flex items-center gap-1.5">
+                        <span className="text-[#00A651]"><Home size={13} /></span>
+                        House / Flat No.
+                      </label>
+                      <input
+                        id="houseno"
+                        type="text"
+                        value={delivery.houseNo}
+                        onChange={(e) => setDelivery((p) => ({ ...p, houseNo: e.target.value }))}
+                        placeholder="e.g. 12A, Flat 304"
+                        className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="landmark" className="text-xs font-bold text-[#555555] flex items-center gap-1.5">
+                        <span className="text-[#00A651]"><Landmark size={13} /></span>
+                        Landmark
+                      </label>
+                      <input
+                        id="landmark"
+                        type="text"
+                        value={delivery.landmark}
+                        onChange={(e) => setDelivery((p) => ({ ...p, landmark: e.target.value }))}
+                        placeholder="e.g. Near bus stand"
+                        className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                      />
+                    </div>
+                  </div>
 
-                  {showAddressEdit && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="overflow-hidden flex flex-col gap-3"
-                    >
-                      {/* Street & Area row */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label htmlFor="edit-street" className="text-xs font-bold text-[#555555] block mb-1.5">Door / Street</label>
-                          <input id="edit-street" type="text"
-                            value={delivery.street}
-                            onChange={(e) => setDelivery((p) => ({ ...p, street: e.target.value }))}
-                            placeholder="e.g. 12, MG Road"
-                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="edit-area" className="text-xs font-bold text-[#555555] block mb-1.5">Area / Locality</label>
-                          <input id="edit-area" type="text"
-                            value={delivery.area}
-                            onChange={(e) => setDelivery((p) => ({ ...p, area: e.target.value }))}
-                            placeholder="e.g. RS Puram"
-                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                          />
-                        </div>
-                      </div>
+                  {/* Door / Street & Area / Locality */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="edit-street" className="text-xs font-bold text-[#555555] block mb-1.5">Door / Street</label>
+                      <input id="edit-street" type="text"
+                        value={delivery.street}
+                        onChange={(e) => setDelivery((p) => ({ ...p, street: e.target.value }))}
+                        placeholder="e.g. 12, MG Road"
+                        className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-area" className="text-xs font-bold text-[#555555] block mb-1.5">Area / Locality</label>
+                      <input id="edit-area" type="text"
+                        value={delivery.area}
+                        onChange={(e) => setDelivery((p) => ({ ...p, area: e.target.value }))}
+                        placeholder="e.g. RS Puram"
+                        className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                      />
+                    </div>
+                  </div>
 
-                      {/* City & District row */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label htmlFor="edit-city" className="text-xs font-bold text-[#555555] block mb-1.5">City</label>
-                          <input id="edit-city" type="text"
-                            value={delivery.city}
-                            onChange={(e) => setDelivery((p) => ({ ...p, city: e.target.value }))}
-                            placeholder="e.g. Coimbatore"
-                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="edit-district" className="text-xs font-bold text-[#555555] block mb-1.5">District</label>
-                          <input id="edit-district" type="text"
-                            value={delivery.district}
-                            onChange={(e) => setDelivery((p) => ({ ...p, district: e.target.value }))}
-                            placeholder="e.g. Coimbatore"
-                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                          />
-                        </div>
-                      </div>
+                  {/* City & District */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="edit-city" className="text-xs font-bold text-[#555555] block mb-1.5">City</label>
+                      <input id="edit-city" type="text"
+                        value={delivery.city}
+                        onChange={(e) => setDelivery((p) => ({ ...p, city: e.target.value }))}
+                        placeholder="e.g. Coimbatore"
+                        className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-district" className="text-xs font-bold text-[#555555] block mb-1.5">District</label>
+                      <input id="edit-district" type="text"
+                        value={delivery.district}
+                        onChange={(e) => setDelivery((p) => ({ ...p, district: e.target.value }))}
+                        placeholder="e.g. Coimbatore"
+                        className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                      />
+                    </div>
+                  </div>
 
-                      {/* State & Pincode row */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label htmlFor="edit-state" className="text-xs font-bold text-[#555555] block mb-1.5">State</label>
-                          <input id="edit-state" type="text"
-                            value={delivery.state}
-                            onChange={(e) => setDelivery((p) => ({ ...p, state: e.target.value }))}
-                            placeholder="e.g. Tamil Nadu"
-                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-bold text-[#555555] block mb-1.5">Delivery Pincode</label>
-                          <div className="h-11 px-3.5 bg-[#F5F5F5] border-2 border-[#EAEAEA] rounded-[12px] flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#111111] flex items-center gap-1">
-                              <span>📮</span>
-                              <span>{delivery.pincode || "Not detected"}</span>
-                            </span>
-                            {delivery.pincode && isNonServiceablePincode(delivery.pincode) ? (
-                              <span className="text-[10px] font-bold text-[#EA4335] bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
-                                Not Available ✗
-                              </span>
-                            ) : delivery.pincode && isValidPincode(delivery.pincode) ? (
-                              <span className="text-[10px] font-bold text-[#00A651] bg-[#EAF8F0] px-2 py-0.5 rounded-full border border-[#B9E8CE]">
-                                Verified ✓
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
+                  {/* State & Delivery Pincode */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="edit-state" className="text-xs font-bold text-[#555555] block mb-1.5">State</label>
+                      <input id="edit-state" type="text"
+                        value={delivery.state}
+                        onChange={(e) => setDelivery((p) => ({ ...p, state: e.target.value }))}
+                        placeholder="e.g. Tamil Nadu"
+                        className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-[#555555] block mb-1.5">Delivery Pincode</label>
+                      <div className="h-11 px-3.5 bg-[#F5F5F5] border-2 border-[#EAEAEA] rounded-[12px] flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#111111] flex items-center gap-1">
+                          <span>📮</span>
+                          <span>{delivery.pincode || "Not detected"}</span>
+                        </span>
+                        {delivery.pincode && isNonServiceablePincode(delivery.pincode) ? (
+                          <span className="text-[10px] font-bold text-[#EA4335] bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                            Not Available ✗
+                          </span>
+                        ) : delivery.pincode && isValidPincode(delivery.pincode) ? (
+                          <span className="text-[10px] font-bold text-[#00A651] bg-[#EAF8F0] px-2 py-0.5 rounded-full border border-[#B9E8CE]">
+                            Verified ✓
+                          </span>
+                        ) : null}
                       </div>
-                    </motion.div>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                </motion.div>
               )}
             </div>
           </motion.div>
