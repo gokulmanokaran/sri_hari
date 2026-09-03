@@ -145,7 +145,8 @@ function appendOrderToSheet(data) {
       "Discount (₹)",
       "Total Amount (₹)",
       "Payment Status",
-      "Razorpay Payment ID"
+      "Razorpay Payment ID",
+      "Customer Note"
     ];
 
     // Initialize headers if sheet is brand new
@@ -156,6 +157,21 @@ function appendOrderToSheet(data) {
       headerRange.setFontColor("#FFFFFF");
       headerRange.setFontWeight("bold");
       sheet.setFrozenRows(1);
+    } else {
+      // Ensure "Customer Note" header exists if upgrading existing sheet
+      var lastCol = sheet.getLastColumn();
+      var existingHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      var hasNoteHeader = false;
+      for (var h = 0; h < existingHeaders.length; h++) {
+        if (existingHeaders[h] === "Customer Note" || existingHeaders[h] === "Customer Note / Order Note") {
+          hasNoteHeader = true;
+          break;
+        }
+      }
+      if (!hasNoteHeader) {
+        sheet.getRange(1, lastCol + 1).setValue("Customer Note");
+        sheet.getRange(1, lastCol + 1).setBackground("#00A651").setFontColor("#FFFFFF").setFontWeight("bold");
+      }
     }
 
     var orderId = data.orderId || "";
@@ -186,6 +202,7 @@ function appendOrderToSheet(data) {
     var paymentId = data.paymentId || data.razorpayPaymentId || "N/A";
 
     var mobileDisplay = "'" + (data.mobile || "") + (data.alternateMobile ? " (Alt: " + data.alternateMobile + ")" : "");
+    var customerNote = data.customerNote ? String(data.customerNote).trim() : "";
 
     var row = [
       orderId,
@@ -207,7 +224,8 @@ function appendOrderToSheet(data) {
       data.discount || 0,
       data.total || 0,
       paymentStatus,
-      paymentId
+      paymentId,
+      customerNote
     ];
 
     sheet.appendRow(row);
@@ -249,6 +267,7 @@ function sendAdminOrderEmail(data) {
   var mapsLink = data.mapsLink || (data.lat && data.lng ? "https://www.google.com/maps?q=" + data.lat + "," + data.lng : "");
   var paymentStatus = data.paymentStatus || "Paid (Razorpay)";
   var paymentId = data.paymentId || data.razorpayPaymentId || "N/A";
+  var customerNote = data.customerNote ? String(data.customerNote).trim() : "";
 
   // Build WhatsApp pre-filled message (items, total, address, thank-you)
   var waItemLines = "";
@@ -271,6 +290,7 @@ function sendAdminOrderEmail(data) {
     "Delivery Charge: ₹" + deliveryCharge + "\n" +
     "*Total Paid: ₹" + total + "*\n\n" +
     "*Delivery Address:*\n" + address + (pincode ? ", " + pincode : "") + "\n\n" +
+    (customerNote ? "*Order Note / Instructions:*\n" + customerNote + "\n\n" : "") +
     "Today Order – Tomorrow Evening Delivery Guaranteed. 🚚\n\n" +
     "For any queries, feel free to WhatsApp or call us at " + SUPPORT_PHONE + ".\n\n" +
     "Thank you for choosing Shree Hari Keerai! 🙏";
@@ -372,6 +392,11 @@ function sendAdminOrderEmail(data) {
       '<tr>' +
       '<td style="padding:4px 0; color:#666666;">Area / Pincode:</td>' +
       '<td style="padding:4px 0; color:#444444;">' + [city, state, pincode ? '📮 ' + pincode : ''].filter(Boolean).join(', ') + '</td>' +
+      '</tr>' : '') +
+    (customerNote ?
+      '<tr>' +
+      '<td style="padding:6px 0; color:#666666; vertical-align:top;">Order Note:</td>' +
+      '<td style="padding:6px 0; color:#087A43; font-weight:bold; line-height:1.4;">📝 ' + customerNote + '</td>' +
       '</tr>' : '') +
     (mapsLink ?
       '<tr>' +
@@ -593,6 +618,13 @@ function sendCustomerOrderEmail(data) {
     (city || state || pincode ?
       '<p style="margin:4px 0 0 0; font-size:12px; color:#666666;">' + [city, state, pincode ? '📮 ' + pincode : ''].filter(Boolean).join(', ') + '</p>' : '') +
     '</div>' +
+
+    // Customer Order Note Box (if entered)
+    (data.customerNote && String(data.customerNote).trim() ?
+      '<div style="background-color:#F9FBFA; border:1px solid #E5ECE8; border-radius:14px; padding:14px 16px; margin-bottom:20px;">' +
+      '<h3 style="margin:0 0 6px 0; font-size:13px; text-transform:uppercase; color:#00A651; letter-spacing:0.5px;">📝 Special Instructions / Note</h3>' +
+      '<p style="margin:0; font-size:13px; line-height:1.5; color:#333333; font-weight:500;">' + String(data.customerNote).trim() + '</p>' +
+      '</div>' : '') +
 
     // Itemized Products Table
     '<h3 style="margin:0 0 10px 0; font-size:13px; text-transform:uppercase; color:#00A651; letter-spacing:0.5px;">📦 Purchased Products</h3>' +

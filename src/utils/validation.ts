@@ -1,4 +1,4 @@
-import { isValidPincode } from "../data/deliveryZones";
+import { isValidPincode, isNonServiceablePincode } from "../data/deliveryZones";
 
 export function validatePincode(pincode: string): string | null {
   if (!pincode || pincode.trim() === "") return "Please enter your pincode.";
@@ -18,8 +18,11 @@ export function validateLocationPin(
   if (lat === 0 && lng === 0) {
     return "Please select a valid delivery location on Google Maps.";
   }
+  if (pincode && isNonServiceablePincode(pincode)) {
+    return "Delivery Not Available for this PIN code";
+  }
   if (!pincode || !isValidPincode(pincode)) {
-    return "Sorry, we currently do not deliver to this location.";
+    return "Delivery Not Available for this PIN code";
   }
   return null;
 }
@@ -119,7 +122,12 @@ export function validateCheckoutForm(data: CheckoutFormData): CheckoutErrors {
     data.delivery.lng,
     data.delivery.pincode
   );
-  if (locationErr) errors.location = locationErr;
+  if (locationErr) {
+    errors.location = locationErr;
+  } else if (data.delivery.pincode) {
+    const pinErr = validateCheckoutPincode(data.delivery.pincode);
+    if (pinErr) errors.location = pinErr;
+  }
 
   return errors;
 }
@@ -127,7 +135,9 @@ export function validateCheckoutForm(data: CheckoutFormData): CheckoutErrors {
 export function validateCheckoutPincode(pincode: string): string | null {
   const basic = validatePincode(pincode);
   if (basic) return basic;
-  if (!isValidPincode(pincode.trim()))
-    return "Sorry, we currently do not deliver to this location.";
+  const clean = pincode.trim();
+  if (isNonServiceablePincode(clean) || !isValidPincode(clean)) {
+    return "Delivery Not Available for this PIN code";
+  }
   return null;
 }

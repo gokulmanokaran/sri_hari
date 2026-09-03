@@ -12,33 +12,43 @@ export function calculateSubtotal(
   return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 }
 
-// ── Discount Rules ───────────────────────────────────────────────────────────
-//  subtotal < ₹300        → 0% discount
-//  ₹300 ≤ subtotal < ₹499 → 5% discount
-//  subtotal ≥ ₹499        → 10% discount  (never stacked with 5%)
+// ── Delivery Charge Rules based on Order Value ───────────────────────────────
+//  Below ₹199  → Order not allowed (minimum order is ₹199)
+//  ₹199 – ₹299 → ₹30 delivery charge
+//  Above ₹299  → FREE Delivery
 
-export interface DiscountResult {
-  rate: number;        // 0, 0.05, or 0.10
-  percentage: number;  // 0, 5, or 10  (for display)
-  amount: number;      // Actual ₹ discount (rounded to 2dp)
-}
+export const MINIMUM_ORDER_VALUE = 199;
+export const FREE_DELIVERY_THRESHOLD = 299; // Above ₹299 is FREE delivery
+export const STANDARD_DELIVERY_CHARGE = 30; // ₹199 to ₹299 is ₹30 delivery charge
 
-export function calculateDiscount(subtotal: number): DiscountResult {
-  let rate = 0;
-  if (subtotal >= 499) {
-    rate = 0.10;
-  } else if (subtotal >= 300) {
-    rate = 0.05;
+export function calculateDeliveryCharge(subtotal: number): number {
+  if (subtotal > FREE_DELIVERY_THRESHOLD) {
+    return 0; // FREE Delivery
   }
-  const amount = Math.round(subtotal * rate * 100) / 100;
-  return { rate, percentage: rate * 100, amount };
+  return STANDARD_DELIVERY_CHARGE; // ₹30 delivery charge
 }
 
+// ── Discount Rules (Removed completely) ──────────────────────────────────────
+// Returns 0 discount for compatibility
+export interface DiscountResult {
+  rate: number;
+  percentage: number;
+  amount: number;
+}
+
+export function calculateDiscount(_subtotal: number): DiscountResult {
+  return { rate: 0, percentage: 0, amount: 0 };
+}
+
+/**
+ * Final payable amount:
+ * Product Subtotal + Applicable Delivery Charge = Final Payable Amount
+ */
 export function calculateTotal(subtotal: number, deliveryCharge: number): number {
-  const { amount: discount } = calculateDiscount(subtotal);
-  return subtotal - discount + deliveryCharge;
+  return subtotal + deliveryCharge;
 }
 
-export function getMinimumOrderShortfall(subtotal: number, minimum: number): number {
+export function getMinimumOrderShortfall(subtotal: number, minimum: number = MINIMUM_ORDER_VALUE): number {
   return Math.max(0, minimum - subtotal);
 }
+

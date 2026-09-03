@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { ArrowLeft, ChevronRight, Navigation, Loader2, Search, X, MapPin, AlertCircle, CheckCircle2 } from "lucide-react";
 import type { DeliveryLocation } from "../../utils/validation";
-import { isValidPincode, getDeliveryZone } from "../../data/deliveryZones";
+import { isNonServiceablePincode, isValidPincode } from "../../data/deliveryZones";
 
 // Default center: Coimbatore, Tamil Nadu
 const DEFAULT_LAT = 11.0168;
@@ -333,8 +333,8 @@ export function MapLocationPicker({
 
   // ── Delivery Pincode Validation ───────────────────────────────────────────
   const detectedPincode = parsed?.pincode || "";
-  const isDeliverable = Boolean(detectedPincode && isValidPincode(detectedPincode));
-  const deliveryZone = isDeliverable ? getDeliveryZone(detectedPincode) : null;
+  const isNonServiceable = Boolean(detectedPincode && isNonServiceablePincode(detectedPincode));
+  const isDeliverable = Boolean(detectedPincode && isValidPincode(detectedPincode) && !isNonServiceable);
   const hasLocation = Boolean(selectedLatLng);
 
   // ── Confirm handler ───────────────────────────────────────────────────────
@@ -505,7 +505,7 @@ export function MapLocationPicker({
                         ✓ Delivery Available to {detectedPincode}
                       </p>
                       <p className="text-[11px] text-[#555555]">
-                        {deliveryZone?.zoneName || "Coimbatore Zone"} · Delivery ₹{deliveryZone?.charge} (Min order ₹{deliveryZone?.minimumOrder})
+                        Coimbatore Zone · Min order ₹199
                       </p>
                     </div>
                   </div>
@@ -518,13 +518,17 @@ export function MapLocationPicker({
                   <AlertCircle size={18} className="text-[#EA4335] flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs font-bold text-[#EA4335]">
-                      Sorry, we currently do not deliver to this location.
+                      {isNonServiceable
+                        ? "Delivery Not Available for this PIN code"
+                        : "Sorry, we currently do not deliver to this location."}
                     </p>
                     <p className="text-[11px] text-[#666666] mt-0.5 leading-tight">
-                      {detectedPincode
+                      {isNonServiceable
+                        ? `PIN code ${detectedPincode} is not serviceable. Please choose a location within our active delivery area.`
+                        : detectedPincode
                         ? `Detected pincode ${detectedPincode} is outside our active delivery area.`
                         : "No serviceable pincode detected for this pin spot."}{" "}
-                      Please choose a location within Coimbatore service zones.
+                      {!isNonServiceable && "Please choose a location within Coimbatore service zones."}
                     </p>
                   </div>
                 </div>
@@ -600,6 +604,8 @@ export function MapLocationPicker({
                 Confirm Delivery Location
                 <ChevronRight size={20} strokeWidth={2.5} />
               </>
+            ) : isNonServiceable ? (
+              "Delivery Not Available for this PIN code"
             ) : (
               "Sorry, we currently do not deliver to this location"
             )}

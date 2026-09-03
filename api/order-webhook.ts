@@ -72,6 +72,37 @@ export default async function handler(req: any, res?: any): Promise<any> {
       return sendApiResponse(res, 400, { error: "Invalid order data: orderId is required." });
     }
 
+    // ── Business rule validation ──────────────────────────────────────────
+    const NON_SERVICEABLE_PINCODES = ["641005", "641018", "641006", "641037", "641045", "641012"];
+    const MINIMUM_ORDER_VALUE = 199;
+
+    if (orderData?.pincode && NON_SERVICEABLE_PINCODES.includes(String(orderData.pincode).trim())) {
+      console.warn(`[order-webhook] ❌ Blocked pincode ${orderData.pincode} for order ${orderId}`);
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: "Delivery Not Available for this PIN code",
+        orderId,
+      });
+    }
+
+    const subtotalNum = Number(orderData?.subtotal || 0);
+    if (subtotalNum < MINIMUM_ORDER_VALUE) {
+      console.warn(`[order-webhook] ❌ Subtotal ₹${subtotalNum} below minimum for order ${orderId}`);
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: `Minimum order value is ₹${MINIMUM_ORDER_VALUE}`,
+        orderId,
+      });
+    }
+
+    // Enforce server-side delivery charge
+    const serverDeliveryCharge = subtotalNum > 299 ? 0 : 30;
+    if (orderData) {
+      orderData.deliveryCharge = serverDeliveryCharge;
+      orderData.discount = 0;
+      orderData.total = subtotalNum + serverDeliveryCharge;
+    }
+
     const paymentId: string = orderData?.paymentId || orderData?.razorpayPaymentId || "N/A";
     const customerEmail: string = orderData?.email || "N/A";
 
@@ -147,6 +178,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
         total: Number(orderData.total || 0),
         items: orderData.items || [],
         payment_status: orderData.paymentStatus || `Paid (Razorpay)${paymentId !== "N/A" ? ` · ${paymentId}` : ""}`,
+        customer_note: orderData.customerNote || "",
         sheets_synced: result.success,
         email_sent: result.success,
         retry_count: result.attempts,

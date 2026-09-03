@@ -5,11 +5,11 @@ import {
   Truck,
   Calendar,
   MapPin,
-  Tag,
   ExternalLink,
   User,
   Phone,
   Mail,
+  MessageSquare,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
@@ -35,6 +35,7 @@ interface SuccessState {
   alternateMobile?: string;
   email?: string;
   paymentId?: string;
+  customerNote?: string;
   items?: Array<{
     id: string;
     name: string;
@@ -72,9 +73,7 @@ export default function OrderSuccessPage() {
   const orderId = order.orderId || "SHK782910";
   const total = order.total ?? 230;
   const subtotal = order.subtotal ?? total;
-  const deliveryCharge = order.deliveryCharge ?? 30;
-  const discount = order.discount ?? 0;
-  const discountPercentage = order.discountPercentage ?? 0;
+  const deliveryCharge = order.deliveryCharge ?? 0;
   const lat = order.lat;
   const lng = order.lng;
   const address = order.address;
@@ -85,6 +84,7 @@ export default function OrderSuccessPage() {
   const mobile = order.mobile;
   const alternateMobile = order.alternateMobile;
   const email = order.email;
+  const customerNote = order.customerNote;
   const items = order.items || [];
 
   useEffect(() => {
@@ -222,18 +222,13 @@ export default function OrderSuccessPage() {
               <span>Subtotal</span>
               <span className="font-semibold text-[#111111]">₹{subtotal}</span>
             </div>
-            {discount > 0 && (
-              <div className="flex justify-between text-xs text-[#00A651]">
-                <span className="flex items-center gap-1">
-                  <Tag size={12} />
-                  Discount ({discountPercentage}%)
-                </span>
-                <span className="font-semibold">−₹{discount}</span>
-              </div>
-            )}
             <div className="flex justify-between text-xs text-[#666666]">
               <span>Delivery Charge</span>
-              <span className="font-semibold text-[#111111]">₹{deliveryCharge}</span>
+              {deliveryCharge === 0 ? (
+                <span className="font-semibold text-[#00A651]">FREE</span>
+              ) : (
+                <span className="font-semibold text-[#111111]">₹{deliveryCharge}</span>
+              )}
             </div>
           </div>
 
@@ -301,6 +296,20 @@ export default function OrderSuccessPage() {
                 </p>
               </div>
             </div>
+
+            {customerNote && (
+              <div className="flex items-start gap-3 bg-[#F9FBFA] border border-[#E5ECE8] rounded-[12px] p-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#EAF8F0] flex items-center justify-center flex-shrink-0 text-[#00A651]">
+                  <MessageSquare size={15} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-[#111111]">Order Note / Instructions</p>
+                  <p className="text-xs text-[#555555] mt-0.5 whitespace-pre-line leading-relaxed">
+                    {customerNote}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Quality Promise */}

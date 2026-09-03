@@ -63,6 +63,7 @@ interface ProcessPaymentBody {
   totalQuantity?: number;
   formattedDate?: string;
   source?: string;
+  customerNote?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -187,6 +188,7 @@ async function upsertOrderToSupabase(data: ProcessPaymentBody): Promise<{ isNew:
     total: Number(data.total || 0),
     items: data.items || [],
     payment_status: data.paymentStatus || `Paid (Razorpay)${paymentId ? ` · ${paymentId}` : ""}`,
+    customer_note: data.customerNote || "",
     sheets_synced: false,
     email_sent: false,
     retry_count: 0,
@@ -254,6 +256,35 @@ export default async function handler(req: any, res?: any): Promise<any> {
   if (!orderId) {
     return sendApiResponse(res, 400, { error: "Missing orderId in request body." });
   }
+
+  // ── 0a. Business rule validation ─────────────────────────────────────────
+  const NON_SERVICEABLE_PINCODES = ["641005", "641018", "641006", "641037", "641045", "641012"];
+  const MINIMUM_ORDER_VALUE = 199;
+
+  if (data.pincode && NON_SERVICEABLE_PINCODES.includes(String(data.pincode).trim())) {
+    console.warn(`[process-payment] ❌ Blocked pincode ${data.pincode} for order ${orderId}`);
+    return sendApiResponse(res, 400, {
+      success: false,
+      error: "Delivery Not Available for this PIN code",
+      orderId,
+    });
+  }
+
+  const subtotalNum = Number(data.subtotal || 0);
+  if (subtotalNum < MINIMUM_ORDER_VALUE) {
+    console.warn(`[process-payment] ❌ Subtotal ₹${subtotalNum} below minimum ₹${MINIMUM_ORDER_VALUE} for order ${orderId}`);
+    return sendApiResponse(res, 400, {
+      success: false,
+      error: `Minimum order value is ₹${MINIMUM_ORDER_VALUE}`,
+      orderId,
+    });
+  }
+
+  // Recalculate delivery charge server-side (authoritative)
+  const serverDeliveryCharge = subtotalNum > 299 ? 0 : 30;
+  data.deliveryCharge = serverDeliveryCharge;
+  data.discount = 0;
+  data.total = subtotalNum + serverDeliveryCharge;
 
   const paymentId = data.paymentId || data.razorpayPaymentId || "";
   const startedAt = new Date().toISOString();

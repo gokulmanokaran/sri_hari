@@ -1,12 +1,14 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Tag, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, AlertTriangle, Truck, MessageSquare } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../store/CartContext";
-import { useDelivery } from "../store/DeliveryContext";
 import { useProductCatalog } from "../store/ProductContext";
 import { ProductImage } from "../components/ui/ProductImage";
 import { Button } from "../components/ui/Button";
-import { DEFAULT_MINIMUM_ORDER } from "../data/deliveryZones";
+import { MINIMUM_ORDER_VALUE, calculateDeliveryCharge } from "../utils/price";
+
+const ORDER_NOTE_KEY = "shreehari_order_note";
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -14,21 +16,30 @@ export default function CartPage() {
     items,
     itemCount,
     subtotal,
-    discount,
-    discountedSubtotal,
     incrementItem,
     decrementItem,
     removeItem,
     clearCart,
   } = useCart();
-  const { deliveryCharge, minimumOrder } = useDelivery();
   const { getProductById } = useProductCatalog();
 
-  const charge = deliveryCharge ?? 0;
-  // Use per-pincode minimum order (falls back to default if not available)
-  const minOrder = minimumOrder ?? DEFAULT_MINIMUM_ORDER;
-  const total = discountedSubtotal + charge;
+  // Order note — persisted in localStorage
+  const [orderNote, setOrderNote] = useState(() => {
+    try { return localStorage.getItem(ORDER_NOTE_KEY) || ""; } catch { return ""; }
+  });
+
+  const handleNoteChange = (val: string) => {
+    setOrderNote(val);
+    try { localStorage.setItem(ORDER_NOTE_KEY, val); } catch { /* ignore */ }
+  };
+
+  // Minimum order value is ₹199
+  const minOrder = MINIMUM_ORDER_VALUE;
+  // Delivery charge based on order value: > ₹299 is FREE, otherwise ₹30
+  const charge = calculateDeliveryCharge(subtotal);
+  const total = subtotal + charge;
   const shortfall = Math.max(0, minOrder - subtotal);
+  const freeDeliveryShortfall = Math.max(0, 300 - subtotal);
 
   // Check if any items are currently out of stock in live catalog
   const hasOutOfStockItems = items.some((item) => {
@@ -132,24 +143,24 @@ export default function CartPage() {
             className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-[14px] px-4 py-3"
           >
             <p className="text-amber-800 text-sm font-semibold">
-              Add ₹{shortfall} more to place your order.
+              Minimum order value is ₹{minOrder}
             </p>
-            <p className="text-amber-600 text-xs mt-0.5">
-              Minimum order value for your area is ₹{minOrder}
+            <p className="text-amber-700 text-xs mt-0.5">
+              Add ₹{shortfall} more to place your order.
             </p>
           </motion.div>
         )}
 
-        {/* Discount badge */}
-        {discount.amount > 0 && (
+        {/* Free delivery upsell hint */}
+        {subtotal >= minOrder && subtotal <= 299 && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-4 mt-3 bg-green-50 border border-green-200 rounded-[14px] px-4 py-2.5 flex items-center gap-2"
+            className="mx-4 mt-3 bg-[#EAF8F0] border border-[#B9E8CE] rounded-[14px] px-4 py-2.5 flex items-center gap-2"
           >
-            <Tag size={14} className="text-[#00A651] flex-shrink-0" />
-            <p className="text-[#087A43] text-sm font-semibold">
-              🎉 {discount.percentage}% discount applied — you save ₹{discount.amount}!
+            <Truck size={15} className="text-[#00A651] flex-shrink-0" />
+            <p className="text-[#087A43] text-xs font-semibold">
+              Add ₹{freeDeliveryShortfall} more for <span className="font-bold underline">FREE Delivery</span>!
             </p>
           </motion.div>
         )}
@@ -294,6 +305,29 @@ export default function CartPage() {
           </AnimatePresence>
         </div>
 
+        {/* Order Note */}
+        <div className="mx-4 mb-4 bg-white rounded-[16px] border border-[#EAEAEA] overflow-hidden">
+          <div className="p-4 border-b border-[#EAEAEA] flex items-center gap-2">
+            <MessageSquare size={15} className="text-[#00A651]" />
+            <h2 className="text-sm font-bold text-[#111111]">Order Note</h2>
+            <span className="text-[10px] text-[#AAAAAA] font-medium ml-auto">(optional)</span>
+          </div>
+          <div className="p-4">
+            <textarea
+              id="cart-order-note"
+              rows={3}
+              value={orderNote}
+              onChange={(e) => handleNoteChange(e.target.value)}
+              placeholder="Any special instructions or notes for your order? e.g. delivery instructions, special requests…"
+              className="w-full px-3.5 py-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium text-[#111111] placeholder-[#AAAAAA] focus:outline-none focus:border-[#00A651] transition-colors resize-none"
+              maxLength={500}
+            />
+            {orderNote.length > 0 && (
+              <p className="text-[10px] text-[#AAAAAA] text-right mt-1">{orderNote.length}/500</p>
+            )}
+          </div>
+        </div>
+
         {/* Order summary */}
         <div className="mx-4 mb-4 bg-white rounded-[16px] border border-[#EAEAEA] overflow-hidden">
           <div className="p-4 border-b border-[#EAEAEA]">
@@ -304,18 +338,16 @@ export default function CartPage() {
               <span className="text-[#666666]">Subtotal ({itemCount} items)</span>
               <span className="font-semibold text-[#111111]">₹{subtotal}</span>
             </div>
-            {discount.amount > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[#00A651] flex items-center gap-1">
-                  <Tag size={12} />
-                  Discount ({discount.percentage}%)
-                </span>
-                <span className="font-semibold text-[#00A651]">−₹{discount.amount}</span>
-              </div>
-            )}
             <div className="flex justify-between text-sm">
-              <span className="text-[#666666]">Delivery Charge</span>
-              <span className="font-semibold text-[#111111]">₹{charge}</span>
+              <span className="text-[#666666] flex items-center gap-1">
+                <Truck size={13} />
+                Delivery Charge
+              </span>
+              {charge === 0 ? (
+                <span className="font-semibold text-[#00A651]">FREE</span>
+              ) : (
+                <span className="font-semibold text-[#111111]">₹{charge}</span>
+              )}
             </div>
             <div className="border-t border-[#EAEAEA] pt-2 flex justify-between">
               <span className="font-bold text-[#111111]">Total</span>

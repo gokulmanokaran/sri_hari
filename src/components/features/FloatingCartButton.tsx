@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../../store/CartContext";
 
 export function FloatingCartButton() {
-  const { itemCount, subtotal, discountedSubtotal } = useCart();
+  const { itemCount, subtotal } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -53,7 +53,7 @@ export function FloatingCartButton() {
             </div>
 
             <span className="text-sm font-black text-white pl-1">
-              ₹{discountedSubtotal}
+              ₹{subtotal}
             </span>
           </motion.button>
         </motion.div>

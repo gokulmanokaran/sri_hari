@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Truck,
   MapPin,
-  Tag,
   Edit3,
   Navigation,
   User,
@@ -27,7 +26,8 @@ import {
   type CheckoutErrors,
   type DeliveryLocation,
 } from "../utils/validation";
-import { DEFAULT_MINIMUM_ORDER, isValidPincode } from "../data/deliveryZones";
+import { isNonServiceablePincode, isValidPincode } from "../data/deliveryZones";
+import { MINIMUM_ORDER_VALUE, calculateDeliveryCharge } from "../utils/price";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -96,13 +96,14 @@ function AddrChip({ label, color }: { label: string; color: "green" | "gray" | "
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, subtotal, discount, discountedSubtotal, clearCart } = useCart();
-  const { pincode, deliveryCharge, minimumOrder, setPincode } = useDelivery();
+  const { items, subtotal, clearCart } = useCart();
+  const { pincode, setPincode } = useDelivery();
   const { getProductById } = useProductCatalog();
 
-  const charge = deliveryCharge ?? 0;
-  const minOrder = minimumOrder ?? DEFAULT_MINIMUM_ORDER;
-  const total = discountedSubtotal + charge;
+  // Delivery charge based strictly on order value (> ₹299 FREE, else ₹30)
+  const charge = calculateDeliveryCharge(subtotal);
+  const minOrder = MINIMUM_ORDER_VALUE;
+  const total = subtotal + charge;
 
   const saved = loadSavedGuest();
   const [fullName, setFullName] = useState(saved.fullName);
@@ -128,6 +129,11 @@ export default function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [showAddressEdit, setShowAddressEdit] = useState(false);
+
+  // Read order note written by customer on the Cart page
+  const customerNote = (() => {
+    try { return localStorage.getItem("shreehari_order_note") || ""; } catch { return ""; }
+  })();
 
   const isNavigatingRef = useRef(false);
 
@@ -167,6 +173,7 @@ export default function CheckoutPage() {
 
   const handleProceedToPayment = () => {
     if (subtotal < minOrder) {
+      // Redirect back to cart; CartPage will show the minimum order message
       navigate("/cart");
       return;
     }
@@ -243,8 +250,8 @@ export default function CheckoutPage() {
       orderId,
       total,
       subtotal,
-      discount: discount.amount,
-      discountPercentage: discount.percentage,
+      discount: 0,
+      discountPercentage: 0,
       deliveryCharge: charge,
       fullName: fullName.trim(),
       mobile: mobile.trim(),
@@ -261,6 +268,7 @@ export default function CheckoutPage() {
       state: delivery.state || "Tamil Nadu",
       houseNo: delivery.houseNo,
       landmark: delivery.landmark,
+      customerNote: customerNote || undefined,
       items: orderItems,
       createdAt: new Date().toISOString(),
       paymentStatus: "Pending",
@@ -352,6 +360,38 @@ export default function CheckoutPage() {
             </div>
             <div className="p-4 flex flex-col gap-3">
 
+              {/* House / Flat No. & Landmark — Always visible at top */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="houseno-top" className="text-xs font-bold text-[#555555] flex items-center gap-1.5">
+                    <span className="text-[#00A651]"><Home size={13} /></span>
+                    House / Flat No.
+                  </label>
+                  <input
+                    id="houseno-top"
+                    type="text"
+                    value={delivery.houseNo}
+                    onChange={(e) => setDelivery((p) => ({ ...p, houseNo: e.target.value }))}
+                    placeholder="e.g. 12A, Flat 304"
+                    className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="landmark-top" className="text-xs font-bold text-[#555555] flex items-center gap-1.5">
+                    <span className="text-[#00A651]"><Landmark size={13} /></span>
+                    Landmark
+                  </label>
+                  <input
+                    id="landmark-top"
+                    type="text"
+                    value={delivery.landmark}
+                    onChange={(e) => setDelivery((p) => ({ ...p, landmark: e.target.value }))}
+                    placeholder="e.g. Near bus stand"
+                    className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
+                  />
+                </div>
+              </div>
+
               {/* Map Selector Button */}
               <button
                 onClick={() => setShowMap(true)}
@@ -427,21 +467,6 @@ export default function CheckoutPage() {
                       animate={{ opacity: 1, height: "auto" }}
                       className="overflow-hidden flex flex-col gap-3"
                     >
-                      {/* Full formatted address — editable */}
-                      <div>
-                        <label htmlFor="edit-formatted" className="text-xs font-bold text-[#555555] flex items-center gap-1.5 mb-1.5">
-                          <span className="text-[#00A651]"><MapPin size={13} /></span>
-                          Full Address
-                        </label>
-                        <textarea
-                          id="edit-formatted" rows={2}
-                          value={delivery.formattedAddress}
-                          onChange={(e) => setDelivery((p) => ({ ...p, formattedAddress: e.target.value }))}
-                          className="w-full px-4 py-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors resize-none"
-                          placeholder="Auto-filled from map — edit if needed"
-                        />
-                      </div>
-
                       {/* Street & Area row */}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -504,38 +529,16 @@ export default function CheckoutPage() {
                               <span>📮</span>
                               <span>{delivery.pincode || "Not detected"}</span>
                             </span>
-                            {delivery.pincode && isValidPincode(delivery.pincode) && (
+                            {delivery.pincode && isNonServiceablePincode(delivery.pincode) ? (
+                              <span className="text-[10px] font-bold text-[#EA4335] bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                                Not Available ✗
+                              </span>
+                            ) : delivery.pincode && isValidPincode(delivery.pincode) ? (
                               <span className="text-[10px] font-bold text-[#00A651] bg-[#EAF8F0] px-2 py-0.5 rounded-full border border-[#B9E8CE]">
                                 Verified ✓
                               </span>
-                            )}
+                            ) : null}
                           </div>
-                        </div>
-                      </div>
-
-                      {/* House No & Landmark row */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label htmlFor="edit-houseno" className="text-xs font-bold text-[#555555] flex items-center gap-1 mb-1.5">
-                            <Home size={11} className="text-[#00A651]" /> House / Flat No.
-                          </label>
-                          <input id="edit-houseno" type="text"
-                            value={delivery.houseNo}
-                            onChange={(e) => setDelivery((p) => ({ ...p, houseNo: e.target.value }))}
-                            placeholder="e.g. 12A, Flat 304"
-                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="edit-landmark" className="text-xs font-bold text-[#555555] flex items-center gap-1 mb-1.5">
-                            <Landmark size={11} className="text-[#00A651]" /> Landmark
-                          </label>
-                          <input id="edit-landmark" type="text"
-                            value={delivery.landmark}
-                            onChange={(e) => setDelivery((p) => ({ ...p, landmark: e.target.value }))}
-                            placeholder="e.g. Near bus stand"
-                            className="w-full h-11 px-3 border-2 border-[#EAEAEA] rounded-[12px] text-sm font-medium focus:outline-none focus:border-[#00A651] transition-colors"
-                          />
                         </div>
                       </div>
                     </motion.div>
@@ -562,8 +565,12 @@ export default function CheckoutPage() {
                   <p className="text-xs text-[#666666] mt-0.5">Order placed today will be delivered tomorrow evening guaranteed</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-base font-black text-[#00A651]">₹{charge}</p>
-                  <p className="text-xs text-[#999999]">charge</p>
+                  {charge === 0 ? (
+                    <p className="text-base font-black text-[#00A651]">FREE</p>
+                  ) : (
+                    <p className="text-base font-black text-[#00A651]">₹{charge}</p>
+                  )}
+                  <p className="text-xs text-[#999999]">delivery</p>
                 </div>
               </div>
             </div>
@@ -603,17 +610,15 @@ export default function CheckoutPage() {
                   <span className="text-[#666666]">Subtotal</span>
                   <span className="font-semibold text-[#111111]">₹{subtotal}</span>
                 </div>
-                {discount.amount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#00A651] flex items-center gap-1">
-                      <Tag size={12} />Discount ({discount.percentage}%)
-                    </span>
-                    <span className="font-semibold text-[#00A651]">−₹{discount.amount}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#666666]">Delivery Charge</span>
-                  <span className="font-semibold text-[#111111]">₹{charge}</span>
+                  <span className="text-[#666666] flex items-center gap-1">
+                    <Truck size={12} />Delivery Charge
+                  </span>
+                  {charge === 0 ? (
+                    <span className="font-semibold text-[#00A651]">FREE</span>
+                  ) : (
+                    <span className="font-semibold text-[#111111]">₹{charge}</span>
+                  )}
                 </div>
                 <div className="border-t border-[#EAEAEA] pt-2 flex justify-between">
                   <span className="font-bold text-[#111111]">Total Payable</span>

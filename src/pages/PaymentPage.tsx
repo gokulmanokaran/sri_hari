@@ -94,7 +94,6 @@ export default function PaymentPage() {
     total,
     subtotal,
     deliveryCharge: charge,
-    discount,
     fullName,
     mobile,
     email,
@@ -168,6 +167,7 @@ export default function PaymentPage() {
         );
         sessionStorage.removeItem(PENDING_ORDER_KEY);
         localStorage.removeItem(PENDING_ORDER_KEY);
+        localStorage.removeItem("shreehari_order_note");
       } catch {
         /* ignore */
       }
@@ -440,13 +440,6 @@ export default function PaymentPage() {
               <span>Item Subtotal</span>
               <span className="font-semibold text-gray-900">₹{subtotal}</span>
             </div>
-
-            {discount > 0 && (
-              <div className="flex justify-between text-[#00A651] font-bold">
-                <span>Offer Discount</span>
-                <span>-₹{discount}</span>
-              </div>
-            )}
 
             <div className="flex justify-between text-gray-600">
               <span>Delivery Charge</span>

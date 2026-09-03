@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useDelivery } from "../store/DeliveryContext";
 import { validatePincode } from "../utils/validation";
 import { Button } from "../components/ui/Button";
+import { isNonServiceablePincode } from "../data/deliveryZones";
 import logoImg from "../assets/logo.png";
 
 type Status = "idle" | "loading" | "success" | "error";
@@ -24,6 +25,13 @@ export default function PincodePage() {
     if (validationError) {
       setErrorMsg(validationError);
       setStatus("error");
+      return;
+    }
+
+    // Check against blocked pincodes first
+    if (isNonServiceablePincode(pincode.trim())) {
+      setStatus("error");
+      setErrorMsg("Delivery Not Available for this PIN code");
       return;
     }
 
@@ -166,16 +174,17 @@ export default function PincodePage() {
                       <div className="flex items-center gap-2">
                         <Truck size={13} className="text-[#00A651]" />
                         <p className="text-sm text-[#666666]">
-                          Delivery charge:{" "}
-                          <span className="font-bold text-[#00A651]">₹{charge}</span>
+                          Min. order:{" "}
+                          <span className="font-bold text-[#111111]">₹199</span>
                         </p>
                       </div>
-                      {minOrder !== null && (
-                        <p className="text-xs text-[#666666]">
-                          Min. order for your area:{" "}
-                          <span className="font-bold text-[#111111]">₹{minOrder}</span>
+                      <div className="flex items-center gap-2">
+                        <Truck size={13} className="text-[#00A651]" />
+                        <p className="text-sm text-[#666666]">
+                          Delivery:{" "}
+                          <span className="font-bold text-[#00A651]">₹30 (FREE above ₹299)</span>
                         </p>
-                      )}
+                      </div>
                       <p className="text-xs text-[#00A651] font-medium mt-1">
                         Today Order – Tomorrow Evening Delivery Guaranteed 🚚
                       </p>
@@ -186,7 +195,7 @@ export default function PincodePage() {
                   </div>
                 </motion.div>
               ) : status === "error" &&
-                errorMsg.includes("not delivering") ? (
+                (errorMsg.includes("not delivering") || errorMsg.includes("Not Available")) ? (
                 /* ── Unavailable state ──────────────────────── */
                 <motion.div
                   key="unavailable"
@@ -200,11 +209,14 @@ export default function PincodePage() {
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-[#111111] mb-2">
-                      We're not delivering here yet
+                      {errorMsg.includes("Not Available")
+                        ? "Delivery Not Available"
+                        : "We're not delivering here yet"}
                     </h2>
                     <p className="text-sm text-[#666666] leading-relaxed">
-                      Delivery to your area will be available in the future.
-                      Please check again later.
+                      {errorMsg.includes("Not Available")
+                        ? "This PIN code is not serviceable. Please enter a different PIN code."
+                        : "Delivery to your area will be available in the future. Please check again later."}
                     </p>
                   </div>
                   <Button variant="outline" size="md" onClick={handleReset}>

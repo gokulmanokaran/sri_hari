@@ -2,70 +2,97 @@
 // Maps Coimbatore service pincodes → { charge, minimumOrder }
 
 export interface DeliveryZone {
-  charge: number;       // Delivery charge in ₹
-  minimumOrder: number; // Minimum order value in ₹
+  charge: number;       // Base delivery charge in ₹ (fallback)
+  minimumOrder: number; // Minimum order value in ₹ (199)
   zoneName?: string;
 }
 
-// Zone A — ₹30 delivery, ₹199 minimum order
-const ZONE_A: DeliveryZone = { charge: 30, minimumOrder: 199, zoneName: "Central Coimbatore" };
+/** Specific PIN codes where delivery is explicitly NOT available */
+export const NON_SERVICEABLE_PINCODES = [
+  "641005",
+  "641018",
+  "641006",
+  "641037",
+  "641045",
+  "641012",
+] as const;
 
-// Zone B — ₹50 delivery, ₹249 minimum order
-const ZONE_B: DeliveryZone = { charge: 50, minimumOrder: 249, zoneName: "Coimbatore Suburbs" };
+export const MINIMUM_ORDER_VALUE = 199;
+export const FREE_DELIVERY_THRESHOLD = 299; // Above ₹299 is FREE delivery
+export const STANDARD_DELIVERY_CHARGE = 30; // ₹199 to ₹299 is ₹30 delivery charge
 
-// Zone C — ₹80 delivery, ₹299 minimum order
-const ZONE_C: DeliveryZone = { charge: 80, minimumOrder: 299, zoneName: "Outer Coimbatore" };
-
-export const DELIVERY_ZONES: Record<string, DeliveryZone> = {
-  // ── Zone A (₹30 charge) ────────────────────────────────────────────────────
-  "641014": ZONE_A,
-  "641048": ZONE_A,
-  "641051": ZONE_A,
-
-  // ── Zone B (₹50 charge) ────────────────────────────────────────────────────
-  "641004": ZONE_B,
-  "641035": ZONE_B,
-  "641062": ZONE_B,
-  "641028": ZONE_B,
-  "641107": ZONE_B,
-
-  // ── Zone C (₹80 charge) ────────────────────────────────────────────────────
-  "641005": ZONE_C,
-  "641018": ZONE_C,
-  "641006": ZONE_C,
-  "641037": ZONE_C,
-  "641045": ZONE_C,
-  "641012": ZONE_C,
+/** Standard service zone configuration */
+const STANDARD_ZONE: DeliveryZone = {
+  charge: STANDARD_DELIVERY_CHARGE,
+  minimumOrder: MINIMUM_ORDER_VALUE,
+  zoneName: "Coimbatore Delivery Area",
 };
 
-/** Fallback global minimum (used before a location is pinned) */
-export const DEFAULT_MINIMUM_ORDER = 199;
+export const DELIVERY_ZONES: Record<string, DeliveryZone> = {
+  // Serviceable PIN codes in Coimbatore
+  "641014": STANDARD_ZONE,
+  "641048": STANDARD_ZONE,
+  "641051": STANDARD_ZONE,
+  "641004": STANDARD_ZONE,
+  "641035": STANDARD_ZONE,
+  "641062": STANDARD_ZONE,
+  "641028": STANDARD_ZONE,
+  "641107": STANDARD_ZONE,
+};
+
+/** Global minimum order value */
+export const DEFAULT_MINIMUM_ORDER = MINIMUM_ORDER_VALUE;
 
 export const BUSINESS_PHONE = "9790209685";
 
-/** Get delivery zone details for a pincode */
-export function getDeliveryZone(pincode: string): DeliveryZone | null {
+/** Check if a pincode is explicitly in the non-serviceable list */
+export function isNonServiceablePincode(pincode: string): boolean {
+  if (!pincode) return false;
   const clean = pincode.trim();
-  return DELIVERY_ZONES[clean] ?? null;
-}
-
-/** Get delivery charge for a pincode */
-export function getDeliveryCharge(pincode: string): number | null {
-  const clean = pincode.trim();
-  return DELIVERY_ZONES[clean]?.charge ?? null;
-}
-
-/** Get minimum order for a pincode */
-export function getMinimumOrder(pincode: string): number {
-  const clean = pincode.trim();
-  return DELIVERY_ZONES[clean]?.minimumOrder ?? DEFAULT_MINIMUM_ORDER;
+  return (NON_SERVICEABLE_PINCODES as readonly string[]).includes(clean);
 }
 
 /** Check if a pincode is within our serviceable delivery zones */
 export function isValidPincode(pincode: string): boolean {
   if (!pincode) return false;
   const clean = pincode.trim();
+  if (isNonServiceablePincode(clean)) return false;
   return clean in DELIVERY_ZONES;
+}
+
+/**
+ * Calculate delivery charge based on order value:
+ * - Above ₹299: FREE Delivery (₹0)
+ * - ₹199 to ₹299 (inclusive): ₹30 delivery charge
+ * - Below ₹199: ₹30 (order placement blocked by minimum order validation)
+ */
+export function calculateDeliveryCharge(orderValue: number): number {
+  if (orderValue > FREE_DELIVERY_THRESHOLD) {
+    return 0; // FREE Delivery
+  }
+  return STANDARD_DELIVERY_CHARGE; // ₹30 delivery charge
+}
+
+/** Get delivery zone details for a pincode */
+export function getDeliveryZone(pincode: string): DeliveryZone | null {
+  const clean = pincode.trim();
+  if (isNonServiceablePincode(clean)) return null;
+  return DELIVERY_ZONES[clean] ?? null;
+}
+
+/** Get delivery charge for a pincode and optional order value */
+export function getDeliveryCharge(pincode: string, orderValue?: number): number | null {
+  const clean = pincode.trim();
+  if (!isValidPincode(clean)) return null;
+  if (orderValue !== undefined) {
+    return calculateDeliveryCharge(orderValue);
+  }
+  return STANDARD_DELIVERY_CHARGE;
+}
+
+/** Get minimum order for a pincode */
+export function getMinimumOrder(_pincode?: string): number {
+  return MINIMUM_ORDER_VALUE;
 }
 
 /** Return all available service pincodes list */

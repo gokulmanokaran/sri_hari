@@ -10,7 +10,12 @@ import React, {
 } from "react";
 import type { Product } from "../data/products";
 import { getItem, setItem, STORAGE_KEYS } from "../utils/storage";
-import { calculateDiscount, type DiscountResult } from "../utils/price";
+import {
+  calculateDeliveryCharge,
+  calculateDiscount,
+  type DiscountResult,
+  MINIMUM_ORDER_VALUE,
+} from "../utils/price";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,6 +110,9 @@ interface CartContextValue {
   items: CartItem[];
   itemCount: number;
   subtotal: number;
+  deliveryCharge: number;
+  total: number;
+  isMinimumMet: boolean;
   discount: DiscountResult;
   discountedSubtotal: number;
   toast: ToastNotification | null;
@@ -247,19 +255,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [state.items]
   );
 
-  // Auto-calculated discount — never manipulable from the outside
-  const discount = useMemo(() => calculateDiscount(subtotal), [subtotal]);
+  // Delivery charge updates automatically whenever subtotal changes
+  const deliveryCharge = useMemo(() => calculateDeliveryCharge(subtotal), [subtotal]);
 
-  const discountedSubtotal = useMemo(
-    () => subtotal - discount.amount,
-    [subtotal, discount.amount]
-  );
+  // Total payable amount = subtotal + deliveryCharge (no discounts)
+  const total = useMemo(() => subtotal + deliveryCharge, [subtotal, deliveryCharge]);
+
+  const isMinimumMet = useMemo(() => subtotal >= MINIMUM_ORDER_VALUE, [subtotal]);
+
+  // Stub for backward compatibility
+  const discount = useMemo(() => calculateDiscount(subtotal), [subtotal]);
+  const discountedSubtotal = subtotal;
 
   const value = useMemo<CartContextValue>(
     () => ({
       items: state.items,
       itemCount,
       subtotal,
+      deliveryCharge,
+      total,
+      isMinimumMet,
       discount,
       discountedSubtotal,
       toast,
@@ -274,6 +289,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       state.items,
       itemCount,
       subtotal,
+      deliveryCharge,
+      total,
+      isMinimumMet,
       discount,
       discountedSubtotal,
       toast,

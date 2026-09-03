@@ -13,7 +13,7 @@ import { useDelivery } from "../../store/DeliveryContext";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { validatePincode } from "../../utils/validation";
-import { BUSINESS_PHONE } from "../../data/deliveryZones";
+import { BUSINESS_PHONE, isNonServiceablePincode } from "../../data/deliveryZones";
 import logoImg from "../../assets/logo.png";
 
 interface HeaderProps {
@@ -22,7 +22,7 @@ interface HeaderProps {
 
 export function Header({ onSearchOpen }: HeaderProps) {
   const { itemCount } = useCart();
-  const { pincode, deliveryCharge, checkPincode } = useDelivery();
+  const { pincode, checkPincode } = useDelivery();
   const navigate = useNavigate();
 
   const [locationOpen, setLocationOpen] = useState(false);
@@ -44,7 +44,13 @@ export function Header({ onSearchOpen }: HeaderProps) {
       setPincodeError(err);
       return;
     }
-    const { success } = checkPincode(newPincode);
+    const clean = newPincode.trim();
+    if (isNonServiceablePincode(clean)) {
+      setPincodeError("Delivery Not Available for this PIN code");
+      setPincodeStatus("error");
+      return;
+    }
+    const { success } = checkPincode(clean);
     if (!success) {
       setPincodeError("Sorry, we don't deliver to this pincode yet.");
       setPincodeStatus("error");

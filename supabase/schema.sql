@@ -237,10 +237,16 @@ CREATE TABLE IF NOT EXISTS public.orders (
     -- Source metadata
     source TEXT DEFAULT 'storefront',
 
+    -- Customer note / order instructions
+    customer_note TEXT DEFAULT '',
+
     -- Timestamps
     created_at  TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+-- Idempotent column additions for existing deployments
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS customer_note TEXT DEFAULT '';
 
 -- Unique index so duplicate Razorpay payment IDs are rejected at DB level
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_razorpay_payment_id

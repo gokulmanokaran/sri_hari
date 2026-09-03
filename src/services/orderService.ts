@@ -59,6 +59,7 @@ export interface OrderNotificationPayload {
   razorpayPaymentId?: string;
   razorpayOrderId?: string;
   razorpaySignature?: string;
+  customerNote?: string;
 }
 
 export interface OrderNotificationResult {
@@ -312,6 +313,7 @@ export async function persistOrderDirectToSupabase(
       total: Number(payload.total || 0),
       items: payload.items || [],
       payment_status: payload.paymentStatus || `Paid (Razorpay)${paymentId ? ` · ${paymentId}` : ""}`,
+      customer_note: payload.customerNote || "",
       sheets_synced: false,
       email_sent: false,
       retry_count: 0,
