@@ -62,6 +62,52 @@ interface OrdersModalProps {
   onClose: () => void;
 }
 
+function renderPaymentBadge(status: string) {
+  const s = status || "Paid";
+  const lower = s.toLowerCase();
+
+  if (lower.includes("refund")) {
+    return (
+      <span className="text-[11px] bg-rose-500/10 text-rose-400 font-semibold px-2 py-0.5 rounded-full border border-rose-500/20">
+        {s}
+      </span>
+    );
+  }
+  if (lower.includes("failed")) {
+    return (
+      <span className="text-[11px] bg-red-500/10 text-red-400 font-semibold px-2 py-0.5 rounded-full border border-red-500/20">
+        {s}
+      </span>
+    );
+  }
+  if (lower.includes("pending payment")) {
+    return (
+      <span className="text-[11px] bg-amber-500/10 text-amber-400 font-semibold px-2 py-0.5 rounded-full border border-amber-500/20">
+        {s}
+      </span>
+    );
+  }
+  if (lower.includes("authorized")) {
+    return (
+      <span className="text-[11px] bg-sky-500/10 text-sky-400 font-semibold px-2 py-0.5 rounded-full border border-sky-500/20">
+        {s}
+      </span>
+    );
+  }
+  if (lower.startsWith("paid")) {
+    return (
+      <span className="text-[11px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/20">
+        {s}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] bg-slate-800 text-slate-300 font-semibold px-2 py-0.5 rounded-full border border-slate-700">
+      {s}
+    </span>
+  );
+}
+
 export function OrdersModal({ isOpen, onClose }: OrdersModalProps) {
   const [orders, setOrders] = useState<DbOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,9 +281,7 @@ export function OrdersModal({ isOpen, onClose }: OrdersModalProps) {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-white text-sm">#{order.id}</span>
                           <span className="text-xs text-slate-400">· {order.full_name || "Guest"}</span>
-                          <span className="text-[11px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/20">
-                            {order.payment_status || "Paid"}
-                          </span>
+                          {renderPaymentBadge(order.payment_status)}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
                           <span className="flex items-center gap-1">
@@ -295,8 +339,13 @@ export function OrdersModal({ isOpen, onClose }: OrdersModalProps) {
                           <p className="text-slate-200"><strong>Name:</strong> {order.full_name}</p>
                           <p className="text-slate-200"><strong>Mobile:</strong> {order.mobile}</p>
                           {order.email && <p className="text-slate-200"><strong>Email:</strong> {order.email}</p>}
+                          {order.razorpay_order_id && (
+                            <p className="text-slate-300 font-mono text-[11px] mt-1">
+                              <strong>Razorpay Order:</strong> {order.razorpay_order_id}
+                            </p>
+                          )}
                           {order.razorpay_payment_id && (
-                            <p className="text-slate-200 font-mono text-[11px] mt-1">
+                            <p className="text-slate-300 font-mono text-[11px] mt-0.5">
                               <strong>Payment ID:</strong> {order.razorpay_payment_id}
                             </p>
                           )}

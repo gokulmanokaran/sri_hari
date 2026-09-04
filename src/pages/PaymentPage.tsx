@@ -24,7 +24,11 @@ import { useDelivery } from "../store/DeliveryContext";
 import { useProductCatalog } from "../store/ProductContext";
 import { Button } from "../components/ui/Button";
 import { processPayment } from "../services/paymentService";
-import { submitOrderNotification, type OrderNotificationPayload } from "../services/orderService";
+import {
+  submitOrderNotification,
+  createPendingOrderInSupabase,
+  type OrderNotificationPayload,
+} from "../services/orderService";
 import { deductLiveProductStock } from "../services/productService";
 
 const PENDING_ORDER_KEY = "shreehari_pending_order";
@@ -60,6 +64,15 @@ export default function PaymentPage() {
     }
     return null;
   }, [location.state]);
+
+  // Persist pending order to Supabase immediately upon entering the payment page
+  useEffect(() => {
+    if (pendingOrder && pendingOrder.orderId) {
+      createPendingOrderInSupabase(pendingOrder).catch((err) => {
+        console.warn("[PaymentPage] Failed to pre-save pending order:", err);
+      });
+    }
+  }, [pendingOrder]);
 
   // If no order data and no cart items, redirect back to cart
   useEffect(() => {
@@ -107,10 +120,15 @@ export default function PaymentPage() {
     setIsProcessing(true);
     setErrorMessage(null);
 
+    // Ensure order is saved in Supabase as 'Pending Payment' with full item details BEFORE opening payment modal
+    await createPendingOrderInSupabase(pendingOrder).catch((err) => {
+      console.warn("[PaymentPage] Pre-payment save warning:", err);
+    });
+
     // Timeout safety fallback: prevent permanent lock if popup is blocked
     const safetyTimeout = setTimeout(() => {
       setIsProcessing(false);
-    }, 12000);
+    }, 15000);
 
     try {
       const paymentResult = await processPayment({

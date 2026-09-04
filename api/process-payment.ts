@@ -135,7 +135,7 @@ async function callGoogleAppsScript(
   return { success: false, attempts: maxAttempts, lastError };
 }
 
-/** Upsert order into Supabase orders table. Returns true if this is a NEW order. */
+/** Upsert order into Supabase orders table. Transitions Pending Payment to Paid. */
 async function upsertOrderToSupabase(data: ProcessPaymentBody): Promise<{ isNew: boolean; error?: string }> {
   const supabase = getSupabaseServerClient();
   if (!supabase) {
@@ -147,26 +147,50 @@ async function upsertOrderToSupabase(data: ProcessPaymentBody): Promise<{ isNew:
     data.mapsLink ||
     (data.lat && data.lng ? `https://www.google.com/maps?q=${data.lat},${data.lng}` : "");
 
-  const formattedDate =
-    data.formattedDate ||
-    new Date(data.createdAt || Date.now()).toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-
-  const productsSummary =
-    data.productsSummary ||
-    (data.items || [])
-      .map((item) => `${item.name}${item.unit ? ` (${item.unit})` : ""} × ${item.quantity}`)
-      .join(", ");
-
-  const totalQuantity =
-    data.totalQuantity ||
-    (data.items || []).reduce((acc, item) => acc + (item.quantity || 1), 0);
-
   const paymentId = data.paymentId || data.razorpayPaymentId || "";
+  const paidStatus = data.paymentStatus || `Paid (Razorpay)${paymentId ? ` · ${paymentId}` : ""}`;
 
+  // 1. Check if order record exists (pre-persisted from storefront checkout)
+  const { data: existing } = await supabase
+    .from("orders")
+    .select("id, payment_status, sheets_synced, email_sent, razorpay_order_id")
+    .eq("id", data.orderId)
+    .maybeSingle();
+
+  if (existing) {
+    // If order was already marked Paid and sheets were already synced, it's truly processed
+    if (existing.payment_status && existing.payment_status.startsWith("Paid") && existing.sheets_synced) {
+      console.info(`[process-payment] Order ${data.orderId} already exists and is fully synced — duplicate avoided.`);
+      return { isNew: false };
+    }
+
+    // Otherwise, transition Pending Payment to Paid with payment identifiers
+    const { error: updateErr } = await supabase
+      .from("orders")
+      .update({
+        razorpay_payment_id: paymentId || null,
+        razorpay_order_id: data.razorpayOrderId || existing.razorpay_order_id || null,
+        razorpay_signature: data.razorpaySignature || null,
+        payment_status: paidStatus,
+        full_name: data.fullName || undefined,
+        mobile: data.mobile || undefined,
+        email: data.email || undefined,
+        address: data.address || undefined,
+        items: data.items && data.items.length > 0 ? data.items : undefined,
+        total: Number(data.total || 0) || undefined,
+      })
+      .eq("id", data.orderId);
+
+    if (updateErr) {
+      console.error("[process-payment] Supabase update to Paid failed:", updateErr);
+      return { isNew: true, error: updateErr.message };
+    }
+
+    console.info(`[process-payment] Updated order ${data.orderId} from '${existing.payment_status}' to '${paidStatus}'.`);
+    return { isNew: true };
+  }
+
+  // 2. New order not seen before
   const row = {
     id: data.orderId,
     razorpay_payment_id: paymentId || null,
@@ -187,36 +211,26 @@ async function upsertOrderToSupabase(data: ProcessPaymentBody): Promise<{ isNew:
     discount: Number(data.discount || 0),
     total: Number(data.total || 0),
     items: data.items || [],
-    payment_status: data.paymentStatus || `Paid (Razorpay)${paymentId ? ` · ${paymentId}` : ""}`,
+    payment_status: paidStatus,
     customer_note: data.customerNote || "",
     sheets_synced: false,
     email_sent: false,
     retry_count: 0,
     source: data.source || "storefront",
-    // Store these for GAS forward
-    // (extra metadata stored as part of JSONB items — no separate column needed)
   };
 
-  // Use INSERT ... ON CONFLICT DO NOTHING to detect duplicates safely
-  const { error, data: insertedRows } = await supabase
-    .from("orders")
-    .insert(row)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    // Unique constraint violation = duplicate order (already processed)
-    if (error.code === "23505" || error.message?.includes("duplicate")) {
-      console.info(`[process-payment] Order ${data.orderId} already exists in DB — duplicate detected.`);
+  const { error: insertErr } = await supabase.from("orders").insert(row);
+  if (insertErr) {
+    if (insertErr.code === "23505" || insertErr.message?.includes("duplicate")) {
+      console.info(`[process-payment] Concurrent insert for ${data.orderId} detected.`);
       return { isNew: false };
     }
-    console.error("[process-payment] Supabase insert error:", error);
-    return { isNew: true, error: error.message };
+    console.error("[process-payment] Supabase insert error:", insertErr);
+    return { isNew: true, error: insertErr.message };
   }
 
-  const isNew = !!insertedRows;
-  console.info(`[process-payment] Order ${data.orderId} ${isNew ? "inserted" : "already existed"} in Supabase.`);
-  return { isNew };
+  console.info(`[process-payment] Inserted fresh paid order ${data.orderId} into Supabase.`);
+  return { isNew: true };
 }
 
 /** Update notification status flags in Supabase */
@@ -233,9 +247,11 @@ async function updateNotificationStatus(
   const supabase = getSupabaseServerClient();
   if (!supabase) return;
 
-  await supabase.from("orders").update(updates).eq("id", orderId).catch((err) => {
+  try {
+    await supabase.from("orders").update(updates).eq("id", orderId);
+  } catch (err) {
     console.warn("[process-payment] Failed to update notification status:", err);
-  });
+  }
 }
 
 // ── Main Handler ──────────────────────────────────────────────────────────────

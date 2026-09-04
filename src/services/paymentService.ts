@@ -179,32 +179,51 @@ export function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
+import { updatePendingOrderRazorpayId } from "./orderService";
+
 /**
- * Optional server-side Razorpay Order Creator (used if backend endpoint is configured)
+ * Server-side Razorpay Order Creator.
+ * Generates an official Razorpay Order with explicit payment_capture: 1
+ * and attaches customer & storefront metadata to prevent auto-refunds.
  */
-async function createBackendRazorpayOrder(amount: number, orderId: string): Promise<string | undefined> {
-  // Only attempt if explicit backend endpoint is enabled
-  if (typeof window === "undefined" || !import.meta.env.VITE_ENABLE_BACKEND_RAZORPAY) {
+async function createBackendRazorpayOrder(payload: PaymentPayload): Promise<string | undefined> {
+  if (typeof window === "undefined") {
     return undefined;
   }
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 800);
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout for serverless execution
 
+    console.info(`[PaymentService] Creating Razorpay backend order for #${payload.orderId}...`);
     const res = await fetch("/api/create-razorpay-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount, receipt: orderId }),
+      body: JSON.stringify({
+        amount: payload.amount,
+        receipt: payload.orderId,
+        orderId: payload.orderId,
+        customerName: payload.customerName,
+        customerEmail: payload.customerEmail,
+        customerPhone: payload.customerPhone,
+      }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
+
     if (res.ok) {
       const data = await res.json();
-      return data.orderId || undefined;
+      if (data.orderId) {
+        console.info(`[PaymentService] ✅ Backend Razorpay order created: ${data.orderId}`);
+        // Link razorpay_order_id in Supabase pending order record immediately
+        updatePendingOrderRazorpayId(payload.orderId, data.orderId).catch(() => {});
+        return data.orderId;
+      }
+    } else {
+      console.warn(`[PaymentService] Backend order endpoint returned status ${res.status}`);
     }
-  } catch {
-    // Proceed with standard direct Razorpay client checkout
+  } catch (err) {
+    console.warn("[PaymentService] Backend order creation timed out or failed; falling back to direct client options:", err);
   }
   return undefined;
 }
@@ -229,8 +248,8 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
     };
   }
 
-  // Attempt backend order generation if available (non-blocking fallback)
-  const backendOrderId = await createBackendRazorpayOrder(payload.amount, payload.orderId);
+  // Generate official backend Razorpay Order (with explicit auto-capture)
+  const backendOrderId = await createBackendRazorpayOrder(payload);
 
   // ── Android WebView UPI Intent configuration ───────────────────────────
   // When running inside an Android WebView we must explicitly enable UPI
@@ -256,6 +275,9 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
       },
       notes: {
         storefrontOrderId: payload.orderId,
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        customerEmail: payload.customerEmail || "",
       },
       theme: {
         color: "#00A651",

@@ -187,10 +187,13 @@ export default async function handler(req: any, res?: any): Promise<any> {
         source: orderData.source || "storefront",
       };
 
-      await supabase
-        .from("orders")
-        .upsert(orderRow, { onConflict: "id" })
-        .catch((err) => console.warn("[order-webhook] Supabase order upsert error:", err));
+      try {
+        await supabase
+          .from("orders")
+          .upsert(orderRow, { onConflict: "id" });
+      } catch (err) {
+        console.warn("[order-webhook] Supabase order upsert warning:", err);
+      }
     }
 
     if (result.success) {
