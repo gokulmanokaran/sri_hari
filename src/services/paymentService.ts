@@ -104,8 +104,8 @@ declare global {
   }
 }
 
-// Test Key ID provided for the application
-const DEFAULT_RAZORPAY_KEY_ID = "rzp_test_TU0lWbkyOmj5C5";
+// Live Key ID provided for the application
+const DEFAULT_RAZORPAY_KEY_ID = "rzp_live_TY2BW22RrguaTm";
 
 export function getRazorpayKeyId(): string {
   return (

@@ -127,9 +127,11 @@ export default async function handler(req: any, res?: any): Promise<any> {
     const keyId =
       process.env.RAZORPAY_KEY_ID ||
       process.env.VITE_RAZORPAY_KEY_ID ||
-      "rzp_live_TVqupLsjlS8bW6";
+      "rzp_live_TY2BW22RrguaTm";
 
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keySecret =
+      process.env.RAZORPAY_KEY_SECRET ||
+      "oL8mctJQ6knuPbIoZwaUMPjX";
 
     if (!keySecret) {
       console.error(

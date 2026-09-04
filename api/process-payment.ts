@@ -219,8 +219,8 @@ async function verifyAndCaptureRazorpayPayment(
   paymentId: string,
   amountInRupees: number
 ): Promise<{ verified: boolean; status: "captured" | "authorized" | "failed" | "unknown"; error?: string }> {
-  const keyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TVqupLsjlS8bW6";
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const keyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TY2BW22RrguaTm";
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || "oL8mctJQ6knuPbIoZwaUMPjX";
 
   if (!keySecret) {
     console.warn("[process-payment] ⚠️ RAZORPAY_KEY_SECRET not set; unable to query Razorpay Payment API directly.");
@@ -427,7 +427,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
   console.info(`[process-payment] 📦 Processing payment for #${orderId} | Payment: ${paymentId || "N/A"}`);
 
   // ── 1. Razorpay signature verification (if secret configured) ────────────
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || "oL8mctJQ6knuPbIoZwaUMPjX";
   if (keySecret && data.razorpayOrderId && data.razorpaySignature && paymentId) {
     const isValid = verifyRazorpaySignature(
       data.razorpayOrderId,
