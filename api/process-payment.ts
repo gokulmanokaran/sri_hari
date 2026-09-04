@@ -242,7 +242,7 @@ async function verifyAndCaptureRazorpayPayment(
       return { verified: false, status: "unknown" };
     }
 
-    const paymentData = await fetchRes.json();
+    const paymentData = await fetchRes.json() as any;
     const currentStatus = paymentData.status;
     console.info(`[process-payment] 🔍 Razorpay Payment ${paymentId} current status: ${currentStatus}`);
 
@@ -266,7 +266,7 @@ async function verifyAndCaptureRazorpayPayment(
       });
 
       if (captureRes.ok) {
-        const captureData = await captureRes.json();
+        const captureData = await captureRes.json() as any;
         if (captureData.status === "captured") {
           console.info(`[process-payment] ✅ Successfully auto-captured payment ${paymentId} via API!`);
           return { verified: true, status: "captured" };
@@ -278,7 +278,7 @@ async function verifyAndCaptureRazorpayPayment(
     }
 
     if (currentStatus === "failed") {
-      return { verified: false, status: "failed", error: paymentData.error_description || "Payment failed" };
+      return { verified: false, status: "failed", error: (paymentData as any).error_description || "Payment failed" };
     }
 
     return { verified: true, status: currentStatus || "unknown" };

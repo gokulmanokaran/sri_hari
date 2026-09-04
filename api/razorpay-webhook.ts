@@ -522,7 +522,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
         });
 
         if (capRes.ok) {
-          const capData = await capRes.json();
+          const capData = await capRes.json() as any;
           if (capData.status === "captured") {
             console.info(`[razorpay-webhook] ✅ Successfully auto-captured authorized payment ${razorpayPaymentId} via API!`);
             autoCaptured = true;

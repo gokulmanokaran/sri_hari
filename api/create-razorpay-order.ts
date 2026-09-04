@@ -172,7 +172,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
     });
 
     if (!razorpayResponse.ok) {
-      const errData = await razorpayResponse.json().catch(() => ({}));
+      const errData = await razorpayResponse.json().catch(() => ({}) as any) as any;
       console.error("[create-razorpay-order] ❌ Razorpay Orders API rejected request:", errData);
       return sendApiResponse(res, razorpayResponse.status, {
         success: false,
@@ -181,7 +181,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
       });
     }
 
-    const orderData = await razorpayResponse.json();
+    const orderData = await razorpayResponse.json() as any;
 
     if (!orderData?.id || !orderData.id.startsWith("order_")) {
       console.error("[create-razorpay-order] ❌ Razorpay returned response without valid order_id:", orderData);
