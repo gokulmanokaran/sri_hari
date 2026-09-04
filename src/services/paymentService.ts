@@ -185,17 +185,20 @@ import { updatePendingOrderRazorpayId } from "./orderService";
  * Server-side Razorpay Order Creator.
  * Generates an official Razorpay Order with explicit payment_capture: 1
  * and attaches customer & storefront metadata to prevent auto-refunds.
+ * Returns an error object if order creation fails — NEVER silently fails.
  */
-async function createBackendRazorpayOrder(payload: PaymentPayload): Promise<string | undefined> {
+async function createBackendRazorpayOrder(
+  payload: PaymentPayload
+): Promise<{ success: boolean; orderId?: string; error?: string }> {
   if (typeof window === "undefined") {
-    return undefined;
+    return { success: false, error: "Window is not defined (SSR)" };
   }
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout for serverless execution
+    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout for serverless execution
 
-    console.info(`[PaymentService] Creating Razorpay backend order for #${payload.orderId}...`);
+    console.info(`[PaymentService] 🚀 Initializing Razorpay backend order for #${payload.orderId}...`);
     const res = await fetch("/api/create-razorpay-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -211,25 +214,28 @@ async function createBackendRazorpayOrder(payload: PaymentPayload): Promise<stri
     });
     clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.orderId) {
-        console.info(`[PaymentService] ✅ Backend Razorpay order created: ${data.orderId}`);
-        // Link razorpay_order_id in Supabase pending order record immediately
-        updatePendingOrderRazorpayId(payload.orderId, data.orderId).catch(() => {});
-        return data.orderId;
-      }
-    } else {
-      console.warn(`[PaymentService] Backend order endpoint returned status ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data?.success && data?.orderId && data.orderId.startsWith("order_")) {
+      console.info(`[PaymentService] ✅ Backend Razorpay order created successfully: ${data.orderId}`);
+      // Link razorpay_order_id in Supabase pending order record immediately
+      updatePendingOrderRazorpayId(payload.orderId, data.orderId).catch(() => {});
+      return { success: true, orderId: data.orderId };
     }
+
+    const errMsg = data?.error || `Server order creation failed with HTTP status ${res.status}`;
+    console.error(`[PaymentService] ❌ Failed to create Razorpay Order: ${errMsg}`);
+    return { success: false, error: errMsg };
   } catch (err) {
-    console.warn("[PaymentService] Backend order creation timed out or failed; falling back to direct client options:", err);
+    const errMsg = err instanceof Error ? err.message : "Network error connecting to payment server";
+    console.error("[PaymentService] ❌ Backend order creation exception:", errMsg);
+    return { success: false, error: errMsg };
   }
-  return undefined;
 }
 
 /**
- * Process Razorpay payment for checkout
+ * Process Razorpay payment for checkout.
+ * STRICT ENFORCEMENT: Never opens checkout without an official Razorpay Order ID.
  */
 export async function processPayment(payload: PaymentPayload): Promise<PaymentResult> {
   const isScriptLoaded = await loadRazorpayScript();
@@ -248,8 +254,19 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
     };
   }
 
-  // Generate official backend Razorpay Order (with explicit auto-capture)
-  const backendOrderId = await createBackendRazorpayOrder(payload);
+  // 1. Mandatory backend Razorpay Order generation (with explicit auto-capture)
+  const orderResult = await createBackendRazorpayOrder(payload);
+  if (!orderResult.success || !orderResult.orderId) {
+    console.error(
+      `[PaymentService] ⛔ Checkout BLOCKED: No Razorpay Order ID generated. Reason: ${orderResult.error}`
+    );
+    return {
+      success: false,
+      error: orderResult.error || "Unable to initialize secure payment order. Please retry or contact support.",
+    };
+  }
+
+  const backendOrderId = orderResult.orderId;
 
   // ── Android WebView UPI Intent configuration ───────────────────────────
   // When running inside an Android WebView we must explicitly enable UPI
@@ -267,7 +284,7 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
       currency: payload.currency || "INR",
       name: "Shree Hari Keerai",
       description: payload.description || `Order #${payload.orderId}`,
-      ...(backendOrderId ? { order_id: backendOrderId } : {}),
+      order_id: backendOrderId, // MANDATORY: Never open without order_id!
       prefill: {
         name: payload.customerName,
         email: payload.customerEmail || undefined,

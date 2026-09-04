@@ -151,38 +151,28 @@ export default function PaymentPage() {
         return;
       }
 
-      // ── Payment Succeeded ──────────────────────────────────────────────────
+      // ── Payment Succeeded (Gateway Checkout completed) ─────────────────────
       isNavigatingRef.current = true;
       const razorpayPaymentId = paymentResult.razorpayPaymentId || "";
       const razorpayOrderId = paymentResult.razorpayOrderId || "";
       const razorpaySignature = paymentResult.razorpaySignature || "";
 
-      const completedOrder: OrderNotificationPayload = {
+      // 1. Show saving state — backend is verifying capture & persisting
+      setIsProcessing(false);
+      setIsSaving(true);
+
+      const processingOrder: OrderNotificationPayload = {
         ...pendingOrder,
-        paymentStatus: `Paid (Razorpay)${razorpayPaymentId ? ` · ${razorpayPaymentId}` : ""}`,
+        paymentStatus: `Payment Processing · ${razorpayPaymentId}`,
         paymentId: razorpayPaymentId,
         razorpayPaymentId,
         razorpayOrderId,
         razorpaySignature,
       };
 
-      // 1. Show saving state — backend is persisting to Supabase + Google Sheets
-      setIsProcessing(false);
-      setIsSaving(true);
-
-      // 2. Deduct stock automatically upon successful payment (non-blocking)
-      deductLiveProductStock(completedOrder.items).catch(() => {});
-      refreshProducts().catch(() => {});
-
-      // 3. Persist completed order locally (for OrderSuccessPage fallback)
+      // 2. Persist processing state locally as an initial record
       try {
-        localStorage.setItem("shreehari_latest_order", JSON.stringify(completedOrder));
-        const existingRaw = localStorage.getItem("shreehari_orders");
-        const existing = existingRaw ? JSON.parse(existingRaw) : [];
-        localStorage.setItem(
-          "shreehari_orders",
-          JSON.stringify([completedOrder, ...existing])
-        );
+        localStorage.setItem("shreehari_latest_order", JSON.stringify(processingOrder));
         sessionStorage.removeItem(PENDING_ORDER_KEY);
         localStorage.removeItem(PENDING_ORDER_KEY);
         localStorage.removeItem("shreehari_order_note");
@@ -190,30 +180,58 @@ export default function PaymentPage() {
         /* ignore */
       }
 
-      // 4. Send to backend (Supabase + Google Sheets + Email) — AWAITED with timeout
-      // The backend persists to Supabase first (durable), then calls GAS.
-      // We give it up to 12 seconds. If it times out, the Razorpay webhook
-      // will handle it server-to-server as a safety net.
-      const notificationPromise = submitOrderNotification(completedOrder);
-      const timeoutPromise = new Promise<OrderNotificationPayload>((resolve) =>
-        setTimeout(() => resolve(completedOrder), 12_000)
-      );
+      // 3. Send to backend (/api/process-payment) to verify capture & sync to DB/Sheets
+      let finalStatus = `Paid (Razorpay) · ${razorpayPaymentId}`;
 
-      const notifResult = await Promise.race([notificationPromise, timeoutPromise]);
-
-      if (typeof notifResult === "object" && "success" in notifResult) {
-        if (notifResult.success) {
-          console.info(`[PaymentPage] ✅ Order #${orderId} fully persisted and notified (path: ${notifResult.path}).`);
+      try {
+        const notifResult = await submitOrderNotification(processingOrder);
+        if (notifResult && notifResult.success) {
+          if (notifResult.captured === false) {
+            finalStatus =
+              notifResult.paymentStatus ||
+              `Payment Authorized (Pending Capture) · ${razorpayPaymentId}`;
+          } else {
+            finalStatus =
+              notifResult.paymentStatus || `Paid (Razorpay) · ${razorpayPaymentId}`;
+          }
+          console.info(
+            `[PaymentPage] Order #${orderId} processed (status: ${finalStatus}, path: ${notifResult.path}).`
+          );
         } else {
-          console.warn(`[PaymentPage] ⚠️ Order #${orderId} queued for background retry (path: ${notifResult.path}). Razorpay webhook will also attempt.`);
+          console.warn(
+            `[PaymentPage] Notification submission returned unsuccessful for #${orderId}. Webhook will handle.`
+          );
         }
-      } else {
-        console.info(`[PaymentPage] ⏱️ Order #${orderId} notification timed out on client — backend/webhook will handle.`);
+      } catch (err) {
+        console.warn("[PaymentPage] submitOrderNotification error:", err);
       }
 
-      // 5. Clear cart and navigate to success page
+      const finalOrder: OrderNotificationPayload = {
+        ...processingOrder,
+        paymentStatus: finalStatus,
+      };
+
+      // 4. Update local storage with finalized status
+      try {
+        localStorage.setItem("shreehari_latest_order", JSON.stringify(finalOrder));
+        const existingRaw = localStorage.getItem("shreehari_orders");
+        const existing = existingRaw ? JSON.parse(existingRaw) : [];
+        const filtered = existing.filter((o: any) => o.orderId !== orderId);
+        localStorage.setItem(
+          "shreehari_orders",
+          JSON.stringify([finalOrder, ...filtered])
+        );
+      } catch {
+        /* ignore */
+      }
+
+      // 5. Deduct stock automatically and refresh products
+      deductLiveProductStock(finalOrder.items).catch(() => {});
+      refreshProducts().catch(() => {});
+
+      // 6. Clear cart and navigate to success page
       clearCart();
-      navigate("/order-success", { replace: true, state: completedOrder });
+      navigate("/order-success", { replace: true, state: finalOrder });
     } catch (err) {
       clearTimeout(safetyTimeout);
       setIsProcessing(false);

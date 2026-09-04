@@ -35,6 +35,7 @@ interface SuccessState {
   alternateMobile?: string;
   email?: string;
   paymentId?: string;
+  paymentStatus?: string;
   customerNote?: string;
   items?: Array<{
     id: string;
@@ -133,9 +134,15 @@ export default function OrderSuccessPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <span className="inline-block bg-[#EAF8F0] text-[#00A651] text-xs font-extrabold px-3 py-1 rounded-full mb-2 tracking-wide">
-              ORDER CONFIRMED
-            </span>
+            {order.paymentStatus?.toLowerCase().includes("authorized") ? (
+              <span className="inline-block bg-sky-50 text-sky-700 border border-sky-200 text-xs font-extrabold px-3 py-1 rounded-full mb-2 tracking-wide">
+                PAYMENT AUTHORIZED · CONFIRMING CAPTURE
+              </span>
+            ) : (
+              <span className="inline-block bg-[#EAF8F0] text-[#00A651] text-xs font-extrabold px-3 py-1 rounded-full mb-2 tracking-wide">
+                ORDER CONFIRMED
+              </span>
+            )}
             <h1 className="text-2xl font-black text-[#111111] tracking-tight">
               Order Placed Successfully! 🎉
             </h1>
@@ -160,7 +167,9 @@ export default function OrderSuccessPage() {
               <p className="text-sm font-black text-[#111111] tracking-wider">#{orderId}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-semibold text-[#999999]">Total Paid</p>
+              <p className="text-xs font-semibold text-[#999999]">
+                {order.paymentStatus?.toLowerCase().includes("authorized") ? "Authorized Amount" : "Total Paid"}
+              </p>
               <p className="text-base font-black text-[#00A651]">₹{total}</p>
             </div>
           </div>

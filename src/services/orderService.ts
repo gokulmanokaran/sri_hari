@@ -66,6 +66,8 @@ export interface OrderNotificationResult {
   success: boolean;
   orderId: string;
   alreadyProcessed?: boolean;
+  captured?: boolean;
+  paymentStatus?: string;
   message?: string;
   error?: string;
   path?: string; // Which path succeeded: "backend" | "webhook" | "direct" | "queued"
@@ -192,12 +194,14 @@ async function submitViaBackend(
       if (res.ok) {
         const data = await res.json();
         console.info(
-          `[OrderService] ✅ /api/process-payment succeeded | Order: ${orderId} | AlreadyProcessed: ${data.alreadyProcessed} | SheetsSync: ${data.sheetsSynced}`
+          `[OrderService] ✅ /api/process-payment succeeded | Order: ${orderId} | AlreadyProcessed: ${data.alreadyProcessed} | Captured: ${data.captured} | SheetsSync: ${data.sheetsSynced}`
         );
         return {
           success: true,
           orderId,
           alreadyProcessed: data.alreadyProcessed,
+          captured: data.captured,
+          paymentStatus: data.paymentStatus,
           message: data.message || "Order processed",
           path: "backend",
         };
@@ -397,7 +401,8 @@ export async function persistOrderDirectToSupabase(
       discount: Number(payload.discount || 0),
       total: Number(payload.total || 0),
       items: payload.items || [],
-      payment_status: payload.paymentStatus || `Paid (Razorpay)${paymentId ? ` · ${paymentId}` : ""}`,
+      payment_status:
+        payload.paymentStatus || (paymentId ? `Payment Processing · ${paymentId}` : "Pending Payment"),
       customer_note: payload.customerNote || "",
       sheets_synced: false,
       email_sent: false,

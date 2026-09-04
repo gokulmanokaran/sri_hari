@@ -496,16 +496,79 @@ export default async function handler(req: any, res?: any): Promise<any> {
   }
 
   // ── Handle EVENT: payment.authorized ──────────────────────────────────────
-  // When bank authorizes payment but capture is pending or late authorization occurred
+  // When bank authorizes payment, attempt immediate automatic capture via API!
   if (eventType === "payment.authorized") {
+    console.info(`[razorpay-webhook] ⚡ payment.authorized received for ${razorpayPaymentId}. Attempting auto-capture via API...`);
+
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TVqupLsjlS8bW6";
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    let autoCaptured = false;
+
+    if (keySecret && razorpayPaymentId && amountInPaise > 0) {
+      try {
+        const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+        const capRes = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}/capture`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Basic ${auth}`,
+          },
+          body: JSON.stringify({
+            amount: amountInPaise,
+            currency: "INR",
+          }),
+        });
+
+        if (capRes.ok) {
+          const capData = await capRes.json();
+          if (capData.status === "captured") {
+            console.info(`[razorpay-webhook] ✅ Successfully auto-captured authorized payment ${razorpayPaymentId} via API!`);
+            autoCaptured = true;
+          }
+        } else {
+          const capErr = await capRes.json().catch(() => ({}));
+          console.warn(`[razorpay-webhook] ⚠️ Auto-capture API call for ${razorpayPaymentId} returned ${capRes.status}:`, capErr);
+        }
+      } catch (capEx) {
+        console.warn("[razorpay-webhook] Auto-capture API call exception:", capEx);
+      }
+    }
+
+    if (autoCaptured) {
+      // Upgraded to captured: update status to Paid and forward to Google Sheets
+      const paidStatus = `Paid (Razorpay) · ${razorpayPaymentId}`;
+      const targetId = existingOrder?.id || storefrontCandidateId;
+
+      if (supabase && targetId) {
+        try {
+          await supabase
+            .from("orders")
+            .update({
+              payment_status: paidStatus,
+              razorpay_payment_id: razorpayPaymentId,
+              razorpay_order_id: razorpayOrderId || existingOrder?.razorpay_order_id,
+            })
+            .eq("id", targetId);
+        } catch (e) {
+          console.warn("[razorpay-webhook] Paid update warning:", e);
+        }
+      }
+
+      return sendApiResponse(res, 200, {
+        received: true,
+        event: eventType,
+        processed: true,
+        captured: true,
+        status: paidStatus,
+      });
+    }
+
+    // Capture not completed: update status to 'Payment Authorized (Pending Capture)' — NEVER mark Paid!
     const authStatus = `Payment Authorized (Pending Capture) · ${razorpayPaymentId}`;
-    console.info(
-      `[razorpay-webhook] ⚠️ payment.authorized received for ${razorpayPaymentId}. Status: ${authStatus}. NEVER marking as Paid.`
-    );
+    console.info(`[razorpay-webhook] ⚠️ Payment ${razorpayPaymentId} remains in ${authStatus}.`);
 
     if (supabase && (existingOrder?.id || storefrontCandidateId)) {
       const targetId = existingOrder?.id || storefrontCandidateId;
-      // Never downgrade an already 'Paid' order
       if (!existingOrder?.payment_status?.startsWith("Paid")) {
         try {
           await supabase
@@ -526,6 +589,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
       received: true,
       event: eventType,
       processed: true,
+      captured: false,
       status: authStatus,
     });
   }
