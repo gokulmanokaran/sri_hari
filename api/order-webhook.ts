@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/order-webhook
 // ──────────────────────────────────────────────────────────────────────────────
 // Forwards order payloads to Google Apps Script securely, with:
@@ -5,6 +7,7 @@
 //   • Idempotency check via Supabase orders table
 //   • Structured logging of all attempts
 // ──────────────────────────────────────────────────────────────────────────────
+import process from "process";
 import { handleCors, parseApiRequest, sendApiResponse } from "./_catalog";
 import { getSupabaseServerClient } from "./_supabase";
 

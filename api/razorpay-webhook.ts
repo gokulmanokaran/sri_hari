@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/razorpay-webhook
 // ──────────────────────────────────────────────────────────────────────────────
 // Comprehensive Razorpay Webhook Handler (Self-Contained for Vercel Serverless)
@@ -14,6 +16,8 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import crypto from "crypto";
+import { Buffer } from "buffer";
+import process from "process";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Supabase Client (Self-Contained) ───────────────────────────────────────────

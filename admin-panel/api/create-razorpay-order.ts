@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/create-razorpay-order
 // ──────────────────────────────────────────────────────────────────────────────
 // Creates an official Razorpay Order securely using RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.
@@ -5,6 +7,8 @@
 // 100% self-contained for Vercel Serverless (no relative import failures).
 // ──────────────────────────────────────────────────────────────────────────────
 
+import { Buffer } from "buffer";
+import process from "process";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Supabase Client (Self-Contained) ───────────────────────────────────────────

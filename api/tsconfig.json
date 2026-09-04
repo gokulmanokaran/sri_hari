@@ -15,5 +15,5 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["api/**/*.ts"]
+  "include": ["**/*.ts"]
 }

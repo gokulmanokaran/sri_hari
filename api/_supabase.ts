@@ -1,3 +1,6 @@
+/// <reference types="node" />
+
+import process from "process";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const DEFAULT_SUPABASE_URL = "https://wgcfkijbgnokeoolajwz.supabase.co";

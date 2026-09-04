@@ -1,8 +1,11 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/verify-razorpay-payment
 // Verifies Razorpay payment signature using HMAC SHA256 and RAZORPAY_KEY_SECRET.
 // 100% self-contained — no relative imports.
 
 import crypto from "crypto";
+import process from "process";
 
 function handleCors(req: any, res?: any): boolean {
   if (res && typeof res.setHeader === "function") {

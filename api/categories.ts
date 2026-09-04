@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/categories
 // Central Categories API for Website, Separate Admin Panel, and Future Android App.
 import {

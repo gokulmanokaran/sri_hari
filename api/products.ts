@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/products
 // Central Product API for Website, Separate Admin Panel, and Future Android App.
 import {

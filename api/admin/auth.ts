@@ -1,5 +1,8 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/admin/auth
 // Authenticates Admin Panel access securely on the server.
+import process from "process";
 import {
   DEFAULT_ADMIN_KEY,
   handleCors,

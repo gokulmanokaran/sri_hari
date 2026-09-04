@@ -1,7 +1,10 @@
+/// <reference types="node" />
+
 // api/_catalog.ts
 // Supabase-backed Catalog Engine for Serverless Endpoints
 // Serves Storefront, Admin Panel, and Future Android App via Supabase PostgreSQL.
 
+import process from "process";
 import { getSupabaseServerClient } from "./_supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

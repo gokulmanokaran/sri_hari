@@ -1,5 +1,8 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/admin/upload-image
 // Handles safe product image uploads and returns a permanent image URL.
+import process from "process";
 import {
   handleCors,
   parseApiRequest,
@@ -81,7 +84,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
           });
 
           if (imgbbRes.ok) {
-            const imgbbJson = await imgbbRes.json();
+            const imgbbJson = (await imgbbRes.json()) as any;
             if (imgbbJson.data?.url) {
               return sendApiResponse(res, 200, {
                 success: true,

@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/deduct-stock
 // Atomically deducts purchased quantities from product stocks upon successful order/payment.
 import {

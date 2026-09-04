@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/process-payment
 // ──────────────────────────────────────────────────────────────────────────────
 // PRIMARY order processor called after Razorpay Checkout completion.
@@ -14,6 +16,8 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import crypto from "crypto";
+import { Buffer } from "buffer";
+import process from "process";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Supabase Client (Self-Contained) ───────────────────────────────────────────
