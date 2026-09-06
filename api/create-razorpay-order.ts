@@ -150,11 +150,9 @@ export default async function handler(req: any, res?: any): Promise<any> {
     }
 
     if (itemsToVerify.length > 0 && supabase) {
-      const itemIds = itemsToVerify.map((i: any) => i.id).filter(Boolean);
       const { data: dbProducts, error: dbError } = await supabase
         .from("products")
-        .select("*")
-        .in("id", itemIds);
+        .select("*");
 
       if (dbError || !dbProducts || dbProducts.length === 0) {
         console.error("[create-razorpay-order] ❌ Failed to fetch products from DB:", dbError);
@@ -164,9 +162,48 @@ export default async function handler(req: any, res?: any): Promise<any> {
         });
       }
 
+      // Helper to resolve product or variant from dbProducts
+      const resolveDbItem = (id: string) => {
+        const direct = dbProducts.find((p: any) => p.id === id);
+        if (direct) {
+          return {
+            id: direct.id,
+            name: direct.name,
+            nameTamil: direct.name_tamil || direct.tamil_name || "",
+            price: Number(direct.price) || 0,
+            unit: direct.unit || "1 Pack",
+            inStock:
+              direct.in_stock !== false &&
+              (direct.stock_quantity === null || direct.stock_quantity === undefined || Number(direct.stock_quantity) > 0),
+            active: direct.active !== false,
+          };
+        }
+        for (const p of dbProducts) {
+          if (Array.isArray(p.variants)) {
+            const v = p.variants.find((v: any) => v.id === id);
+            if (v) {
+              const isSugar = p.variant_type === "sugar";
+              const parentInStock =
+                p.in_stock !== false &&
+                (p.stock_quantity === null || p.stock_quantity === undefined || Number(p.stock_quantity) > 0);
+              return {
+                id: v.id,
+                name: p.name,
+                nameTamil: p.name_tamil || p.tamil_name || "",
+                price: Number(v.price) || 0,
+                unit: isSugar ? `${p.unit} (${v.unit})` : v.unit,
+                inStock: v.inStock !== false && parentInStock,
+                active: p.active !== false,
+              };
+            }
+          }
+        }
+        return null;
+      };
+
       // Check each item against live database
       for (const item of itemsToVerify) {
-        const dbProduct = dbProducts.find((p: any) => p.id === item.id);
+        const dbProduct = resolveDbItem(item.id);
         if (!dbProduct) {
           return sendApiResponse(res, 400, {
             success: false,
@@ -181,18 +218,14 @@ export default async function handler(req: any, res?: any): Promise<any> {
           });
         }
 
-        const stockQty = dbProduct.stock_quantity;
-        if (
-          dbProduct.in_stock === false ||
-          (stockQty !== null && stockQty !== undefined && Number(stockQty) <= 0)
-        ) {
+        if (!dbProduct.inStock) {
           return sendApiResponse(res, 400, {
             success: false,
             error: `Product "${dbProduct.name}" is out of stock. Please remove it from your cart.`,
           });
         }
 
-        const dbPrice = Number(dbProduct.price) || 0;
+        const dbPrice = dbProduct.price;
         const requestedPrice = item.price !== undefined ? Number(item.price) : undefined;
 
         // CRITICAL: Reject order if price in cart differs from database price
@@ -219,10 +252,10 @@ export default async function handler(req: any, res?: any): Promise<any> {
         verifiedItems.push({
           id: dbProduct.id,
           name: dbProduct.name,
-          nameTamil: dbProduct.name_tamil || dbProduct.tamil_name || "",
+          nameTamil: dbProduct.nameTamil,
           quantity,
           price: dbPrice,
-          unit: dbProduct.unit || item.unit || "1 Pack",
+          unit: dbProduct.unit,
         });
       }
 

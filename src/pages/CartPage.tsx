@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, AlertTriangle, Truck, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../store/CartContext";
 import { useProductCatalog } from "../store/ProductContext";
@@ -30,10 +30,25 @@ export default function CartPage() {
   // Redirect message from PaymentPage if backend detected a price change during checkout
   const paymentPriceChangedError = (location.state as any)?.priceChangedError as string | undefined;
 
-  // Explicitly sync cart with live database prices when cart page is visited
-  useState(() => {
+  // Explicitly sync cart with live database prices when cart page mounts
+  useEffect(() => {
     syncCartWithLivePrices().catch(() => {});
-  });
+  }, [syncCartWithLivePrices]);
+
+  // Re-sync whenever the customer refocuses the tab / window or visibility changes
+  useEffect(() => {
+    const handleSync = () => {
+      if (document.visibilityState === "visible") {
+        syncCartWithLivePrices().catch(() => {});
+      }
+    };
+    window.addEventListener("focus", handleSync);
+    document.addEventListener("visibilitychange", handleSync);
+    return () => {
+      window.removeEventListener("focus", handleSync);
+      document.removeEventListener("visibilitychange", handleSync);
+    };
+  }, [syncCartWithLivePrices]);
 
   // Order note — persisted in localStorage
   const [orderNote, setOrderNote] = useState(() => {

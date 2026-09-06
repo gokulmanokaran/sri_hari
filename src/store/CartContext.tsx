@@ -17,7 +17,7 @@ import {
   MINIMUM_ORDER_VALUE,
 } from "../utils/price";
 import { useProductCatalog } from "./ProductContext";
-import { fetchLiveProducts } from "../services/productService";
+import { fetchLiveProducts, findProductById } from "../services/productService";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,7 +129,7 @@ interface CartContextValue {
   toast: ToastNotification | null;
   priceChangeAlerts: PriceChangeAlert[];
   dismissPriceAlert: (productId?: string) => void;
-  syncCartWithLivePrices: () => Promise<{ hasChanges: boolean; changedItems: PriceChangeAlert[] }>;
+  syncCartWithLivePrices: () => Promise<{ hasChanges: boolean; changedItems: PriceChangeAlert[]; updatedItems?: CartItem[] }>;
   addItem: (product: Product) => void;
   removeItem: (productId: string) => void;
   incrementItem: (productId: string) => void;
@@ -142,11 +142,21 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 
+function getInitialCartState(): CartState {
+  return { items: getItem<CartItem[]>(STORAGE_KEYS.CART, []) };
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  const [state, dispatch] = useReducer(cartReducer, undefined, getInitialCartState);
   const [toast, setToast] = useState<ToastNotification | null>(null);
   const [priceChangeAlerts, setPriceChangeAlerts] = useState<PriceChangeAlert[]>([]);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Keep itemsRef synchronized to the latest items to avoid stale closures in async sync
+  const itemsRef = useRef<CartItem[]>(state.items);
+  useEffect(() => {
+    itemsRef.current = state.items;
+  }, [state.items]);
 
   const { products: liveCatalog } = useProductCatalog();
 
@@ -161,15 +171,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }, 3500);
   }, []);
 
-  // Hydrate from localStorage on mount
-  useEffect(() => {
-    const saved = getItem<CartItem[]>(STORAGE_KEYS.CART, []);
-    if (saved.length > 0) {
-      dispatch({ type: "HYDRATE", items: saved });
-    }
-  }, []);
-
-  // Persist to localStorage on every change
+  // Persist to localStorage whenever state.items changes
   useEffect(() => {
     setItem(STORAGE_KEYS.CART, state.items);
   }, [state.items]);
@@ -177,15 +179,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Synchronize cart items against a given product catalog
   const syncItemsAgainstCatalog = useCallback(
     (catalog: Product[]) => {
-      if (!catalog || catalog.length === 0 || state.items.length === 0) {
-        return { hasChanges: false, changedItems: [] };
+      const currentItems = itemsRef.current.length > 0 ? itemsRef.current : getItem<CartItem[]>(STORAGE_KEYS.CART, []);
+      if (!catalog || catalog.length === 0 || currentItems.length === 0) {
+        return { hasChanges: false, changedItems: [], updatedItems: currentItems };
       }
 
       const detectedAlerts: PriceChangeAlert[] = [];
       let hasModifications = false;
 
-      const updatedItems = state.items.map((item) => {
-        const live = catalog.find((p) => p.id === item.product.id);
+      const updatedItems = currentItems.map((item) => {
+        // Robust lookup: findProductById matches direct product ID AND all variant IDs
+        const live = findProductById(catalog, item.product.id);
         if (!live) return item;
 
         const livePrice = Number(live.price);
@@ -193,7 +197,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
         if (livePrice !== currentPrice) {
           detectedAlerts.push({
-            id: live.id,
+            id: item.product.id,
             name: live.name,
             oldPrice: currentPrice,
             newPrice: livePrice,
@@ -202,6 +206,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           return {
             ...item,
             product: {
+              ...item.product,
               ...live,
               price: livePrice,
             },
@@ -217,7 +222,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           hasModifications = true;
           return {
             ...item,
-            product: live,
+            product: {
+              ...item.product,
+              ...live,
+            },
           };
         }
 
@@ -225,7 +233,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (hasModifications) {
+        // 1. Update state in memory
         dispatch({ type: "SYNC_LIVE_PRICES", items: updatedItems });
+        itemsRef.current = updatedItems;
+
+        // 2. Immediately persist to localStorage synchronously
+        setItem(STORAGE_KEYS.CART, updatedItems);
 
         if (detectedAlerts.length > 0) {
           setPriceChangeAlerts((prev) => {
@@ -245,31 +258,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      return { hasChanges: detectedAlerts.length > 0, changedItems: detectedAlerts };
+      return { hasChanges: detectedAlerts.length > 0, changedItems: detectedAlerts, updatedItems };
     },
-    [state.items, triggerToast]
+    [triggerToast]
   );
 
-  // Auto-sync whenever live catalog in ProductContext updates
-  useEffect(() => {
-    if (liveCatalog && liveCatalog.length > 0 && state.items.length > 0) {
-      syncItemsAgainstCatalog(liveCatalog);
-    }
-  }, [liveCatalog, syncItemsAgainstCatalog, state.items.length]);
-
-  // Explicit sync triggered when cart or checkout mounts or refreshes
+  // Explicit sync triggered when cart or checkout mounts, refreshes, or regains focus
   const syncCartWithLivePrices = useCallback(async () => {
     try {
       const liveProducts = await fetchLiveProducts();
       if (!liveProducts || liveProducts.length === 0) {
-        return { hasChanges: false, changedItems: [] };
+        return { hasChanges: false, changedItems: [], updatedItems: itemsRef.current };
       }
       return syncItemsAgainstCatalog(liveProducts);
     } catch (err) {
       console.warn("[CartContext] syncCartWithLivePrices error:", err);
-      return { hasChanges: false, changedItems: [] };
+      return { hasChanges: false, changedItems: [], updatedItems: itemsRef.current };
     }
   }, [syncItemsAgainstCatalog]);
+
+  // Initial price verification when CartProvider mounts
+  useEffect(() => {
+    if (itemsRef.current.length > 0) {
+      syncCartWithLivePrices().catch(() => {});
+    }
+  }, [syncCartWithLivePrices]);
+
+  // Auto-sync whenever live catalog in ProductContext updates
+  useEffect(() => {
+    if (liveCatalog && liveCatalog.length > 0 && itemsRef.current.length > 0) {
+      syncItemsAgainstCatalog(liveCatalog);
+    }
+  }, [liveCatalog, syncItemsAgainstCatalog]);
 
   const dismissPriceAlert = useCallback((productId?: string) => {
     if (!productId) {

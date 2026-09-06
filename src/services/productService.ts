@@ -67,6 +67,7 @@ export function mapDbCategoryToCategory(row: any): Category {
 
 /** Get cached products or fallback to initial catalog */
 export function getStoredProducts(): Product[] {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") return PRODUCTS;
   try {
     const raw = localStorage.getItem(CACHED_PRODUCTS_KEY);
     if (raw) {
@@ -81,6 +82,7 @@ export function getStoredProducts(): Product[] {
 
 /** Get cached categories or fallback to initial categories */
 export function getStoredCategories(): Category[] {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") return CATEGORIES;
   try {
     const raw = localStorage.getItem(CACHED_CATEGORIES_KEY);
     if (raw) {
@@ -95,6 +97,7 @@ export function getStoredCategories(): Category[] {
 
 /** Save products to local cache */
 export function cacheProducts(products: Product[]): void {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(products));
     localStorage.setItem(CACHE_TIMESTAMP_KEY, new Date().toISOString());
@@ -105,6 +108,7 @@ export function cacheProducts(products: Product[]): void {
 
 /** Save categories to local cache */
 export function cacheCategories(categories: Category[]): void {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(CACHED_CATEGORIES_KEY, JSON.stringify(categories));
   } catch (err) {

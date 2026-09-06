@@ -175,6 +175,21 @@ export default function CheckoutPage() {
     syncCartWithLivePrices().catch(() => {});
   }, [syncCartWithLivePrices]);
 
+  // Re-sync whenever the customer refocuses the tab / window or visibility changes
+  useEffect(() => {
+    const handleSync = () => {
+      if (document.visibilityState === "visible") {
+        syncCartWithLivePrices().catch(() => {});
+      }
+    };
+    window.addEventListener("focus", handleSync);
+    document.addEventListener("visibilitychange", handleSync);
+    return () => {
+      window.removeEventListener("focus", handleSync);
+      document.removeEventListener("visibilitychange", handleSync);
+    };
+  }, [syncCartWithLivePrices]);
+
   // Reset placing state on mount
   useEffect(() => {
     setPlacing(false);
@@ -260,12 +275,16 @@ export default function CheckoutPage() {
     setPlacing(true);
 
     // Live verification against database prices before order creation
+    let latestItems = items;
     try {
       const syncResult = await syncCartWithLivePrices();
       if (syncResult.hasChanges) {
         setPlacing(false);
         isNavigatingRef.current = false;
         return; // Halt: price changed, user must review updated total
+      }
+      if (syncResult.updatedItems && syncResult.updatedItems.length > 0) {
+        latestItems = syncResult.updatedItems;
       }
     } catch (err) {
       console.warn("[CheckoutPage] Pre-payment price sync warning:", err);
@@ -274,7 +293,7 @@ export default function CheckoutPage() {
     isNavigatingRef.current = true;
 
     const orderId = `SHK${Date.now().toString().slice(-6)}`;
-    const orderItems = items.map((i) => ({
+    const orderItems = latestItems.map((i) => ({
       id: i.product.id,
       name: i.product.name,
       nameTamil: i.product.nameTamil,
