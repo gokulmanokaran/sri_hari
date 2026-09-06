@@ -318,12 +318,12 @@ export default async function handler(req: any, res?: any): Promise<any> {
       `[razorpay-webhook] 💰 Processing Capture/Paid event: ${eventType} | Payment: ${razorpayPaymentId} | Order: ${razorpayOrderId}`
     );
 
-    // If order was already marked Paid and sheets were already synced, return idempotent 200
+    // If order was already marked Paid and sheets/emails were already synced, return idempotent 200
     if (
       existingOrder &&
       existingOrder.payment_status &&
       existingOrder.payment_status.startsWith("Paid") &&
-      existingOrder.sheets_synced
+      (existingOrder.sheets_synced || existingOrder.email_sent)
     ) {
       console.info(
         `[razorpay-webhook] ℹ️ Order ${existingOrder.id} is already marked Paid and synced. Idempotent 200.`
@@ -333,6 +333,21 @@ export default async function handler(req: any, res?: any): Promise<any> {
         event: eventType,
         processed: false,
         reason: "Already processed",
+        orderId: existingOrder.id,
+      });
+    }
+
+    // Deduplication guard: order.paid and payment.captured fire concurrently.
+    // Let payment.captured be the canonical notification trigger.
+    if (eventType === "order.paid" && existingOrder?.email_sent) {
+      console.info(
+        `[razorpay-webhook] ℹ️ order.paid received after email already sent for #${existingOrder.id}. Skipping duplicate.`
+      );
+      return sendApiResponse(res, 200, {
+        received: true,
+        event: eventType,
+        processed: false,
+        reason: "Already processed by payment.captured",
         orderId: existingOrder.id,
       });
     }
@@ -469,21 +484,63 @@ export default async function handler(req: any, res?: any): Promise<any> {
       }
     }
 
+    // Atomic idempotency claim: Only forward to Google Apps Script if email_sent is still false!
+    if (supabase && targetOrderId) {
+      const { data: claim } = await supabase
+        .from("orders")
+        .update({
+          email_sent: true,
+          sheets_synced: true,
+          payment_status: paidStatus,
+          razorpay_payment_id: razorpayPaymentId,
+          last_attempt_at: new Date().toISOString(),
+        })
+        .eq("id", targetOrderId)
+        .eq("email_sent", false)
+        .select("id");
+
+      if (!claim || claim.length === 0) {
+        console.info(
+          `[razorpay-webhook] ℹ️ Order ${targetOrderId} already claimed or confirmation email already sent. Skipping duplicate GAS forward.`
+        );
+        return sendApiResponse(res, 200, {
+          received: true,
+          event: eventType,
+          processed: false,
+          reason: "Already processed or claimed",
+          orderId: targetOrderId,
+        });
+      }
+    }
+
     // Forward to Google Apps Script for Sheets & Email notification
     const gasResult = await forwardToGoogleAppsScript(webhookUrl, gasPayload, 3);
 
     // Update sync status flags in Supabase
     if (supabase && targetOrderId) {
       try {
-        await supabase
-          .from("orders")
-          .update({
-            sheets_synced: gasResult.success,
-            email_sent: gasResult.success,
-            last_error: gasResult.success ? null : (gasResult.lastError ?? null),
-            last_attempt_at: new Date().toISOString(),
-          })
-          .eq("id", targetOrderId);
+        if (!gasResult.success) {
+          // Release lock if GAS completely failed so retry can recover
+          await supabase
+            .from("orders")
+            .update({
+              sheets_synced: false,
+              email_sent: false,
+              last_error: gasResult.lastError ?? null,
+              last_attempt_at: new Date().toISOString(),
+            })
+            .eq("id", targetOrderId);
+        } else {
+          await supabase
+            .from("orders")
+            .update({
+              sheets_synced: true,
+              email_sent: true,
+              last_error: null,
+              last_attempt_at: new Date().toISOString(),
+            })
+            .eq("id", targetOrderId);
+        }
       } catch (e) {
         console.warn("[razorpay-webhook] Sync update warning:", e);
       }

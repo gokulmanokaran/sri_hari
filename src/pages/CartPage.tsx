@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, AlertTriangle, Truck, MessageSquare } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../store/CartContext";
 import { useProductCatalog } from "../store/ProductContext";
 import { ProductImage } from "../components/ui/ProductImage";
@@ -12,6 +12,7 @@ const ORDER_NOTE_KEY = "shreehari_order_note";
 
 export default function CartPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     items,
     itemCount,
@@ -20,8 +21,19 @@ export default function CartPage() {
     decrementItem,
     removeItem,
     clearCart,
+    priceChangeAlerts,
+    dismissPriceAlert,
+    syncCartWithLivePrices,
   } = useCart();
   const { getProductById } = useProductCatalog();
+
+  // Redirect message from PaymentPage if backend detected a price change during checkout
+  const paymentPriceChangedError = (location.state as any)?.priceChangedError as string | undefined;
+
+  // Explicitly sync cart with live database prices when cart page is visited
+  useState(() => {
+    syncCartWithLivePrices().catch(() => {});
+  });
 
   // Order note — persisted in localStorage
   const [orderNote, setOrderNote] = useState(() => {
@@ -123,6 +135,73 @@ export default function CartPage() {
 
       {/* Items */}
       <div className="flex-1 overflow-y-auto">
+        {/* Backend-Detected Price Change Banner (from PaymentPage redirect) */}
+        {paymentPriceChangedError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mt-4 bg-red-50 border-2 border-red-400 rounded-[16px] p-4 text-red-950 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-red-200 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertTriangle size={18} className="text-red-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black uppercase tracking-wider text-red-800">
+                  Checkout Blocked — Price Changed
+                </p>
+                <p className="text-xs font-bold text-red-900 mt-0.5">
+                  {paymentPriceChangedError}
+                </p>
+                <p className="text-xs text-red-700 mt-1">
+                  Your cart has been updated to the current prices. Please review and proceed again.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Price Change Notification Banner */}
+        {priceChangeAlerts.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mt-4 bg-amber-50 border-2 border-amber-400 rounded-[16px] p-4 text-amber-950 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertTriangle size={18} className="text-amber-800" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black uppercase tracking-wider text-amber-800">
+                  Price Updated
+                </p>
+                <p className="text-xs font-bold text-amber-900 mt-0.5">
+                  The price of this product has been updated. Your cart has been updated to the latest price:
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {priceChangeAlerts.map((alert) => (
+                    <li key={alert.id} className="text-xs font-medium text-amber-900 flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold">• {alert.name}:</span>
+                      <span className="line-through text-gray-500">₹{alert.oldPrice}</span>
+                      <span>→</span>
+                      <span className="font-black text-[#00A651] bg-white px-1.5 py-0.5 rounded border border-amber-300">
+                        ₹{alert.newPrice}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <button
+                onClick={() => dismissPriceAlert()}
+                className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-200/60 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+              >
+                Dismiss
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Out of stock warning banner */}
         {hasOutOfStockItems && (
           <motion.div

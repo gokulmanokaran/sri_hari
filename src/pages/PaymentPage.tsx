@@ -139,12 +139,33 @@ export default function PaymentPage() {
         customerEmail: email || undefined,
         customerPhone: mobile,
         description: `Shree Hari Keerai — Order #${orderId}`,
+        items: (orderItems || []).map((item) => ({
+          id: item.id || "",
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          unit: item.unit,
+        })),
       });
 
       clearTimeout(safetyTimeout);
 
       if (!paymentResult.success) {
         setIsProcessing(false);
+
+        // Handle price change error from backend: redirect to cart so user sees updated prices
+        if (paymentResult.priceChanged) {
+          try {
+            sessionStorage.removeItem(PENDING_ORDER_KEY);
+            localStorage.removeItem(PENDING_ORDER_KEY);
+          } catch { /* ignore */ }
+          navigate("/cart", {
+            replace: true,
+            state: { priceChangedError: paymentResult.error || "The price of one or more items has changed. Your cart has been updated to the latest price." },
+          });
+          return;
+        }
+
         setErrorMessage(
           paymentResult.error || "Payment was not completed. You can retry whenever you are ready."
         );

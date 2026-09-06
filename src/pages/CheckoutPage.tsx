@@ -12,6 +12,7 @@ import {
   Pencil,
   Home,
   Landmark,
+  AlertTriangle,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -133,7 +134,14 @@ function AddrChip({ label, color }: { label: string; color: "green" | "gray" | "
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, subtotal, clearCart } = useCart();
+  const {
+    items,
+    subtotal,
+    clearCart,
+    priceChangeAlerts,
+    dismissPriceAlert,
+    syncCartWithLivePrices,
+  } = useCart();
   const { pincode, setPincode } = useDelivery();
   const { getProductById } = useProductCatalog();
 
@@ -161,6 +169,11 @@ export default function CheckoutPage() {
   })();
 
   const isNavigatingRef = useRef(false);
+
+  // Sync cart with live database prices on mount
+  useEffect(() => {
+    syncCartWithLivePrices().catch(() => {});
+  }, [syncCartWithLivePrices]);
 
   // Reset placing state on mount
   useEffect(() => {
@@ -196,7 +209,7 @@ export default function CheckoutPage() {
     setShowAddressEdit(true);
   }, [setPincode]);
 
-  const handleProceedToPayment = () => {
+  const handleProceedToPayment = async () => {
     if (subtotal < minOrder) {
       // Redirect back to cart; CartPage will show the minimum order message
       navigate("/cart");
@@ -244,8 +257,21 @@ export default function CheckoutPage() {
       /* ignore */
     }
 
-    isNavigatingRef.current = true;
     setPlacing(true);
+
+    // Live verification against database prices before order creation
+    try {
+      const syncResult = await syncCartWithLivePrices();
+      if (syncResult.hasChanges) {
+        setPlacing(false);
+        isNavigatingRef.current = false;
+        return; // Halt: price changed, user must review updated total
+      }
+    } catch (err) {
+      console.warn("[CheckoutPage] Pre-payment price sync warning:", err);
+    }
+
+    isNavigatingRef.current = true;
 
     const orderId = `SHK${Date.now().toString().slice(-6)}`;
     const orderItems = items.map((i) => ({
@@ -253,9 +279,13 @@ export default function CheckoutPage() {
       name: i.product.name,
       nameTamil: i.product.nameTamil,
       quantity: i.quantity,
-      price: i.product.price,
+      price: Number(i.product.price),
       unit: i.product.unit,
     }));
+
+    const verifiedSubtotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const verifiedDeliveryCharge = calculateDeliveryCharge(verifiedSubtotal);
+    const verifiedTotal = verifiedSubtotal + verifiedDeliveryCharge;
 
     // Build full address string
     const fullAddress = [
@@ -273,11 +303,11 @@ export default function CheckoutPage() {
 
     const pendingOrder = {
       orderId,
-      total,
-      subtotal,
+      total: verifiedTotal,
+      subtotal: verifiedSubtotal,
       discount: 0,
       discountPercentage: 0,
-      deliveryCharge: charge,
+      deliveryCharge: verifiedDeliveryCharge,
       fullName: fullName.trim(),
       mobile: mobile.trim(),
       alternateMobile: alternateMobile.trim() || undefined,
@@ -338,6 +368,46 @@ export default function CheckoutPage() {
         </div>
 
         <div className="max-w-lg mx-auto px-4 py-5 pb-20 flex flex-col gap-4">
+          {/* Price Change Notification Banner */}
+          {priceChangeAlerts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-amber-50 border-2 border-amber-400 rounded-[20px] p-4 text-amber-950 shadow-sm"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle size={18} className="text-amber-800" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black uppercase tracking-wider text-amber-800">
+                    Price Updated
+                  </p>
+                  <p className="text-xs font-bold text-amber-900 mt-0.5">
+                    The price of one or more items in your cart has changed. Please review your updated total before proceeding:
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {priceChangeAlerts.map((alert) => (
+                      <li key={alert.id} className="text-xs font-medium text-amber-900 flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold">• {alert.name}:</span>
+                        <span className="line-through text-gray-500">₹{alert.oldPrice}</span>
+                        <span>→</span>
+                        <span className="font-black text-[#00A651] bg-white px-1.5 py-0.5 rounded border border-amber-300">
+                          ₹{alert.newPrice}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button
+                  onClick={() => dismissPriceAlert()}
+                  className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-200/60 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </motion.div>
+          )}
 
           {/* ─── 1. Your Details ───────────────────────────────────────────── */}
           <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible"

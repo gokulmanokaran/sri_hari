@@ -1,11 +1,66 @@
+/// <reference types="node" />
+
 // Vercel Serverless Function: /api/order-webhook
-// Forwards order payloads to Google Apps Script or other backend services securely.
+// ──────────────────────────────────────────────────────────────────────────────
+// Forwards order payloads to Google Apps Script securely, with:
+//   • Retry with exponential backoff (3 attempts)
+//   • Price recalculation from database
+//   • Atomic idempotency check via Supabase orders table
+//   • Structured logging of all attempts
+// ──────────────────────────────────────────────────────────────────────────────
+import process from "process";
 import { handleCors, parseApiRequest, sendApiResponse } from "./_catalog";
+import { getSupabaseServerClient } from "./_supabase";
+
+/** Forward to GAS with retry + exponential backoff */
+async function forwardWithRetry(
+  url: string,
+  payload: object,
+  maxAttempts = 3
+): Promise<{ success: boolean; attempts: number; lastError?: string; responseSnippet?: string }> {
+  let lastError = "";
+  let responseSnippet = "";
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20_000);
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const text = await res.text().catch(() => "");
+      responseSnippet = text.slice(0, 300);
+
+      if (res.ok || res.status === 302 || res.status === 0) {
+        console.info(`[order-webhook] ✅ GAS responded on attempt ${attempt} | status: ${res.status}`);
+        return { success: true, attempts: attempt, responseSnippet };
+      }
+
+      lastError = `HTTP ${res.status}: ${responseSnippet}`;
+      console.warn(`[order-webhook] ⚠️ Attempt ${attempt}/${maxAttempts} — ${lastError}`);
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.warn(`[order-webhook] ⚠️ Attempt ${attempt}/${maxAttempts} threw: ${lastError}`);
+    }
+
+    if (attempt < maxAttempts) {
+      const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s
+      console.info(`[order-webhook] ⏳ Retrying in ${delay}ms...`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+
+  return { success: false, attempts: maxAttempts, lastError, responseSnippet };
+}
 
 export default async function handler(req: any, res?: any): Promise<any> {
-  if (handleCors(req, res)) {
-    return;
-  }
+  if (handleCors(req, res)) return;
 
   const { method, body } = await parseApiRequest(req);
 
@@ -15,9 +70,103 @@ export default async function handler(req: any, res?: any): Promise<any> {
 
   try {
     const orderData = body;
+    const orderId: string = orderData?.orderId || "";
 
-    if (!orderData || !orderData.orderId) {
+    if (!orderId) {
       return sendApiResponse(res, 400, { error: "Invalid order data: orderId is required." });
+    }
+
+    // ── Business rule validation ──────────────────────────────────────────
+    const NON_SERVICEABLE_PINCODES = ["641005", "641018", "641006", "641037", "641045", "641012"];
+    const MINIMUM_ORDER_VALUE = 199;
+
+    if (orderData?.pincode && NON_SERVICEABLE_PINCODES.includes(String(orderData.pincode).trim())) {
+      console.warn(`[order-webhook] ❌ Blocked pincode ${orderData.pincode} for order ${orderId}`);
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: "Delivery Not Available for this PIN code",
+        orderId,
+      });
+    }
+
+    // ── Price Recalculation from Database ────────────────────────────────
+    const supabase = getSupabaseServerClient();
+    let subtotalNum = Number(orderData?.subtotal || 0);
+
+    if (supabase && Array.isArray(orderData?.items) && orderData.items.length > 0) {
+      try {
+        const itemIds = orderData.items.map((i: any) => i.id).filter(Boolean);
+        const { data: dbProducts } = await supabase.from("products").select("*").in("id", itemIds);
+        if (dbProducts && dbProducts.length > 0) {
+          let serverSubtotal = 0;
+          orderData.items = orderData.items.map((item: any) => {
+            const dbP = dbProducts.find((p: any) => p.id === item.id);
+            const currentPrice = dbP ? Number(dbP.price) : Number(item.price || 0);
+            const qty = Math.max(1, Number(item.quantity) || 1);
+            serverSubtotal += currentPrice * qty;
+            return {
+              ...item,
+              price: currentPrice,
+              quantity: qty,
+            };
+          });
+          subtotalNum = serverSubtotal;
+          orderData.subtotal = serverSubtotal;
+        }
+      } catch (err) {
+        console.warn("[order-webhook] Price recalculation error:", err);
+      }
+    }
+
+    if (subtotalNum < MINIMUM_ORDER_VALUE) {
+      console.warn(`[order-webhook] ❌ Subtotal ₹${subtotalNum} below minimum for order ${orderId}`);
+      return sendApiResponse(res, 400, {
+        success: false,
+        error: `Minimum order value is ₹${MINIMUM_ORDER_VALUE}`,
+        orderId,
+      });
+    }
+
+    // Enforce server-side delivery charge
+    const serverDeliveryCharge = subtotalNum > 299 ? 0 : 30;
+    if (orderData) {
+      orderData.deliveryCharge = serverDeliveryCharge;
+      orderData.discount = 0;
+      orderData.total = subtotalNum + serverDeliveryCharge;
+    }
+
+    const paymentId: string = orderData?.paymentId || orderData?.razorpayPaymentId || "N/A";
+    const customerEmail: string = orderData?.email || "N/A";
+
+    console.info(
+      `[order-webhook] 📦 Received order ${orderId} | Payment: ${paymentId} | Customer: ${customerEmail}`
+    );
+
+    // ── Idempotency: Atomic claim on email_sent in Supabase ───────────────
+    if (supabase) {
+      try {
+        const { data: claim } = await supabase
+          .from("orders")
+          .update({
+            email_sent: true,
+            sheets_synced: true,
+            last_attempt_at: new Date().toISOString(),
+          })
+          .eq("id", orderId)
+          .eq("email_sent", false)
+          .select("id");
+
+        if (!claim || claim.length === 0) {
+          console.info(`[order-webhook] ℹ️ Order ${orderId} already processed or claimed — skipping duplicate.`);
+          return sendApiResponse(res, 200, {
+            success: true,
+            orderId,
+            alreadyProcessed: true,
+          });
+        }
+      } catch (err) {
+        console.warn("[order-webhook] Supabase idempotency claim error:", err);
+      }
     }
 
     const targetWebhookUrl =
@@ -26,37 +175,81 @@ export default async function handler(req: any, res?: any): Promise<any> {
       process.env.ORDER_WEBHOOK_URL ||
       "https://script.google.com/macros/s/AKfycbzjXsA4gHp4u30Qx9RhFamyOIrSjqs2yi9K5wAF1YylK8FU9Ushsex8kffAIIRUR3bI/exec";
 
-    if (!targetWebhookUrl) {
-      console.info("[API /order-webhook] Order received (No downstream webhook URL configured yet):", orderData.orderId);
-      return sendApiResponse(res, 200, {
-        success: true,
-        orderId: orderData.orderId,
-        note: "Order recorded in API. Configure GOOGLE_SHEETS_WEBHOOK_URL in Vercel environment variables to forward directly.",
-      });
+    // ── Forward to Google Apps Script with retry ──────────────────────────
+    const result = await forwardWithRetry(targetWebhookUrl, orderData, 3);
+
+    // ── Persist or update order in Supabase ───────────────────────────────
+    if (supabase) {
+      const mapsLink =
+        orderData.mapsLink ||
+        (orderData.lat && orderData.lng ? `https://www.google.com/maps?q=${orderData.lat},${orderData.lng}` : "");
+
+      const formattedDate =
+        orderData.formattedDate ||
+        new Date(orderData.createdAt || Date.now()).toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+
+      const orderRow = {
+        id: orderId,
+        razorpay_payment_id: paymentId !== "N/A" ? paymentId : null,
+        razorpay_order_id: orderData.razorpayOrderId || null,
+        razorpay_signature: orderData.razorpaySignature || null,
+        full_name: orderData.fullName || "",
+        mobile: orderData.mobile || "",
+        email: orderData.email || "",
+        address: orderData.address || "",
+        city: orderData.city || "",
+        state: orderData.state || "",
+        pincode: orderData.pincode || "",
+        lat: orderData.lat ?? null,
+        lng: orderData.lng ?? null,
+        maps_link: mapsLink,
+        subtotal: Number(orderData.subtotal || 0),
+        delivery_charge: Number(orderData.deliveryCharge || 0),
+        discount: Number(orderData.discount || 0),
+        total: Number(orderData.total || 0),
+        items: orderData.items || [],
+        payment_status: orderData.paymentStatus || `Paid (Razorpay)${paymentId !== "N/A" ? ` · ${paymentId}` : ""}`,
+        customer_note: orderData.customerNote || "",
+        sheets_synced: result.success,
+        email_sent: result.success,
+        retry_count: result.attempts,
+        last_error: result.success ? null : (result.lastError ?? null),
+        last_attempt_at: new Date().toISOString(),
+        source: orderData.source || "storefront",
+      };
+
+      try {
+        await supabase
+          .from("orders")
+          .upsert(orderRow, { onConflict: "id" });
+      } catch (err) {
+        console.warn("[order-webhook] Supabase order upsert warning:", err);
+      }
     }
 
-    // Forward to Google Apps Script Webhook
-    const upstreamRes = await fetch(targetWebhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(orderData),
-    });
-
-    const upstreamText = await upstreamRes.text();
-    let upstreamJson: unknown;
-    try {
-      upstreamJson = JSON.parse(upstreamText);
-    } catch {
-      upstreamJson = { raw: upstreamText };
+    if (result.success) {
+      console.info(
+        `[order-webhook] ✅ ORDER ${orderId} FORWARDED | Payment: ${paymentId} | Sheets: ✅ | Email: ✅ | Attempts: ${result.attempts}`
+      );
+    } else {
+      console.error(
+        `[order-webhook] ❌ ORDER ${orderId} FORWARD FAILED | Payment: ${paymentId} | Error: ${result.lastError} | Attempts: ${result.attempts}`
+      );
     }
 
     return sendApiResponse(res, 200, {
-      success: true,
-      orderId: orderData.orderId,
-      upstream: upstreamJson,
+      success: result.success,
+      orderId,
+      attempts: result.attempts,
+      upstream: { responseSnippet: result.responseSnippet },
+      ...(result.success ? {} : { warning: result.lastError }),
     });
   } catch (error) {
-    console.error("[API /order-webhook] Error processing order notification:", error);
+    console.error("[order-webhook] Unhandled error:", error);
     return sendApiResponse(res, 500, {
       success: false,
       error: error instanceof Error ? error.message : "Internal error",

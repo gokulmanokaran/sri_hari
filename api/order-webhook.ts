@@ -88,7 +88,35 @@ export default async function handler(req: any, res?: any): Promise<any> {
       });
     }
 
-    const subtotalNum = Number(orderData?.subtotal || 0);
+    // ── Price Recalculation from Database ────────────────────────────────
+    const supabase = getSupabaseServerClient();
+    let subtotalNum = Number(orderData?.subtotal || 0);
+
+    if (supabase && Array.isArray(orderData?.items) && orderData.items.length > 0) {
+      try {
+        const itemIds = orderData.items.map((i: any) => i.id).filter(Boolean);
+        const { data: dbProducts } = await supabase.from("products").select("*").in("id", itemIds);
+        if (dbProducts && dbProducts.length > 0) {
+          let serverSubtotal = 0;
+          orderData.items = orderData.items.map((item: any) => {
+            const dbP = dbProducts.find((p: any) => p.id === item.id);
+            const currentPrice = dbP ? Number(dbP.price) : Number(item.price || 0);
+            const qty = Math.max(1, Number(item.quantity) || 1);
+            serverSubtotal += currentPrice * qty;
+            return {
+              ...item,
+              price: currentPrice,
+              quantity: qty,
+            };
+          });
+          subtotalNum = serverSubtotal;
+          orderData.subtotal = serverSubtotal;
+        }
+      } catch (err) {
+        console.warn("[order-webhook] Price recalculation error:", err);
+      }
+    }
+
     if (subtotalNum < MINIMUM_ORDER_VALUE) {
       console.warn(`[order-webhook] ❌ Subtotal ₹${subtotalNum} below minimum for order ${orderId}`);
       return sendApiResponse(res, 400, {
@@ -113,18 +141,22 @@ export default async function handler(req: any, res?: any): Promise<any> {
       `[order-webhook] 📦 Received order ${orderId} | Payment: ${paymentId} | Customer: ${customerEmail}`
     );
 
-    // ── Idempotency: check if already fully processed in Supabase ─────────
-    const supabase = getSupabaseServerClient();
+    // ── Idempotency: Atomic claim on email_sent in Supabase ───────────────
     if (supabase) {
       try {
-        const { data: existing } = await supabase
+        const { data: claim } = await supabase
           .from("orders")
-          .select("id, sheets_synced, email_sent")
+          .update({
+            email_sent: true,
+            sheets_synced: true,
+            last_attempt_at: new Date().toISOString(),
+          })
           .eq("id", orderId)
-          .maybeSingle();
+          .eq("email_sent", false)
+          .select("id");
 
-        if (existing?.sheets_synced && existing?.email_sent) {
-          console.info(`[order-webhook] ℹ️ Order ${orderId} already processed — skipping duplicate.`);
+        if (!claim || claim.length === 0) {
+          console.info(`[order-webhook] ℹ️ Order ${orderId} already processed or claimed — skipping duplicate.`);
           return sendApiResponse(res, 200, {
             success: true,
             orderId,
@@ -132,8 +164,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
           });
         }
       } catch (err) {
-        console.warn("[order-webhook] Supabase idempotency check error:", err);
-        // Continue anyway
+        console.warn("[order-webhook] Supabase idempotency claim error:", err);
       }
     }
 

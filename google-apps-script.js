@@ -48,13 +48,35 @@ function doPost(e) {
       " | Time: " + startTime
     );
 
+    // 0. Cache-based dedup check for concurrent executions
+    var cache = CacheService.getScriptCache();
+    var cacheKey = "email_sent_" + orderId;
+    var alreadySentInCache = cache.get(cacheKey) === "true";
+
     // 1. Save order to Google Sheet (with concurrency lock)
     var sheetResult = appendOrderToSheet(data);
 
-    // 2. Send Admin Email Notification
+    // If order was already appended to the sheet, or if cache says email was sent, STOP. DO NOT RESEND EMAILS.
+    if (sheetResult.duplicate || alreadySentInCache) {
+      Logger.log("[doPost] ℹ️ Duplicate order or email already sent for " + orderId + ". Skipping duplicate emails.");
+      return createJsonResponse({
+        success: true,
+        orderId: orderId,
+        sheetUpdated: false,
+        duplicate: true,
+        emailSent: false,
+        customerEmailSent: false,
+        message: "Duplicate order — already processed and email already sent."
+      });
+    }
+
+    // 2. Mark in cache immediately to block racing executions
+    cache.put(cacheKey, "true", 21600); // 6 hours
+
+    // 3. Send Admin Email Notification
     var emailResult = sendAdminOrderEmail(data);
 
-    // 3. Send Customer Email Notification immediately if email is entered
+    // 4. Send Customer Email Notification immediately if email is entered
     var customerEmailResult = sendCustomerOrderEmail(data);
 
     Logger.log(

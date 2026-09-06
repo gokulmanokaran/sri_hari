@@ -292,7 +292,7 @@ async function verifyAndCaptureRazorpayPayment(
   }
 }
 
-/** Update order status in Supabase */
+/** Update order status in Supabase with server-recalculated prices from database */
 async function updateOrderInSupabase(
   data: ProcessPaymentBody,
   determinedStatus: string
@@ -301,6 +301,38 @@ async function updateOrderInSupabase(
   if (!supabase) {
     console.warn("[process-payment] Supabase client not available — order not persisted to DB.");
     return { isNew: true };
+  }
+
+  // ── Recalculate and verify pricing directly from database ───────────────
+  if (Array.isArray(data.items) && data.items.length > 0) {
+    try {
+      const itemIds = data.items.map((i) => i.id).filter(Boolean);
+      const { data: dbProducts } = await supabase.from("products").select("*").in("id", itemIds);
+
+      if (dbProducts && dbProducts.length > 0) {
+        let serverSubtotal = 0;
+        data.items = data.items.map((item) => {
+          const dbP = dbProducts.find((p: any) => p.id === item.id);
+          const currentPrice = dbP ? Number(dbP.price) : Number(item.price || 0);
+          const qty = Math.max(1, Number(item.quantity) || 1);
+          serverSubtotal += currentPrice * qty;
+          return {
+            ...item,
+            price: currentPrice,
+            quantity: qty,
+          };
+        });
+
+        data.subtotal = serverSubtotal;
+        data.deliveryCharge = serverSubtotal > 299 ? 0 : 30;
+        data.total = serverSubtotal + data.deliveryCharge;
+        console.info(
+          `[process-payment] 🛡️ Server recalculated pricing for #${data.orderId}: Subtotal: ₹${data.subtotal} | Delivery: ₹${data.deliveryCharge} | Total: ₹${data.total}`
+        );
+      }
+    } catch (priceErr) {
+      console.warn("[process-payment] Error recalculating item prices from DB:", priceErr);
+    }
   }
 
   const mapsLink =
@@ -317,13 +349,17 @@ async function updateOrderInSupabase(
     .maybeSingle();
 
   if (existing) {
-    // If order was already marked Paid and sheets were already synced, it's truly processed
-    if (existing.payment_status && existing.payment_status.startsWith("Paid") && existing.sheets_synced) {
+    // If order was already marked Paid and sheets/emails were already synced, it's truly processed
+    if (
+      existing.payment_status &&
+      existing.payment_status.startsWith("Paid") &&
+      (existing.sheets_synced || existing.email_sent)
+    ) {
       console.info(`[process-payment] Order ${data.orderId} already exists and is fully synced — duplicate avoided.`);
       return { isNew: false };
     }
 
-    // Update with latest payment identifiers and determined status
+    // Update with latest payment identifiers, verified pricing, and determined status
     try {
       await supabase
         .from("orders")
@@ -336,8 +372,10 @@ async function updateOrderInSupabase(
           mobile: data.mobile || undefined,
           email: data.email || undefined,
           address: data.address || undefined,
-          items: data.items && data.items.length > 0 ? data.items : undefined,
+          subtotal: Number(data.subtotal || 0) || undefined,
+          delivery_charge: Number(data.deliveryCharge || 0),
           total: Number(data.total || 0) || undefined,
+          items: data.items && data.items.length > 0 ? data.items : undefined,
         })
         .eq("id", data.orderId);
 
@@ -491,7 +529,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
     console.warn(`[process-payment] ⚠️ DB persist warning for order ${orderId}: ${dbError}`);
   }
 
-  // ── 4. Forward to Google Apps Script ONLY IF CONFIRMED CAPTURED ────────────
+  // ── 4. Forward to Google Apps Script ONLY IF CONFIRMED CAPTURED & NOT YET SENT ────
   if (!isCaptured) {
     console.info(
       `[process-payment] ℹ️ Order ${orderId} is '${determinedStatus}'. Skipping Google Sheets sync until captured.`
@@ -503,6 +541,37 @@ export default async function handler(req: any, res?: any): Promise<any> {
       paymentStatus: determinedStatus,
       message: "Payment authorized by bank. Final capture pending webhook confirmation.",
     });
+  }
+
+  // Atomic idempotency claim: Only forward to Google Apps Script if email_sent is still false!
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    const { data: claim } = await supabase
+      .from("orders")
+      .update({
+        email_sent: true,
+        sheets_synced: true,
+        payment_status: determinedStatus,
+        last_attempt_at: new Date().toISOString(),
+      })
+      .eq("id", orderId)
+      .eq("email_sent", false)
+      .select("id");
+
+    if (!claim || claim.length === 0) {
+      console.info(
+        `[process-payment] ℹ️ Order ${orderId} confirmation email/sheets already sent or claimed. Skipping duplicate notification.`
+      );
+      return sendApiResponse(res, 200, {
+        success: true,
+        orderId,
+        alreadyProcessed: true,
+        captured: true,
+        paymentStatus: determinedStatus,
+        sheetsSynced: true,
+        emailSent: false,
+      });
+    }
   }
 
   // Forward to Google Apps Script (Sheets + Email) with retry
@@ -548,13 +617,24 @@ export default async function handler(req: any, res?: any): Promise<any> {
   const gasResult = await callGoogleAppsScript(webhookUrl, gasPayload, 3);
 
   // ── 5. Update notification status in Supabase ─────────────────────────────
-  await updateNotificationStatus(orderId, {
-    sheets_synced: gasResult.success,
-    email_sent: gasResult.success,
-    retry_count: gasResult.attempts,
-    last_error: gasResult.success ? null : (gasResult.lastError ?? null),
-    last_attempt_at: new Date().toISOString(),
-  });
+  if (!gasResult.success && supabase) {
+    // Release lock if GAS completely failed so retry can recover
+    await updateNotificationStatus(orderId, {
+      sheets_synced: false,
+      email_sent: false,
+      retry_count: gasResult.attempts,
+      last_error: gasResult.lastError ?? null,
+      last_attempt_at: new Date().toISOString(),
+    });
+  } else {
+    await updateNotificationStatus(orderId, {
+      sheets_synced: true,
+      email_sent: true,
+      retry_count: gasResult.attempts,
+      last_error: null,
+      last_attempt_at: new Date().toISOString(),
+    });
+  }
 
   // ── 6. Final Outcome Log & Response ───────────────────────────────────────
   if (gasResult.success) {

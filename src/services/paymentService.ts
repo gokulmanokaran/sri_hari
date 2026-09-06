@@ -23,6 +23,7 @@ export interface PaymentPayload {
   customerEmail?: string;
   customerPhone: string;
   description: string;
+  items?: Array<{ id: string; name?: string; quantity: number; price?: number; unit?: string }>;
 }
 
 export interface PaymentResult {
@@ -30,6 +31,7 @@ export interface PaymentResult {
   razorpayPaymentId?: string;
   razorpayOrderId?: string;
   razorpaySignature?: string;
+  priceChanged?: boolean;
   error?: string;
 }
 
@@ -189,7 +191,7 @@ import { updatePendingOrderRazorpayId } from "./orderService";
  */
 async function createBackendRazorpayOrder(
   payload: PaymentPayload
-): Promise<{ success: boolean; orderId?: string; error?: string }> {
+): Promise<{ success: boolean; orderId?: string; priceChanged?: boolean; error?: string }> {
   if (typeof window === "undefined") {
     return { success: false, error: "Window is not defined (SSR)" };
   }
@@ -204,6 +206,7 @@ async function createBackendRazorpayOrder(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         amount: payload.amount,
+        items: payload.items,
         receipt: payload.orderId,
         orderId: payload.orderId,
         customerName: payload.customerName,
@@ -221,6 +224,11 @@ async function createBackendRazorpayOrder(
       // Link razorpay_order_id in Supabase pending order record immediately
       updatePendingOrderRazorpayId(payload.orderId, data.orderId).catch(() => {});
       return { success: true, orderId: data.orderId };
+    }
+
+    if (data?.priceChanged) {
+      console.warn(`[PaymentService] ⚠️ Backend reported price change: ${data.error}`);
+      return { success: false, priceChanged: true, error: data.error };
     }
 
     const errMsg = data?.error || `Server order creation failed with HTTP status ${res.status}`;
@@ -254,14 +262,15 @@ export async function processPayment(payload: PaymentPayload): Promise<PaymentRe
     };
   }
 
-  // 1. Mandatory backend Razorpay Order generation (with explicit auto-capture)
-  const orderResult = await createBackendRazorpayOrder(payload);
+  // 1. Mandatory backend Razorpay Order generation (with explicit auto-capture & price validation)
+  const orderResult = await createBackendRazorpayOrder(payload as any);
   if (!orderResult.success || !orderResult.orderId) {
     console.error(
       `[PaymentService] ⛔ Checkout BLOCKED: No Razorpay Order ID generated. Reason: ${orderResult.error}`
     );
     return {
       success: false,
+      priceChanged: (orderResult as any).priceChanged,
       error: orderResult.error || "Unable to initialize secure payment order. Please retry or contact support.",
     };
   }

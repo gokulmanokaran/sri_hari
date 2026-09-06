@@ -3,7 +3,7 @@
 // Vercel Serverless Function: /api/create-razorpay-order
 // ──────────────────────────────────────────────────────────────────────────────
 // Creates an official Razorpay Order securely using RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.
-// Explicitly enforces payment_capture: 1 (automatic capture) and attaches customer metadata.
+// Enforces backend product price verification, recalculation, and payment_capture: 1.
 // 100% self-contained for Vercel Serverless (no relative import failures).
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
   try {
     const {
       amount,
+      items,
       receipt,
       orderId,
       customerName,
@@ -121,14 +122,143 @@ export default async function handler(req: any, res?: any): Promise<any> {
       currency = "INR",
     } = body || {};
 
-    if (!amount || Number(amount) <= 0) {
-      return sendApiResponse(res, 400, {
-        success: false,
-        error: "Invalid amount. An order amount greater than 0 is required.",
-      });
+    const supabase = getSupabaseServerClient();
+    const targetOrderId = String(orderId || receipt || `rcpt_${Date.now()}`);
+
+    // ── 1. Backend Price Validation & Recalculation from Database ────────────
+    let finalAmountInRupees: number;
+    let verifiedItems: any[] = [];
+    let serverSubtotal = 0;
+    let serverDeliveryCharge = 30;
+
+    let itemsToVerify: any[] = Array.isArray(items) && items.length > 0 ? items : [];
+
+    if (itemsToVerify.length === 0 && supabase && targetOrderId) {
+      try {
+        const { data: pendingOrder } = await supabase
+          .from("orders")
+          .select("items")
+          .eq("id", targetOrderId)
+          .maybeSingle();
+        if (pendingOrder && Array.isArray(pendingOrder.items) && pendingOrder.items.length > 0) {
+          itemsToVerify = pendingOrder.items;
+        }
+      } catch (err) {
+        console.warn("[create-razorpay-order] Failed to fetch pre-persisted items:", err);
+      }
     }
 
-    // Use env var only if it is the current live key; ignore stale old keys
+    if (itemsToVerify.length > 0 && supabase) {
+      const itemIds = itemsToVerify.map((i: any) => i.id).filter(Boolean);
+      const { data: dbProducts, error: dbError } = await supabase
+        .from("products")
+        .select("*")
+        .in("id", itemIds);
+
+      if (dbError || !dbProducts || dbProducts.length === 0) {
+        console.error("[create-razorpay-order] ❌ Failed to fetch products from DB:", dbError);
+        return sendApiResponse(res, 400, {
+          success: false,
+          error: "Unable to verify products with the database. Please refresh your cart.",
+        });
+      }
+
+      // Check each item against live database
+      for (const item of itemsToVerify) {
+        const dbProduct = dbProducts.find((p: any) => p.id === item.id);
+        if (!dbProduct) {
+          return sendApiResponse(res, 400, {
+            success: false,
+            error: `Product "${item.name || item.id}" is no longer available in our store.`,
+          });
+        }
+
+        if (dbProduct.active === false) {
+          return sendApiResponse(res, 400, {
+            success: false,
+            error: `Product "${dbProduct.name}" is currently unavailable.`,
+          });
+        }
+
+        const stockQty = dbProduct.stock_quantity;
+        if (
+          dbProduct.in_stock === false ||
+          (stockQty !== null && stockQty !== undefined && Number(stockQty) <= 0)
+        ) {
+          return sendApiResponse(res, 400, {
+            success: false,
+            error: `Product "${dbProduct.name}" is out of stock. Please remove it from your cart.`,
+          });
+        }
+
+        const dbPrice = Number(dbProduct.price) || 0;
+        const requestedPrice = item.price !== undefined ? Number(item.price) : undefined;
+
+        // CRITICAL: Reject order if price in cart differs from database price
+        if (requestedPrice !== undefined && requestedPrice !== dbPrice) {
+          console.warn(
+            `[create-razorpay-order] ❌ Price mismatch for ${dbProduct.name}: Cart ₹${requestedPrice} vs DB ₹${dbPrice}`
+          );
+          return sendApiResponse(res, 400, {
+            success: false,
+            priceChanged: true,
+            error: `The price of ${dbProduct.name} has changed from ₹${requestedPrice} to ₹${dbPrice}. Your cart must be reviewed before checkout.`,
+            changedItem: {
+              id: dbProduct.id,
+              name: dbProduct.name,
+              oldPrice: requestedPrice,
+              newPrice: dbPrice,
+            },
+          });
+        }
+
+        const quantity = Math.max(1, Number(item.quantity) || 1);
+        serverSubtotal += dbPrice * quantity;
+
+        verifiedItems.push({
+          id: dbProduct.id,
+          name: dbProduct.name,
+          nameTamil: dbProduct.name_tamil || dbProduct.tamil_name || "",
+          quantity,
+          price: dbPrice,
+          unit: dbProduct.unit || item.unit || "1 Pack",
+        });
+      }
+
+      // Minimum order value: ₹199
+      if (serverSubtotal < 199) {
+        return sendApiResponse(res, 400, {
+          success: false,
+          error: "Minimum order value is ₹199. Please add more items to your cart.",
+        });
+      }
+
+      // Delivery charge rules: > ₹299 is FREE, otherwise ₹30
+      serverDeliveryCharge = serverSubtotal > 299 ? 0 : 30;
+      finalAmountInRupees = serverSubtotal + serverDeliveryCharge;
+
+      // If client supplied an amount that doesn't match backend total, reject
+      if (amount !== undefined && Math.round(Number(amount)) !== Math.round(finalAmountInRupees)) {
+        console.warn(
+          `[create-razorpay-order] ❌ Client amount ₹${amount} does not match server recalculated total ₹${finalAmountInRupees}`
+        );
+        return sendApiResponse(res, 400, {
+          success: false,
+          priceChanged: true,
+          error: `Order total has changed. Recalculated total is ₹${finalAmountInRupees}. Please review your updated cart.`,
+          serverTotal: finalAmountInRupees,
+        });
+      }
+    } else {
+      if (!amount || Number(amount) <= 0) {
+        return sendApiResponse(res, 400, {
+          success: false,
+          error: "Invalid amount or empty items. An order must have items.",
+        });
+      }
+      finalAmountInRupees = Number(amount);
+    }
+
     const envKeyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
     const keyId = (envKeyId && envKeyId !== "rzp_live_TVqupLsjlS8bW6") ? envKeyId : "rzp_live_TY2BW22RrguaTm";
 
@@ -147,12 +277,10 @@ export default async function handler(req: any, res?: any): Promise<any> {
     }
 
     const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
-    const targetOrderId = String(orderId || receipt || `rcpt_${Date.now()}`);
-    // Razorpay enforces maximum receipt length of 40 characters
     const cleanReceipt = targetOrderId.slice(0, 40);
 
     console.info(
-      `[create-razorpay-order] 🚀 Calling Razorpay Orders API for #${targetOrderId} | Amount: ₹${amount} (${Math.round(Number(amount) * 100)} paise)`
+      `[create-razorpay-order] 🚀 Calling Razorpay Orders API for #${targetOrderId} | Amount: ₹${finalAmountInRupees} (${Math.round(finalAmountInRupees * 100)} paise)`
     );
 
     const razorpayResponse = await fetch("https://api.razorpay.com/v1/orders", {
@@ -162,7 +290,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
         Authorization: `Basic ${auth}`,
       },
       body: JSON.stringify({
-        amount: Math.round(Number(amount) * 100), // in paise
+        amount: Math.round(finalAmountInRupees * 100), // in paise, strictly from verified server total
         currency,
         receipt: cleanReceipt,
         payment_capture: 1, // Explicit automatic capture: forces auto-capture in Razorpay
@@ -176,7 +304,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
     });
 
     if (!razorpayResponse.ok) {
-      const errData = await razorpayResponse.json().catch(() => ({}));
+      const errData = await razorpayResponse.json().catch(() => ({}) as any) as any;
       console.error("[create-razorpay-order] ❌ Razorpay Orders API rejected request:", errData);
       return sendApiResponse(res, razorpayResponse.status, {
         success: false,
@@ -185,7 +313,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
       });
     }
 
-    const orderData = await razorpayResponse.json();
+    const orderData = await razorpayResponse.json() as any;
 
     if (!orderData?.id || !orderData.id.startsWith("order_")) {
       console.error("[create-razorpay-order] ❌ Razorpay returned response without valid order_id:", orderData);
@@ -197,15 +325,25 @@ export default async function handler(req: any, res?: any): Promise<any> {
 
     console.info(`[create-razorpay-order] ✅ Razorpay Order created successfully: ${orderData.id}`);
 
-    // Immediately save razorpay_order_id in Supabase pending order record
+    // Immediately save razorpay_order_id and verified pricing in Supabase pending order record
     try {
-      const supabase = getSupabaseServerClient();
       if (supabase && targetOrderId) {
+        const updatePayload: Record<string, unknown> = {
+          razorpay_order_id: orderData.id,
+        };
+        if (verifiedItems.length > 0) {
+          updatePayload.items = verifiedItems;
+          updatePayload.subtotal = serverSubtotal;
+          updatePayload.delivery_charge = serverDeliveryCharge;
+          updatePayload.total = finalAmountInRupees;
+        }
         await supabase
           .from("orders")
-          .update({ razorpay_order_id: orderData.id })
+          .update(updatePayload)
           .eq("id", targetOrderId);
-        console.info(`[create-razorpay-order] 🔗 Linked Razorpay Order ID ${orderData.id} to storefront order #${targetOrderId}`);
+        console.info(
+          `[create-razorpay-order] 🔗 Linked Razorpay Order ID ${orderData.id} to storefront order #${targetOrderId} with verified total ₹${finalAmountInRupees}`
+        );
       }
     } catch (dbErr) {
       console.warn("[create-razorpay-order] Supabase update warning:", dbErr);
@@ -217,6 +355,7 @@ export default async function handler(req: any, res?: any): Promise<any> {
       amount: orderData.amount,
       currency: orderData.currency,
       receipt: orderData.receipt,
+      verifiedTotal: finalAmountInRupees,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Internal Server Error";
